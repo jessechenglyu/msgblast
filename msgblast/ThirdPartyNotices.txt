@@ -192,3 +192,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+Provider identity artwork
+Hark: https://hark.com/favicon.png
+Poke: https://poke.com/icons/poke-512.png
+Retrieved October 10, 2026 from the providers' official websites.
+These service marks identify their respective services. Artwork and trademarks
+remain the property of their respective owners and are not covered by msgblast's
+GPL license. Hark's transparent mark is presented on white backing for contrast.

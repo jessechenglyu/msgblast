@@ -153,7 +153,7 @@ struct AgentsWorkspaceView: View {
             if showingComparison { ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     Text("Send to").font(.caption).foregroundStyle(.secondary)
-                    ForEach(web.sessions.filter { session in session.isEnabled || web.displayed.contains(where: { $0.provider == session.provider }) }, id: \.provider) { session in
+                    ForEach(web.sessions.filter { session in session.provider.supportsSharedSubmissions && (session.isEnabled || web.displayed.contains(where: { $0.provider == session.provider })) }, id: \.provider) { session in
                         recipient(session.provider.name, selected: session.isEnabled && session.state.selected) { selectRecipient(session) }
                             .disabled(!session.isEnabled)
                     }
@@ -195,7 +195,7 @@ struct AgentsWorkspaceView: View {
     }
 
     private func selectRecipient(_ session: WebAgentSession) {
-        guard !busy else { return }
+        guard !busy, session.provider.supportsSharedSubmissions else { return }
         guard let comparison = nativeComparison, !(comparison.webProviders ?? []).contains(session.provider) else {
             web.toggle(session)
             return
@@ -247,7 +247,7 @@ struct AgentsWorkspaceView: View {
             do { try model.save() }
             catch { model.state.selection = previousSelection; model.error = error.localizedDescription; return }
             let included = Set(sessions.map(\.provider))
-            for session in web.sessions where session.state.selected && !included.contains(session.provider) {
+            for session in web.sessions where session.provider.supportsSharedSubmissions && session.state.selected && !included.contains(session.provider) {
                 session.updateState { $0.selected = false }
             }
         }

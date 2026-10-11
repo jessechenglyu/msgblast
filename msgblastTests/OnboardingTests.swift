@@ -2,6 +2,26 @@ import XCTest
 @testable import msgblastCore
 
 final class OnboardingTests: XCTestCase {
+    func testHarkAndPokeUseSeparateSetupPathsAndRestoreProgress() throws {
+        var setup = OnboardingState()
+        setup.toggle(.hark)
+        setup.toggle(.poke)
+        setup.begin()
+        XCTAssertEqual(setup.pendingWebProviders, [.hark])
+        setup.beginConnections()
+        XCTAssertEqual(setup.pendingSteps, [.agent(.hark), .messages])
+        setup.complete(.hark)
+        setup.confirmMessages(connected: [.poke], skipped: [])
+        XCTAssertEqual(setup.stage, .feedback)
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        XCTAssertEqual(restored.completed, [.hark, .poke])
+        let contacts = [Agent(contactID: "poke", name: "Poke 🌴", handles: ["poke@example.com"]),
+                        Agent(contactID: "other", name: "Pokemon", handles: ["other@example.com"]),
+                        Agent(contactID: "person", name: "Alex Poke", handles: ["person@example.com"])]
+        XCTAssertEqual(OnboardingChoice.poke.contactSuggestions(in: contacts).map(\.contactID), ["poke"])
+        XCTAssertTrue(KnownAgentContacts(agents: []).contains(name: "Poke"))
+    }
+
     func testRabbitWebsiteSetupCanCompleteWithoutMessagesAccess() throws {
         var onboarding = OnboardingState()
         onboarding.toggle(.os3)

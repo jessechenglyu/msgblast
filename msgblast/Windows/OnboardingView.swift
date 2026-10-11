@@ -22,7 +22,7 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if setup.state.stage == .choosing { chooser }
+            if setup.state.stage == .choosing { ScrollView { chooser } }
             else if setup.state.stage == .importing { browserImport }
             else if setup.state.stage == .feedback { OnboardingFeedbackView() }
             else if let step = setup.state.currentStep {
@@ -244,6 +244,10 @@ private struct OnboardingProviderView: View {
                 cliSetup(provider)
                 Spacer()
             } else {
+                if session.provider == .hark {
+                    Text("Sign in to Hark here. Use its own composer to chat; shared sending is not supported yet.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
                 if session.provider.sharesOneConversation {
                     Text("rabbit OS3 uses one conversation for your account. Each comparison continues that conversation and can use its earlier context.")
                         .font(.callout).foregroundStyle(.secondary)
@@ -390,26 +394,28 @@ private struct OnboardingMessagesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(spacing: 10) {
-                    Text("Choose who to connect").font(.system(size: 28, weight: .bold))
-                }.frame(maxWidth: .infinity).padding(.top, 24)
-                if !model.databaseAvailable {
-                    MessagesAccessRow(guide: model.accessGuide, check: { model.refresh() }, isOnboarding: true)
-                } else if !model.contactsAvailable {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Find your agents in Contacts").font(.headline)
-                        Button("Connect Contacts") { Task { await model.connectContacts(); model.refresh() } }
-                            .buttonStyle(.borderedProminent)
-                    }.padding(18).background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
-                } else {
-                    if findingContacts { ProgressView("Looking in Contacts…").controlSize(.small) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
                     VStack(spacing: 10) {
-                        ForEach(choices) { choice in messageRow(choice) }
+                        Text("Choose who to connect").font(.system(size: 28, weight: .bold))
+                    }.frame(maxWidth: .infinity).padding(.top, 24)
+                    if !model.databaseAvailable {
+                        MessagesAccessRow(guide: model.accessGuide, check: { model.refresh() }, isOnboarding: true)
+                    } else if !model.contactsAvailable {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Find your agents in Contacts").font(.headline)
+                            Button("Connect Contacts") { Task { await model.connectContacts(); model.refresh() } }
+                                .buttonStyle(.borderedProminent)
+                        }.padding(18).background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        if findingContacts { ProgressView("Looking in Contacts…").controlSize(.small) }
+                        VStack(spacing: 10) {
+                            ForEach(choices) { choice in messageRow(choice) }
+                        }
                     }
-                }
-                if !model.contactStatus.isEmpty { Text(model.contactStatus).font(.callout).foregroundStyle(.orange) }
-            }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    if !model.contactStatus.isEmpty { Text(model.contactStatus).font(.callout).foregroundStyle(.orange) }
+                }.padding(28).frame(maxWidth: .infinity, alignment: .top)
+            }.scrollIndicators(.hidden)
             Divider()
             HStack(spacing: 18) {
                 Button("Back") { setup.back() }.buttonStyle(.plain).foregroundStyle(.secondary)
@@ -441,6 +447,11 @@ private struct OnboardingMessagesView: View {
         let artwork = Agent(name: name, handles: [], avatar: contact?.avatar ?? AgentArtwork.messageAvatar(for: choice))
         let needsConversation = contact.map { model.route($0) == nil } ?? false
         return VStack(alignment: .leading, spacing: 12) {
+            if choice == .poke {
+                Text("Choose Poke’s saved contact and existing iMessage conversation. Its Apple Messages for Business chat may not appear in Contacts. If no supported conversation is found, open poke.com to set up Poke or skip it for now.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Link("Set up Poke", destination: URL(string: "https://poke.com")!)
+            }
             HStack(spacing: 20) {
                 Button {
                     if selected { included.remove(choice) } else { included.insert(choice) }

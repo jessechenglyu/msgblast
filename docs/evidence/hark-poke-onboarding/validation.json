@@ -1,0 +1,211 @@
+{
+  "base_sha": "2cc4e312bf036a82abd0ccb168ed8a030382fdb2",
+  "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+  "captured_on": "2026-10-10 America/Los_Angeles",
+  "app": {
+    "name": "msgblast Connected Grid Demo",
+    "bundle_id": "com.msgblast.demo.connectedgrid",
+    "profile": "msgblast-ConnectedGrid-Evidence-4300973",
+    "demo": true,
+    "onboarding_preview": true,
+    "updates_disabled": true,
+    "compiled_icon": "AppIconDemo (blue)",
+    "signature": "ad-hoc; codesign --verify --deep --strict passed",
+    "packaging": "Final native UI build; configured and signed using preview_apps.configure_info and build_preview_apps.adhoc_sign"
+  },
+  "fixtures": {
+    "contact_name": "Poke \ud83c\udf34",
+    "handle": "poke@example.com",
+    "hark_account": "local HTML fixture",
+    "real_sends": false,
+    "private_contacts_in_media": false
+  },
+  "video": {
+    "file": "workflow.mp4",
+    "duration_seconds": 45.066667,
+    "recording": "Two native window-only recordings: onboarding connection, then the connected-agent grid and Edit catalog.",
+    "timing": "2x playback; clips joined. Some transitions between recordings are omitted.",
+    "encoding": "H.264, yuv420p, faststart; scaled to 1280px width"
+  },
+  "checks": [
+    {
+      "check": "Native core full suite",
+      "source_sha": "2daf89b35d32c74c3ddf70ab070820de74386e99",
+      "passed": true,
+      "tests": 301,
+      "note": "Before final manual-recipient capability fix; initial earlier suite exposed hard-coded provider assumptions, subsequently corrected."
+    },
+    {
+      "check": "Native targeted regressions",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "passed": true,
+      "tests": 30,
+      "includes": [
+        "OnboardingTests",
+        "Hark manual-only session",
+        "Manual Hark selected -> shared preparation -> broadcast",
+        "Provider session identity",
+        "Optional CLI opt-in",
+        "Independent website submissions"
+      ]
+    },
+    {
+      "check": "Native onboarding UI walkthrough",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "passed": true,
+      "test": "OnboardingWorkflowTests/testHarkAndPokeConnectThroughWebsiteAndMessagesSetup",
+      "note": "Selection, website setup, Contacts confirmation, finish, emoji-named Poke grid tile. Earlier click failed before explicit app activation was added."
+    },
+    {
+      "check": "Final Dev/Demo preview packaging",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "passed": true,
+      "variants": [
+        {
+          "app_name": "msgblast Dev.app",
+          "bundle_id": "com.msgblast.development",
+          "sha256": "a0dfb3a008e5ffdbeabee5873f4f85ea2bb48851d46de73f3a507f47f2858683",
+          "compiled_icon": "AppIcon.icns",
+          "compiled_icon_rgb": [
+            8.0,
+            143.0,
+            124.5
+          ],
+          "updates": "disabled"
+        },
+        {
+          "app_name": "msgblast Demo.app",
+          "bundle_id": "com.msgblast.demo",
+          "sha256": "b0eabb204a7dc088ab90afd15131dbb2c28095565daca6b9d503935d0a6c11d3",
+          "compiled_icon": "AppIconDemo.icns",
+          "compiled_icon_rgb": [
+            64.8,
+            38.8,
+            216.0
+          ],
+          "updates": "disabled"
+        }
+      ]
+    },
+    {
+      "check": "Code review",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "status": "complete",
+      "verdict": "Ready to merge",
+      "actionable_findings": 0
+    },
+    {
+      "check": "Project generator",
+      "passed": true,
+      "note": "Existing folder resources register both new PNGs; regeneration produced no project diff."
+    },
+    {
+      "check": "Connected grid core regressions",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "tests": 31,
+      "includes": [
+        "AgentGridTests",
+        "OnboardingTests"
+      ]
+    },
+    {
+      "check": "Actual AppModel/controller fixtures",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "command": "bash scripts/test_web_comparisons.sh build/onboarding-tests",
+      "includes": [
+        "Onboarding completion persists connected grid",
+        "Finished nil-grid fallback",
+        "Customized layout survives finishing setup again",
+        "Existing comparison/send lifecycle fixtures"
+      ]
+    },
+    {
+      "check": "Native connected grid/Edit UI",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "test": "OnboardingWorkflowTests/testHarkAndPokeConnectThroughWebsiteAndMessagesSetup",
+      "includes": [
+        "Only Hark/Poke visible after setup",
+        "Unconnected ChatGPT/Cedar available in Edit",
+        "Hiding all agents keeps catalog behind Edit"
+      ]
+    },
+    {
+      "check": "Manual legacy-grid migration/relaunch fixture",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "note": "In the isolated Demo profile only, removed agentGrid from finished fixture state to simulate an older setup. Relaunch restored and persisted Hark/Poke. Then hid Hark in Edit and relaunched again; only Poke stayed visible, preserving explicit customization."
+    },
+    {
+      "check": "Connected grid code review",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "status": "complete",
+      "verdict": "Ready to merge",
+      "actionable_findings": 0
+    },
+    {
+      "check": "Updated Dev/Demo packaging",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "variants": [
+        {
+          "app_name": "msgblast Dev.app",
+          "bundle_id": "com.msgblast.development",
+          "sha256": "488f81e07d6fd33a80ed3021d26d2814a5d97b3de480ca519ee64fcb8792ee70",
+          "compiled_icon": "AppIcon.icns",
+          "compiled_icon_rgb": [
+            8.0,
+            143.0,
+            124.5
+          ],
+          "updates": "disabled"
+        },
+        {
+          "app_name": "msgblast Demo.app",
+          "bundle_id": "com.msgblast.demo",
+          "sha256": "3c0f5c3574000c774edc9425ce4e5a9f28d6b59004b05ea62f501959c1a8c8df",
+          "compiled_icon": "AppIconDemo.icns",
+          "compiled_icon_rgb": [
+            64.8,
+            38.8,
+            216.0
+          ],
+          "updates": "disabled"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Authenticated Hark DOM and live sending were not validated; shared Hark submissions and receipt extraction are disabled.",
+    "Poke requires an existing supported one-to-one iMessage route. Apple Messages for Business routing was not validated.",
+    "Screenshots and video show fixture behavior, not real accounts, permissions, Contacts, or delivery. Native Mac UI has no mobile viewport."
+  ],
+  "media": {
+    "hark.png": {
+      "sha256": "678b6e0c8cbfcd826ed7d0403c66164b385f59c3eadc69653edd517bd2ca1ab7",
+      "bytes": 147816
+    },
+    "connected.png": {
+      "sha256": "76f735fa25d9ba3fe4cb40a548d6f0a8ae2278f57c0bb2aca29430dc454beb74",
+      "bytes": 317813
+    },
+    "workflow.mp4": {
+      "sha256": "01209efbf95d8043423aa3bdc4b26c6b081cad1b6ed94b3115158f9863aac0a9",
+      "bytes": 338452
+    },
+    "poke.png": {
+      "sha256": "049358b5edeb9f1093b34bd862f5cd0f81e06ebc84d02c2cf262b8ab449c956b",
+      "bytes": 192660
+    },
+    "chooser.png": {
+      "sha256": "ffd7d0e29df950f82ffa3217db870c3c72333b706a6ea564996a8c3dc2da7978",
+      "bytes": 371833
+    },
+    "edit.png": {
+      "sha256": "2e9c482d749c62cd3ba6917e03564a2fd3c09f47eda37dd7adf3a101c24a731a",
+      "bytes": 616616
+    }
+  }
+}

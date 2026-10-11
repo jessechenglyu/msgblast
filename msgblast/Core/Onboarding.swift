@@ -1,7 +1,7 @@
 import Foundation
 
 public enum OnboardingChoice: String, CaseIterable, Codable, Identifiable, Sendable, Hashable {
-    case chatgpt, claude, grokbot, muse, instinct, fo, szn, grok, codexCLI, claudeCode, openclaw, dots, hermes, os3, otherMessages
+    case chatgpt, claude, grokbot, muse, instinct, fo, szn, grok, codexCLI, claudeCode, openclaw, dots, hermes, os3, hark, poke, otherMessages
 
     public var id: String { rawValue }
     public var name: String {
@@ -9,6 +9,7 @@ public enum OnboardingChoice: String, CaseIterable, Codable, Identifiable, Senda
         case .instinct: "Instinct"
         case .fo: "Fo"
         case .szn: "Szn"
+        case .poke: "Poke"
         case .otherMessages: "I use another agent in Messages"
         case .openclaw: "OpenClaw"
         case .hermes: "Hermes"
@@ -26,21 +27,22 @@ public enum OnboardingChoice: String, CaseIterable, Codable, Identifiable, Senda
         case .claudeCode: .claudeCode
         case .dots: .dots
         case .os3: .os3
-        case .instinct, .fo, .szn, .otherMessages, .openclaw, .hermes: nil
+        case .hark: .hark
+        case .instinct, .fo, .szn, .poke, .otherMessages, .openclaw, .hermes: nil
         }
     }
     public var runtime: LocalAgentRuntime? {
         switch self { case .openclaw: .openclaw; case .hermes: .hermes; default: nil }
     }
     public var isMessages: Bool {
-        switch self { case .instinct, .fo, .szn, .otherMessages: true; default: false }
+        switch self { case .instinct, .fo, .szn, .poke, .otherMessages: true; default: false }
     }
 
     public func contactSuggestions(in contacts: [Agent]) -> [Agent] {
         guard isMessages, self != .otherMessages else { return [] }
         return contacts.filter { contact in
             contact.contactID != nil && !contact.handles.isEmpty &&
-            contact.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            contact.name.trimmingCharacters(in: self == .poke ? .alphanumerics.inverted : .whitespacesAndNewlines)
                 .compare(name, options: .caseInsensitive, locale: Locale(identifier: "en_US_POSIX")) == .orderedSame
         }
     }

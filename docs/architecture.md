@@ -49,7 +49,7 @@ There are four distinct connection types:
 | Connection | How it works |
 | --- | --- |
 | Messages | Existing one-to-one iMessage chats, read-only history, and Apple Events submission |
-| Websites | Muse, ChatGPT, Claude, Grok, Dots, and rabbit OS3 inside persistent WebKit stores |
+| Websites | Muse, ChatGPT, Claude, Grok, Dots, rabbit OS3, and Hark inside persistent WebKit stores |
 | Optional CLI conversations | Separate Codex CLI / Claude Code agents using installed CLI accounts, configured tools, and saved sessions |
 | Grok Bot | Direct webhook call and authenticated reply through a temporary bundled cloudflared tunnel |
 
@@ -57,6 +57,15 @@ Website login does not authenticate a CLI. CLI configuration does not replace th
 website. Grok Bot is distinct from Grok's website. Comparisons keep each provider's
 identity and private history; joining another agent shares only explicitly shared
 context, not private one-to-one turns.
+
+Hark is available during onboarding at `https://hark.com/chat`. Its embedded
+page supports manual chat; shared submissions and receipt extraction remain
+disabled until its authenticated layout is verified. Selecting Hark keeps its
+manual pane available but excludes it from shared-send recipients and comparison
+preparation, so it cannot block submissions to other agents. Poke is a Messages setup
+choice with exact-name Contacts suggestions. Connection requires a saved contact
+and a supported existing one-to-one iMessage chat; Apple Messages for Business
+conversations are not assumed to be Contacts entries or supported destinations.
 
 rabbit OS3 is featured in the agent grid and available during onboarding, but
 is not selected until the user connects or chooses it. Its account has one

@@ -9,7 +9,7 @@ public final class WebAgents: ObservableObject {
     private var subscriptions: Set<AnyCancellable> = []
     @Published private var archivedProviders: Set<WebProvider> = []
     public var availableSessions: [WebAgentSession] { sessions.filter { $0.isEnabled } }
-    public var selected: [WebAgentSession] { availableSessions.filter { $0.state.selected } }
+    public var selected: [WebAgentSession] { availableSessions.filter { $0.state.selected && $0.provider.supportsSharedSubmissions } }
     public var displayed: [WebAgentSession] {
         sessions.filter { ($0.isEnabled && $0.state.selected) || (!$0.isEnabled && archivedProviders.contains($0.provider)) }
     }
@@ -54,13 +54,15 @@ public final class WebAgents: ObservableObject {
         if session.state.selected {
             let id = comparisonID
             session.connect()
-            Task {
-                guard self.comparisonID == id, session.state.selected else { return }
-                await session.openComparison(id)
+            if session.provider.supportsSharedSubmissions {
+                Task {
+                    guard self.comparisonID == id, session.state.selected else { return }
+                    await session.openComparison(id)
+                }
             }
         }
     }
-    public func connectSelected() { selected.forEach { $0.connect() } }
+    public func connectSelected() { availableSessions.filter { $0.state.selected }.forEach { $0.connect() } }
     public func signInRequired(for sessions: [WebAgentSession]) async -> [WebProvider] {
         let tasks = sessions.filter { !$0.provider.usesNativeConversation }.map { session in
             Task { @MainActor in (session.provider, await session.checkSignIn()) }

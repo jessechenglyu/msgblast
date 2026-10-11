@@ -1500,7 +1500,7 @@ final class MultiWebAgentTests: XCTestCase {
         XCTAssertEqual(web.availableSessions[0].state.sessionID, id)
         XCTAssertEqual(web.availableSessions[0].state.draft, "Legacy draft")
         XCTAssertEqual(web.comparisonID, comparison)
-        XCTAssertEqual(Set(web.availableSessions.map { $0.state.sessionID }).count, 6)
+        XCTAssertEqual(Set(web.availableSessions.map { $0.state.sessionID }).count, 7)
         for session in web.availableSessions where session.provider.personalAgentProvider == nil { XCTAssertEqual(session.webView.configuration.websiteDataStore.identifier, session.state.sessionID) }
         web.toggle(web.availableSessions[2])
         let reopened = WebAgents(directory: directory, fixture: false)
@@ -1528,13 +1528,29 @@ final class MultiWebAgentTests: XCTestCase {
         }
     }
 
+    func testManualOnlyHarkStaysDisplayedWithoutBlockingSharedComparisonPreparation() async throws {
+        let web = WebAgents(directory: temporaryDirectory(), fixture: true)
+        let hark = try XCTUnwrap(web.sessions.first { $0.provider == .hark })
+        hark.updateState { $0.selected = true }
+        XCTAssertTrue(web.displayed.contains { $0.provider == .hark })
+        XCTAssertFalse(web.selected.contains { $0.provider == .hark })
+        web.connectSelected()
+        try await waitFor { hark.snapshot.signedIn == true }
+        let prepared = await web.prepareComparison(nil, for: web.selected)
+        XCTAssertTrue(prepared)
+        let attempts = await WebAgents.send("Send only to shared recipients", to: web.selected)
+        XCTAssertNil(attempts[.hark])
+        XCTAssertEqual(attempts[.chatgpt]?.status, .observed)
+        XCTAssertTrue(hark.state.attempts.isEmpty)
+    }
+
     func testDraftOrUnavailableAgentDoesNotBlockIndependentSubmissions() async throws {
         let directory = temporaryDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Data("invalid persisted state".utf8).write(to: directory.appendingPathComponent(WebProvider.claude.storageFilename))
         let web = WebAgents(directory: directory, fixture: true)
         web.availableSessions.forEach { $0.connect() }
-        try await waitFor { web.availableSessions.filter { $0.provider != .claude }.allSatisfy { $0.snapshot.ready } }
+        try await waitFor { web.availableSessions.filter { $0.provider != .claude && $0.provider != .hark }.allSatisfy { $0.snapshot.ready } }
         let chatgpt = web.availableSessions[1], claude = web.availableSessions[2]
         _ = try await chatgpt.webView.callAsyncJavaScript("document.querySelector('textarea,[contenteditable]').value = 'Keep this draft'", arguments: [:], in: nil, contentWorld: .page)
         let results = await WebAgents.send("New question", to: web.availableSessions)
@@ -1542,6 +1558,7 @@ final class MultiWebAgentTests: XCTestCase {
         XCTAssertEqual(results[.grok]?.status, .observed)
         XCTAssertEqual(results[.chatgpt]?.status, .notSent)
         XCTAssertNil(results[.claude])
+        XCTAssertEqual(results[.hark]?.status, .notSent, "Manual-only Hark must not block other websites")
         XCTAssertEqual(chatgpt.snapshot.draft, "Keep this draft")
         XCTAssertNotNil(claude.error)
     }
