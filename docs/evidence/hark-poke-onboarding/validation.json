@@ -22,9 +22,9 @@
   },
   "video": {
     "file": "workflow.mp4",
-    "duration_seconds": 35.066667,
-    "recording": "Native window-only screencapture; complete setup interactions",
-    "timing": "2x playback; no interaction removed",
+    "duration_seconds": 39.1,
+    "recording": "Two native window-only recordings: selection/connection through final acknowledgement, then the connected grid result.",
+    "timing": "2x playback; clips joined. The Start chatting transition between recordings is omitted.",
     "encoding": "H.264, yuv420p, faststart; scaled to 1280px width"
   },
   "checks": [
@@ -115,8 +115,8 @@
       "bytes": 570906
     },
     "workflow.mp4": {
-      "sha256": "bc2ca359eae38bfdf0504a2f1c1aa7b722f1d728ec85057e226c87d8cebb1e29",
-      "bytes": 301439
+      "sha256": "66c175306812d52cacb280f8cd10ff0756adea3a28a6a363d4a4ffe382adcfae",
+      "bytes": 341190
     },
     "poke.png": {
       "sha256": "c347698245419c7257fbb117795b63b2c396259b7b56cb43fd3719626e12593f",
