@@ -1,0 +1,130 @@
+{
+  "base_sha": "2cc4e312bf036a82abd0ccb168ed8a030382fdb2",
+  "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+  "captured_on": "2026-10-10 America/Los_Angeles",
+  "app": {
+    "name": "msgblast Hark Poke Demo",
+    "bundle_id": "com.msgblast.demo.harkpoke",
+    "profile": "msgblast-HarkPoke-Evidence-7b49b20",
+    "demo": true,
+    "onboarding_preview": true,
+    "updates_disabled": true,
+    "compiled_icon": "AppIconDemo (blue)",
+    "signature": "ad-hoc; codesign --verify --deep --strict passed",
+    "packaging": "Final native UI build; configured and signed using preview_apps.configure_info and build_preview_apps.adhoc_sign"
+  },
+  "fixtures": {
+    "contact_name": "Poke \ud83c\udf34",
+    "handle": "poke@example.com",
+    "hark_account": "local HTML fixture",
+    "real_sends": false,
+    "private_contacts_in_media": false
+  },
+  "video": {
+    "file": "workflow.mp4",
+    "duration_seconds": 35.066667,
+    "recording": "Native window-only screencapture; complete setup interactions",
+    "timing": "2x playback; no interaction removed",
+    "encoding": "H.264, yuv420p, faststart; scaled to 1280px width"
+  },
+  "checks": [
+    {
+      "check": "Native core full suite",
+      "source_sha": "2daf89b35d32c74c3ddf70ab070820de74386e99",
+      "passed": true,
+      "tests": 301,
+      "note": "Before final manual-recipient capability fix; initial earlier suite exposed hard-coded provider assumptions, subsequently corrected."
+    },
+    {
+      "check": "Native targeted regressions",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "passed": true,
+      "tests": 30,
+      "includes": [
+        "OnboardingTests",
+        "Hark manual-only session",
+        "Manual Hark selected -> shared preparation -> broadcast",
+        "Provider session identity",
+        "Optional CLI opt-in",
+        "Independent website submissions"
+      ]
+    },
+    {
+      "check": "Native onboarding UI walkthrough",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "passed": true,
+      "test": "OnboardingWorkflowTests/testHarkAndPokeConnectThroughWebsiteAndMessagesSetup",
+      "note": "Selection, website setup, Contacts confirmation, finish, emoji-named Poke grid tile. Earlier click failed before explicit app activation was added."
+    },
+    {
+      "check": "Final Dev/Demo preview packaging",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "passed": true,
+      "variants": [
+        {
+          "app_name": "msgblast Dev.app",
+          "bundle_id": "com.msgblast.development",
+          "sha256": "a0dfb3a008e5ffdbeabee5873f4f85ea2bb48851d46de73f3a507f47f2858683",
+          "compiled_icon": "AppIcon.icns",
+          "compiled_icon_rgb": [
+            8.0,
+            143.0,
+            124.5
+          ],
+          "updates": "disabled"
+        },
+        {
+          "app_name": "msgblast Demo.app",
+          "bundle_id": "com.msgblast.demo",
+          "sha256": "b0eabb204a7dc088ab90afd15131dbb2c28095565daca6b9d503935d0a6c11d3",
+          "compiled_icon": "AppIconDemo.icns",
+          "compiled_icon_rgb": [
+            64.8,
+            38.8,
+            216.0
+          ],
+          "updates": "disabled"
+        }
+      ]
+    },
+    {
+      "check": "Code review",
+      "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+      "status": "complete",
+      "verdict": "Ready to merge",
+      "actionable_findings": 0
+    },
+    {
+      "check": "Project generator",
+      "passed": true,
+      "note": "Existing folder resources register both new PNGs; regeneration produced no project diff."
+    }
+  ],
+  "limitations": [
+    "Authenticated Hark DOM and live sending were not validated; shared Hark submissions and receipt extraction are disabled.",
+    "Poke requires an existing supported one-to-one iMessage route. Apple Messages for Business routing was not validated.",
+    "Screenshots and video show fixture behavior, not real accounts, permissions, Contacts, or delivery. Native Mac UI has no mobile viewport."
+  ],
+  "media": {
+    "hark.png": {
+      "sha256": "f12196be3052c52f432bfa4467209ef1fc79b2230c2358aedfbe36b42e06b086",
+      "bytes": 146159
+    },
+    "connected.png": {
+      "sha256": "008b67a88785d8bf6fb9f3010e3c4139ac579ab8c2d8770a9392cdad10f7367c",
+      "bytes": 570906
+    },
+    "workflow.mp4": {
+      "sha256": "bc2ca359eae38bfdf0504a2f1c1aa7b722f1d728ec85057e226c87d8cebb1e29",
+      "bytes": 301439
+    },
+    "poke.png": {
+      "sha256": "c347698245419c7257fbb117795b63b2c396259b7b56cb43fd3719626e12593f",
+      "bytes": 190785
+    },
+    "chooser.png": {
+      "sha256": "196025b529b2789cf7af6205b0bec3eb66439eb8b222b3a407d9e6e9bfbd287a",
+      "bytes": 369691
+    }
+  }
+}
