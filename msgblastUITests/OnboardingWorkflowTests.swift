@@ -13,6 +13,7 @@ final class OnboardingWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo", "--onboarding-preview"]
         app.launch()
+        app.activate()
         defer { app.terminate() }
         func capture(_ name: String) {
             let attachment = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
@@ -46,7 +47,19 @@ final class OnboardingWorkflowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Start chatting"].waitForExistence(timeout: 10))
         app.buttons["Start chatting"].click()
         XCTAssertTrue(app.buttons["Poke 🌴"].waitForExistence(timeout: 10))
-        capture("connected-poke-official-icon-demo")
+        XCTAssertTrue(app.buttons["Hark"].exists)
+        XCTAssertFalse(app.buttons["ChatGPT"].exists)
+        XCTAssertFalse(app.buttons["Cedar"].exists)
+        capture("connected-agents-only-demo")
+        app.buttons["Edit agents"].click()
+        XCTAssertTrue(app.buttons["Add ChatGPT"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Add Cedar"].exists)
+        capture("unconnected-agents-in-edit-demo")
+        app.buttons["Hide Hark"].click()
+        app.buttons["Hide Poke 🌴"].click()
+        app.buttons["Done editing agents"].click()
+        XCTAssertFalse(app.buttons["Add ChatGPT"].exists)
+        XCTAssertTrue(app.staticTexts["Use Edit to add agents to your grid."].exists)
     }
 
     @MainActor

@@ -74,6 +74,9 @@ final class AppModel: ObservableObject {
             try local.save(state)
         } catch { storageLoadFailed = true; self.error = "Local state could not be loaded or saved: \(error.localizedDescription). Sending is unavailable until storage works." }
         if demo { setupDemo() }
+        if state.onboarding?.isFinished == true, state.agentGrid == nil {
+            state.agentGrid = defaultAgentGrid
+        }
         if state.onboarding?.stage == .choosing, state.onboarding?.completed.isEmpty == true {
             state.selection = []
             webAgents.sessions.forEach { $0.updateState { $0.selected = false } }

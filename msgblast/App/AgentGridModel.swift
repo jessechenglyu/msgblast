@@ -54,6 +54,9 @@ extension AppModel {
     }
 
     var defaultAgentGrid: AgentGridLayout {
+        if let setup = state.onboarding, setup.isFinished {
+            return AgentGridLayout(onboarding: setup, messageGridIDs: messageGridIDs)
+        }
         let ids = messageGridIDs
         let connected = webAgents.availableSessions.map { AgentGridID.web($0.provider) }
         let messages = state.agents.map { ids[$0.id] ?? .messages($0.id) }

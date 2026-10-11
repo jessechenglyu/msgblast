@@ -20,12 +20,19 @@ final class OnboardingController: ObservableObject {
     func edit(_ change: (inout OnboardingState) -> Void) {
         guard var next = model.state.onboarding else { return }
         let previous = next
+        let previousGrid = model.state.agentGrid
         change(&next)
-        if next.isFinished { restoreRecipients(from: next) }
+        if next.isFinished {
+            restoreRecipients(from: next)
+            if !previous.isFinished, model.state.agentGrid == nil {
+                model.state.agentGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
+            }
+        }
         model.state.onboarding = next
         do { try model.save() }
         catch {
             model.state.onboarding = previous
+            model.state.agentGrid = previousGrid
             self.error = "Could not save setup progress: \(error.localizedDescription)"
         }
     }

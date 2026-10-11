@@ -62,8 +62,33 @@ import msgblastCore
         gridModel.webAgents.setEnabled(true, for: .claudeCode)
         let savedAgentIDs = gridModel.state.agents.map { AgentGridID.messages($0.id) }
         precondition(gridModel.state.agentGrid == nil)
-        precondition(gridModel.agentGridLayout.visibleIDs == AgentGridLayout.featured + [.web(.claudeCode)] + savedAgentIDs)
+        precondition(gridModel.agentGridLayout.visibleIDs == AgentGridLayout.featured + [.web(.claudeCode), .web(.hark)] + savedAgentIDs)
         print("PASS: first-use grid preserves featured order, enabled optional providers, and every saved Messages agent.")
+        let onboardingModel = AppModel()
+        let connectedContact = Agent(contactID: "fixture-connected-fo", name: "Fo", handles: ["fo@example.com"])
+        onboardingModel.state.agents.append(connectedContact)
+        var setup = OnboardingState()
+        setup.selected = [.chatgpt, .fo, .claude]
+        setup.completed = [.chatgpt, .fo]
+        setup.skipped = [.claude]
+        setup.messageAgentIDs["fo"] = connectedContact.id
+        setup.stage = .feedback
+        onboardingModel.state.onboarding = setup
+        onboardingModel.onboarding.edit { $0.finish() }
+        let connectedIDs: [AgentGridID] = [.web(.chatgpt), .featuredMessages(.fo)]
+        precondition(onboardingModel.state.onboarding?.isFinished == true)
+        precondition(onboardingModel.state.agentGrid?.visibleIDs == connectedIDs)
+        let savedConnectedSetup = try onboardingModel.local.load()
+        precondition(savedConnectedSetup.agentGrid?.visibleIDs == connectedIDs)
+        onboardingModel.state.agentGrid = nil
+        precondition(onboardingModel.agentGridLayout.visibleIDs == connectedIDs)
+        let customGrid = AgentGridLayout(visibleIDs: [.web(.claude), .web(.chatgpt)])
+        onboardingModel.state.agentGrid = customGrid
+        precondition(onboardingModel.agentGridLayout == customGrid)
+        onboardingModel.state.onboarding = setup
+        onboardingModel.onboarding.edit { $0.finish() }
+        precondition(onboardingModel.state.agentGrid == customGrid)
+        print("PASS: completing setup persists only connected agents, finished legacy setup uses the same fallback, and explicit customized grids remain intact.")
         let photoModel = AppModel()
         let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let oldPhoto = try Data(contentsOf: fixtureRoot.appendingPathComponent("instinct-legacy-placeholder.jpg"))
@@ -109,24 +134,27 @@ import msgblastCore
         precondition(model.demo && model.local.url.path.contains("UIFixture"))
         model.coordinator = WindowCoordinator(model: model)
         let recipient = model.state.agents[0]
+        var comparisonSessions: [WebAgentSession] {
+            model.webAgents.availableSessions.filter { $0.provider.supportsSharedSubmissions }
+        }
         WebProvider.optionalProviders.forEach { model.webAgents.setEnabled(true, for: $0) }
         let first = await model.prepareWebComparison("First comparison", recipientIDs: [recipient.id], providers: WebProvider.webDefaults + WebProvider.optionalProviders)!
         let muse = model.webAgents.sessions.first { $0.provider == .muse }!
         precondition(muse.fixture)
-        model.webAgents.availableSessions.forEach { $0.connect() }
-        try await waitUntil { model.webAgents.availableSessions.allSatisfy { $0.snapshot.ready } }
-        let firstResults = await WebAgents.send("First comparison", to: model.webAgents.availableSessions, comparisonID: first)
+        comparisonSessions.forEach { $0.connect() }
+        try await waitUntil { comparisonSessions.allSatisfy { $0.snapshot.ready } }
+        let firstResults = await WebAgents.send("First comparison", to: comparisonSessions, comparisonID: first)
         for (provider, result) in firstResults {
             precondition(result.status == .observed, "\(provider.name) first send: \(result.status) · \(result.detail ?? "No detail")")
         }
         let firstNativeSessions = Dictionary(uniqueKeysWithValues: model.webAgents.sessions.compactMap { session in session.state.localSessionIDs[first.uuidString].map { (session.provider, $0) } })
         await model.submit(first, retry: false)
         let second = await model.prepareWebComparison("Second comparison", recipientIDs: [], providers: WebProvider.webDefaults + WebProvider.optionalProviders)!
-        let secondResults = await WebAgents.send("Second comparison", to: model.webAgents.availableSessions, comparisonID: second)
+        let secondResults = await WebAgents.send("Second comparison", to: comparisonSessions, comparisonID: second)
         for (provider, result) in secondResults {
             precondition(result.status == .observed, "\(provider.name) second send: \(result.status) · \(result.detail ?? "No detail")")
         }
-        for session in model.webAgents.availableSessions {
+        for session in comparisonSessions {
             if session.provider.personalAgentProvider != nil {
                 precondition(firstNativeSessions[session.provider] != session.state.localSessionIDs[second.uuidString])
             } else if session.provider == .dots || session.provider.sharesOneConversation {
@@ -146,7 +174,7 @@ import msgblastCore
         model.setSharedDraft("")
         print("PASS: actual AppModel switches independent A/B shared drafts and persists both across LocalStore reload.")
         model.coordinator?.open(first)
-        try await waitUntil { model.webAgents.availableSessions.allSatisfy { session in
+        try await waitUntil { comparisonSessions.allSatisfy { session in
             if session.provider.personalAgentProvider != nil {
                 return session.state.comparisonID == first && session.snapshot.messages.first?.text == "First comparison" && session.state.localSessionIDs[first.uuidString] == firstNativeSessions[session.provider]
             }

@@ -45,11 +45,12 @@ struct AgentGridView: View {
                         }
                         if shown.isEmpty {
                             ContentUnavailableView("Choose your agents", systemImage: "person.2",
-                                description: Text("Add agents from the list below."))
+                                description: Text(model.state.onboarding?.isFinished == true
+                                    ? "Use Edit to add agents to your grid." : "Add agents from the list below."))
                         } else {
                             grid(shown, available: false, size: tileSize(geometry), scroll: scroll)
                         }
-                        if editing || shown.isEmpty {
+                        if editing || (shown.isEmpty && model.state.onboarding?.isFinished != true) {
                             Divider()
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("More agents").font(.headline)
@@ -70,14 +71,16 @@ struct AgentGridView: View {
                             } else {
                                 grid(available, available: true, size: tileSize(geometry), scroll: scroll)
                             }
-                            Button("Restore featured") {
+                            Button(model.state.onboarding?.isFinished == true ? "Restore setup agents" : "Restore featured") {
                                 withAnimation(motion) {
                                     _ = model.setAgentGrid(model.defaultAgentGrid)
                                     query = ""
                                 }
                                 scrollToTop(scroll)
                             }.buttonStyle(.plain).foregroundStyle(.secondary).disabled(busy)
-                                .help("Restore the featured agents and your connected agents in their default order")
+                                .help(model.state.onboarding?.isFinished == true
+                                      ? "Restore the agents connected during onboarding in their setup order"
+                                      : "Restore the featured agents and your connected agents in their default order")
                         }
                     }.padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 24)
                         .id("agent-grid-top")

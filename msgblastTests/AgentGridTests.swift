@@ -2,6 +2,27 @@ import XCTest
 @testable import msgblastCore
 
 final class AgentGridTests: XCTestCase {
+    func testCompletedOnboardingShowsOnlyConnectedChoicesAndKeepsTheRestAvailable() throws {
+        let foID = UUID(), otherID = UUID()
+        var setup = OnboardingState()
+        setup.selected = [.hark, .chatgpt, .fo, .otherMessages, .openclaw, .claude]
+        setup.completed = [.hark, .chatgpt, .fo, .otherMessages, .openclaw, .grok]
+        setup.skipped = [.claude]
+        setup.messageAgentIDs = ["fo": foID, "otherMessages": otherID]
+        setup.stage = .finished
+        let grid = AgentGridLayout(onboarding: setup, messageGridIDs: [foID: .featuredMessages(.fo)])
+        XCTAssertEqual(grid.visibleIDs, [.web(.chatgpt), .featuredMessages(.fo), .runtime(.openclaw), .web(.hark), .messages(otherID)])
+        let catalog = grid.visibleIDs + [.web(.claude), .web(.grok), .featuredMessages(.szn)]
+        XCTAssertEqual(grid.available(in: catalog), [.web(.claude), .web(.grok), .featuredMessages(.szn)])
+        var state = AppState()
+        state.onboarding = setup
+        state.agentGrid = grid
+        state.draft = "Keep my draft"
+        let restored = try JSONDecoder().decode(AppState.self, from: JSONEncoder().encode(state))
+        XCTAssertEqual(restored.agentGrid?.visibleIDs, grid.visibleIDs)
+        XCTAssertEqual(restored.draft, "Keep my draft")
+    }
+
     func testOldStateUsesFeaturedDefaultsWithoutChangingRecipients() throws {
         var original = AppState()
         let contact = Agent(name: "My agent", handles: ["agent@example.com"])
