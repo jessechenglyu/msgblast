@@ -141,7 +141,7 @@ final class AppModel: ObservableObject {
         // Synthetic transcripts are reconstructed from app-owned prompts, never copied into the local store.
         if onboardingPreview {
             state.draft = ""
-            for name in ["Fo", "Instinct", "Szn"] {
+            for name in ["Fo", "Instinct", "Szn", "Poke"] {
                 let handle = name.lowercased() + "@example.com"
                 if !chats.contains(where: { $0.handle == handle }) {
                     chats.append(Chat(id: "demo-onboarding-" + name.lowercased(), handle: handle, lastActivity: 0))
@@ -242,7 +242,7 @@ final class AppModel: ObservableObject {
         do {
             let known = KnownAgentContacts(agents: knownAgents)
             if demo {
-                let samples = (["Fo", "Szn", "Instinct"] + knownAgents.prefix(1).map(\.name)).map { Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0, handles: [$0.lowercased() + "@example.com"]) }
+                let samples = (["Fo", "Szn", "Instinct", "Poke"] + knownAgents.prefix(1).map(\.name)).map { Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0, handles: [$0.lowercased() + "@example.com"]) }
                 let contacts = samples.filter { sample in !state.agents.contains { $0.contactID == sample.contactID } } + state.agents
                 contactResults = contacts.filter { query.isEmpty ? known.contains(name: $0.name) :
                     $0.name.localizedCaseInsensitiveContains(query) || $0.handles.contains(where: { $0.localizedCaseInsensitiveContains(query) }) }
@@ -279,7 +279,7 @@ final class AppModel: ObservableObject {
     func onboardingContactSuggestions() async throws -> [Agent] {
         guard databaseAvailable, contactsAvailable else { return [] }
         if demo {
-            return ["Fo", "Instinct", "Szn"].map {
+            return ["Fo", "Instinct", "Szn", "Poke"].map {
                 Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0, handles: [$0.lowercased() + "@example.com"])
             }
         }

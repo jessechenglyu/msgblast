@@ -52,7 +52,7 @@ public struct KnownAgentContacts: Sendable {
     private let names: Set<String>
 
     public init(agents: [DiscoveredAgent]) {
-        names = Set((agents.map(\.name) + ["Fo", "Szn", "Instinct"]).map(Self.nameKey))
+        names = Set((agents.map(\.name) + ["Fo", "Szn", "Instinct", "Poke"]).map(Self.nameKey))
     }
 
     public func contains(name: String) -> Bool {
