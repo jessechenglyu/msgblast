@@ -28,7 +28,7 @@ final class OnboardingWorkflowTests: XCTestCase {
         add(screenshot)
         app.buttons["Import from Chrome"].click()
         XCTAssertTrue(app.staticTexts["Choose a Chrome profile"].waitForExistence(timeout: 5))
-        app.buttons["Import Demo profile"].click()
+        app.buttons["Import Alex (Personal)"].click()
         XCTAssertTrue(app.staticTexts["Let’s connect ChatGPT"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Continue"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Continue"].isEnabled)

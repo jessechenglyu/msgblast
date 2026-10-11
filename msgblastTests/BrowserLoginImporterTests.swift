@@ -165,6 +165,34 @@ final class BrowserLoginImporterTests: XCTestCase {
         XCTAssertThrowsError(try noStores.readCookies(in: .safari, profileID: "missing", providers: [.chatgpt]))
     }
 
+    func testChromeProfileNamesUseLocalStateWithoutChangingStoreIdentity() throws {
+        let home = try fixtureHome(); defer { try? FileManager.default.removeItem(at: home) }
+        let first = try chromeFixture(in: home, profile: "Default", rows: "")
+        let second = try chromeFixture(in: home, profile: "Profile 2", rows: "")
+        let importer = BrowserLoginImporter(homeDirectories: [home])
+        let state = home.appendingPathComponent("Library/Application Support/Google/Chrome/Local State")
+        let metadata = Data(#"{"profile":{"info_cache":{"Default":{"name":"Personal"},"Profile 2":{"name":"Work – Studio"}}}}"#.utf8)
+        try metadata.write(to: state)
+        let profiles = try importer.profiles(in: .chrome)
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0.name) }),
+                       [first.path: "Personal", second.path: "Work – Studio"])
+        XCTAssertEqual(try Data(contentsOf: state), metadata)
+
+        try Data(#"{"profile":{"info_cache":{"Default":{"name":"Person 1","gaia_given_name":"Alex","is_using_default_name":true},"Profile 2":{"name":"Work","gaia_name":"Jordan Smith","is_using_default_name":false}}}}"#.utf8).write(to: state)
+        XCTAssertEqual(try importer.profiles(in: .chrome).map(\.name), ["Alex", "Jordan Smith (Work)"])
+
+        // Duplicate display names must leave both independently selectable.
+        try Data(#"{"profile":{"info_cache":{"Default":{"name":"Work"},"Profile 2":{"name":"Work"}}}}"#.utf8).write(to: state)
+        XCTAssertEqual(Set(try importer.profiles(in: .chrome).map(\.id)), [first.path, second.path])
+
+        for contents in ["invalid JSON", #"{"profile":{"info_cache":{"Default":{"name":"  "},"Profile 2":{"name":42}}}}"#] {
+            try Data(contents.utf8).write(to: state)
+            XCTAssertEqual(try importer.profiles(in: .chrome).map(\.name), ["Default", "Profile 2"])
+        }
+        try FileManager.default.removeItem(at: state)
+        XCTAssertEqual(try importer.profiles(in: .chrome).map(\.name), ["Default", "Profile 2"])
+    }
+
     // Foundation caps distant artificial expiries; use a real browser lifetime.
     private let future = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970) + 86_400)
 
