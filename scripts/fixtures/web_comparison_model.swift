@@ -138,28 +138,28 @@ import msgblastCore
             model.webAgents.availableSessions.filter { $0.provider.supportsSharedSubmissions }
         }
         WebProvider.optionalProviders.forEach { model.webAgents.setEnabled(true, for: $0) }
-        let first = await model.prepareWebComparison("First comparison", recipientIDs: [recipient.id], providers: WebProvider.webDefaults + WebProvider.optionalProviders)!
+        let first = await model.prepareWebComparison("First comparison", recipientIDs: [recipient.id], agents: (WebProvider.webDefaults + WebProvider.optionalProviders).map { WebAgentID(provider: $0) })!
         let muse = model.webAgents.sessions.first { $0.provider == .muse }!
         precondition(muse.fixture)
         comparisonSessions.forEach { $0.connect() }
         try await waitUntil { comparisonSessions.allSatisfy { $0.snapshot.ready } }
         let firstResults = await WebAgents.send("First comparison", to: comparisonSessions, comparisonID: first)
         for (provider, result) in firstResults {
-            precondition(result.status == .observed, "\(provider.name) first send: \(result.status) · \(result.detail ?? "No detail")")
+            precondition(result.status == .observed, "\(provider.provider.name) first send: \(result.status) · \(result.detail ?? "No detail")")
         }
         let firstNativeSessions = Dictionary(uniqueKeysWithValues: model.webAgents.sessions.compactMap { session in session.state.localSessionIDs[first.uuidString].map { (session.provider, $0) } })
         await model.submit(first, retry: false)
-        let second = await model.prepareWebComparison("Second comparison", recipientIDs: [], providers: WebProvider.webDefaults + WebProvider.optionalProviders)!
+        let second = await model.prepareWebComparison("Second comparison", recipientIDs: [], agents: (WebProvider.webDefaults + WebProvider.optionalProviders).map { WebAgentID(provider: $0) })!
         let secondResults = await WebAgents.send("Second comparison", to: comparisonSessions, comparisonID: second)
         for (provider, result) in secondResults {
-            precondition(result.status == .observed, "\(provider.name) second send: \(result.status) · \(result.detail ?? "No detail")")
+            precondition(result.status == .observed, "\(provider.provider.name) second send: \(result.status) · \(result.detail ?? "No detail")")
         }
         for session in comparisonSessions {
             if session.provider.personalAgentProvider != nil {
                 precondition(firstNativeSessions[session.provider] != session.state.localSessionIDs[second.uuidString])
             } else if session.provider == .dots || session.provider.sharesOneConversation {
-                precondition(firstResults[session.provider]?.conversationURL == secondResults[session.provider]?.conversationURL)
-            } else { precondition(firstResults[session.provider]?.conversationURL != secondResults[session.provider]?.conversationURL) }
+                precondition(firstResults[session.id]?.conversationURL == secondResults[session.id]?.conversationURL)
+            } else { precondition(firstResults[session.id]?.conversationURL != secondResults[session.id]?.conversationURL) }
         }
         model.setSharedDraft("Shared draft for B")
         model.openWebComparison(first)
@@ -178,7 +178,7 @@ import msgblastCore
             if session.provider.personalAgentProvider != nil {
                 return session.state.comparisonID == first && session.snapshot.messages.first?.text == "First comparison" && session.state.localSessionIDs[first.uuidString] == firstNativeSessions[session.provider]
             }
-            return session.webView.url == firstResults[session.provider]?.conversationURL
+            return session.webView.url == firstResults[session.id]?.conversationURL
         } }
         precondition(model.state.selection == [recipient.id])
         precondition(model.webAgents.selected.map(\.provider) == WebProvider.webDefaults + WebProvider.optionalProviders)
@@ -337,6 +337,30 @@ import msgblastCore
         let safeMember = safe.members.first { $0.id == third.id }!
         precondition(model.transcript(safe, member: safeMember).filter(\.outgoing).map(\.text) == ["Delayed broadcast original", "Delayed shared ask"])
         print("PASS: deterministic delayed web completion preserves the exact broadcast UUID; private send is blocked with draft retained, injected later private ledger remains unmarked, and a new agent receives only Original + Shared. Actual AgentBroadcast + AppModel with simulated transport.")
+        let instanceModel = AppModel()
+        let originalWeb = instanceModel.webAgents.session(for: WebAgentID.chatgpt)!
+        let copiedWeb = try instanceModel.webAgents.duplicate(originalWeb, name: "ChatGPT fixture copy")
+        let unusedWeb = try instanceModel.webAgents.duplicate(originalWeb, name: "Unselected fixture copy")
+        var instanceGrid = instanceModel.agentGridLayout
+        instanceGrid.add(copiedWeb.id.gridID); instanceGrid.add(unusedWeb.id.gridID)
+        precondition(instanceModel.setAgentGrid(instanceGrid))
+        let instanceComparison = await instanceModel.prepareWebComparison("Same provider twice", recipientIDs: [], agents: [originalWeb.id, copiedWeb.id])!
+        instanceModel.openWebComparison(instanceComparison)
+        precondition(Set(instanceModel.webAgents.selected.map(\.id)) == Set([originalWeb.id, copiedWeb.id]))
+        let instanceResults = await WebAgents.send("Same provider twice", to: instanceModel.webAgents.selected, comparisonID: instanceComparison)
+        precondition(instanceResults.count == 2 && instanceResults.values.allSatisfy { $0.status == .observed })
+        precondition(instanceResults[originalWeb.id]!.conversationURL != instanceResults[copiedWeb.id]!.conversationURL)
+        _ = await copiedWeb.send("Private copy follow-up", comparisonID: instanceComparison)
+        precondition(!originalWeb.snapshot.messages.contains { $0.text == "Private copy follow-up" })
+        let storedInstanceComparison = try instanceModel.local.load().comparisons.first { $0.id == instanceComparison }!
+        precondition(storedInstanceComparison.resolvedWebAgentIDs == [originalWeb.id, copiedWeb.id])
+        instanceModel.webAgents.restoreSelection(forAgentIDs: [unusedWeb.id])
+        instanceModel.openWebComparison(instanceComparison)
+        precondition(Set(instanceModel.webAgents.selected.map(\.id)) == Set([originalWeb.id, copiedWeb.id]))
+        precondition(!unusedWeb.state.selected)
+        instanceModel.webAgents.beginShutdown()
+        await instanceModel.webAgents.cancelAndWait()
+        print("PASS: actual AppModel + LocalStore + WebAgents preserve two ChatGPT identities in one comparison, separate chat URLs/private follow-ups, and exact restored membership. Local website fixtures only.")
         print("PASS: actual AppModel + WindowCoordinator restore comparison ID, native recipient, provider selection, saved website URLs including the ongoing Dots thread and separate Codex CLI/Claude Code sessions; disabled archived CLI remains readable without sending. All sends use local fixtures.")
     }
 

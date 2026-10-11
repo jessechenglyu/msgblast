@@ -14,7 +14,7 @@ struct AgentsWorkspaceView: View {
     @Binding var showingComparison: Bool
     var newBlastRequest: UUID? = nil
     @State private var showingConnectionIntro = false
-    @State private var signInProviders: [WebProvider] = []
+    @State private var signInProviders: [WebAgentID] = []
     @State private var editingAgents = false
     private var busy: Bool { model.busy || model.webBroadcastBusy || web.sessions.contains { $0.isSending } }
     private var nativeRecipients: [Agent] {
@@ -24,13 +24,13 @@ struct AgentsWorkspaceView: View {
             (showingComparison || shown.contains(ids[$0.id] ?? .messages($0.id))) }
     }
     private var selectedWebSessions: [WebAgentSession] {
-        web.selected.filter { showingComparison || model.isVisibleInAgentGrid(.web($0.provider)) }
+        web.selected.filter { showingComparison || model.isVisibleInAgentGrid($0.id.gridID) }
     }
     private var attachmentComparisonID: UUID? { showingComparison ? nativeComparison?.id : nil }
     private var attachments: [MessageAttachment] { model.attachmentDraft(comparisonID: attachmentComparisonID) }
     private var sharedSendDisabledReason: String? {
         guard !busy else { return nil }
-        let drafts = selectedWebSessions.filter { $0.snapshot.hasDraft }.map { $0.provider.name }
+        let drafts = selectedWebSessions.filter { $0.snapshot.hasDraft }.map { $0.name }
         guard !drafts.isEmpty else { return nil }
         let names = drafts.formatted(.list(type: .and))
         return "Finish or clear the draft in \(names), or deselect \(names) to send to the other agents."
@@ -94,7 +94,7 @@ struct AgentsWorkspaceView: View {
                 Image(systemName: "person.crop.circle.badge.checkmark")
                     .font(.system(size: 34)).foregroundStyle(Color.accentColor)
                 Text("Connect your accounts").font(.title2.weight(.semibold))
-                Text("Sign in to \(signInProviders.map(\.name).formatted(.list(type: .and))) in the chat panes. Then press Send & compare again.")
+                Text("Sign in to \(signInProviders.map { web.name(for: $0) }.formatted(.list(type: .and))) in the chat panes. Then press Send & compare again.")
                     .multilineTextAlignment(.center)
                 Text("Your request is saved in the message box below. Signing in won’t send it.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -122,10 +122,10 @@ struct AgentsWorkspaceView: View {
             let width = max(320, (geometry.size.width - CGFloat(max(0, columns - 1))) / CGFloat(max(1, columns)))
             ScrollView(.horizontal) {
                 HStack(spacing: 0) {
-                    ForEach(web.displayed, id: \.provider) { session in
-                        if session.provider != web.displayed.first?.provider { Divider() }
+                    ForEach(web.displayed, id: \.id) { session in
+                        if session.id != web.displayed.first?.id { Divider() }
                         WebAgentPane(session: session, account: model.personalAgent, busy: busy, sendNative: { sendDirect($0, to: session) })
-                            .frame(width: width).id(session.provider.rawValue)
+                            .frame(width: width).id(session.id.id)
                     }
                     if let comparison = nativeComparison {
                         ForEach(comparison.members) { member in
@@ -143,7 +143,7 @@ struct AgentsWorkspaceView: View {
         VStack(alignment: .leading, spacing: 10) {
             let signedOut = selectedWebSessions.filter { !$0.provider.usesNativeConversation && $0.snapshot.signedIn == false }
             if !signedOut.isEmpty {
-                Text("Sign in required: \(signedOut.map { $0.provider.name }.formatted(.list(type: .and)))")
+                Text("Sign in required: \(signedOut.map { $0.name }.formatted(.list(type: .and)))")
                     .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("Website sign-in status")
             }
             if !selectedWebSessions.isEmpty && !attachments.isEmpty {
@@ -153,8 +153,8 @@ struct AgentsWorkspaceView: View {
             if showingComparison { ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     Text("Send to").font(.caption).foregroundStyle(.secondary)
-                    ForEach(web.sessions.filter { session in session.provider.supportsSharedSubmissions && (session.isEnabled || web.displayed.contains(where: { $0.provider == session.provider })) }, id: \.provider) { session in
-                        recipient(session.provider.name, selected: session.isEnabled && session.state.selected) { selectRecipient(session) }
+                    ForEach(web.sessions.filter { session in session.provider.supportsSharedSubmissions && (session.isEnabled || web.displayed.contains(where: { $0.id == session.id })) }, id: \.id) { session in
+                        recipient(session.name, selected: session.isEnabled && session.state.selected) { selectRecipient(session) }
                             .disabled(!session.isEnabled)
                     }
                     ForEach(model.state.agents) { agent in
@@ -196,7 +196,7 @@ struct AgentsWorkspaceView: View {
 
     private func selectRecipient(_ session: WebAgentSession) {
         guard !busy, session.provider.supportsSharedSubmissions else { return }
-        guard let comparison = nativeComparison, !(comparison.webProviders ?? []).contains(session.provider) else {
+        guard let comparison = nativeComparison, !comparison.resolvedWebAgentIDs.contains(session.id) else {
             web.toggle(session)
             return
         }
@@ -220,11 +220,11 @@ struct AgentsWorkspaceView: View {
             }
             guard await session.openComparison(comparisonID) else { return false }
             // Save membership before sending so an interrupted join is never automatically repeated.
-            model.state.comparisons[i].webProviders = (saved.webProviders ?? []) + [session.provider]
+            model.state.comparisons[i].setWebAgents(saved.resolvedWebAgentIDs + [session.id])
             try model.save()
             let attempt = await session.send(saved.joiningPrompt(), comparisonID: comparisonID)
             if attempt == nil || attempt?.status == .notSent {
-                model.state.comparisons[i].webProviders?.removeAll { $0 == session.provider }
+                model.state.comparisons[i].setWebAgents(model.state.comparisons[i].resolvedWebAgentIDs.filter { $0 != session.id })
                 try model.save()
             }
             return attempt?.status == .observed
@@ -246,8 +246,8 @@ struct AgentsWorkspaceView: View {
             model.state.selection = recipients
             do { try model.save() }
             catch { model.state.selection = previousSelection; model.error = error.localizedDescription; return }
-            let included = Set(sessions.map(\.provider))
-            for session in web.sessions where session.provider.supportsSharedSubmissions && session.state.selected && !included.contains(session.provider) {
+            let included = Set(sessions.map(\.id))
+            for session in web.sessions where session.provider.supportsSharedSubmissions && session.state.selected && !included.contains(session.id) {
                 session.updateState { $0.selected = false }
             }
         }
@@ -274,22 +274,22 @@ struct AgentsWorkspaceView: View {
             let comparisonID: UUID
             if let existingID { comparisonID = existingID }
             else {
-                guard let id = await model.prepareWebComparison(originalDraft.trimmingCharacters(in: .whitespacesAndNewlines), recipientIDs: recipients, providers: sessions.map(\.provider)) else { return }
+                guard let id = await model.prepareWebComparison(originalDraft.trimmingCharacters(in: .whitespacesAndNewlines), recipientIDs: recipients, agents: sessions.map(\.id)) else { return }
                 comparisonID = id
             }
             if existingID != nil {
-                for session in sessions where model.comparison(comparisonID)?.webProviders?.contains(session.provider) != true {
+                for session in sessions where model.comparison(comparisonID)?.resolvedWebAgentIDs.contains(session.id) != true {
                     guard await join(session, comparisonID: comparisonID) else { return }
                 }
             }
             if let i = model.index(comparisonID) {
-                let previous = model.state.comparisons[i].webProviders ?? []
-                model.state.comparisons[i].webProviders = WebProvider.allCases.filter { previous.contains($0) || sessions.map(\.provider).contains($0) }
+                let previous = model.state.comparisons[i].resolvedWebAgentIDs
+                model.state.comparisons[i].setWebAgents(previous + sessions.map(\.id))
                 do { try model.save() } catch { model.error = error.localizedDescription; return }
             }
             do { try model.freezeSharedContext(comparisonID) } catch { model.error = error.localizedDescription; return }
             let allRecipients = model.comparison(comparisonID).map { comparison in
-                Set(comparison.webProviders ?? []) == Set(sessions.map(\.provider)) && Set(comparison.members.map(\.id)) == recipients
+                Set(comparison.resolvedWebAgentIDs) == Set(sessions.map(\.id)) && Set(comparison.members.map(\.id)) == recipients
             } ?? false
             let followUpID = UUID()
             let result = await AgentBroadcast.send(draft: originalDraft, currentDraft: { model.state.draft }, clearDraft: {
@@ -330,13 +330,13 @@ struct AgentsWorkspaceView: View {
             let id: UUID
             if let existingID { id = existingID }
             else {
-                guard let created = await model.prepareWebComparison(text, recipientIDs: [], providers: [session.provider]) else { return }
+                guard let created = await model.prepareWebComparison(text, recipientIDs: [], agents: [session.id]) else { return }
                 id = created
             }
             do { try model.freezeSharedContext(id) } catch { model.error = error.localizedDescription; return }
             guard let i = model.index(id) else { return }
-            if model.state.comparisons[i].webProviders?.contains(session.provider) != true {
-                model.state.comparisons[i].webProviders = (model.state.comparisons[i].webProviders ?? []) + [session.provider]
+            if model.state.comparisons[i].resolvedWebAgentIDs.contains(session.id) != true {
+                model.state.comparisons[i].setWebAgents(model.state.comparisons[i].resolvedWebAgentIDs + [session.id])
             }
             do { try model.save() } catch { model.error = error.localizedDescription; return }
             showingComparison = true
@@ -543,9 +543,9 @@ private struct WebAgentPane: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                AgentAvatar(agent: AgentArtwork.agent(for: session), name: session.provider.name, size: 38)
+                AgentAvatar(agent: AgentArtwork.agent(for: session), name: session.name, size: 38)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(session.provider.name).font(.headline)
+                    Text(session.name).font(.headline)
                     Text(session.locationLabel).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -554,7 +554,7 @@ private struct WebAgentPane: View {
                     SettingsLink { Image(systemName: "gearshape") }
                         .help("Grok Bot settings").accessibilityLabel("Grok Bot settings")
                 } else {
-                    Button { session.reload() } label: { Image(systemName: "arrow.clockwise") }.help("Reload \(session.provider.name)").accessibilityLabel("Reload \(session.provider.name)").disabled(busy)
+                    Button { session.reload() } label: { Image(systemName: "arrow.clockwise") }.help("Reload \(session.name)").accessibilityLabel("Reload \(session.name)").disabled(busy)
                 }
             }.padding(14).background(.bar)
             if session.needsConversationLink {
@@ -594,11 +594,11 @@ private struct WebAgentPane: View {
                 EmbeddedServicePage(webView: session.webView).id(ObjectIdentifier(session.webView))
             } else {
                 VStack(spacing: 18) {
-                    AgentAvatar(agent: AgentArtwork.agent(for: session), name: session.provider.name, size: 80)
-                    Text("\(session.provider.name), inside MsgBlast").font(.title2.weight(.semibold))
-                    Text("Sign in here once, then send from the shared composer. Your \(session.provider.name) conversation and replies stay in this window.")
+                    AgentAvatar(agent: AgentArtwork.agent(for: session), name: session.name, size: 80)
+                    Text("\(session.name), inside MsgBlast").font(.title2.weight(.semibold))
+                    Text("Sign in here once, then send from the shared composer. Your \(session.name) conversation and replies stay in this window.")
                         .foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 380)
-                    Button("Connect \(session.provider.name)") { session.connect() }.buttonStyle(.borderedProminent).controlSize(.large)
+                    Button("Connect \(session.name)") { session.connect() }.buttonStyle(.borderedProminent).controlSize(.large)
                     Text("Safari’s login is separate. MsgBlast remembers its own web session.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(28)
             }
@@ -624,7 +624,7 @@ private struct WebAgentPane: View {
         VStack(spacing: 12) {
             let connected = session.provider == .grokbot ? session.grokBotIsConfigured : [.subscription, .apiKey, .other].contains(session.accountStatus)
             if !session.isEnabled {
-                Text("Enable \(session.provider.name) in Settings to send. Your saved conversation is still available here.")
+                Text("Enable \(session.name) in Settings to send. Your saved conversation is still available here.")
                     .font(.caption).foregroundStyle(.secondary)
             } else if session.provider == .grokbot {
                 if session.fixture {
@@ -654,25 +654,25 @@ private struct WebAgentPane: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         if session.snapshot.messages.isEmpty {
-                            Text(connected ? "Ready to chat. Send a message below, or use the shared message box to ask your selected agents." : "Sign in to \(session.provider.name) to start chatting. Your request stays in the message box until you send it.")
+                            Text(connected ? "Ready to chat. Send a message below, or use the shared message box to ask your selected agents." : "Sign in to \(session.name) to start chatting. Your request stays in the message box until you send it.")
                                 .foregroundStyle(.secondary).padding(.vertical, 20)
                         }
                         ForEach(session.snapshot.messages) { message in
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(message.role == "user" ? "You" : session.provider.name).font(.caption.bold()).foregroundStyle(.secondary)
+                                Text(message.role == "user" ? "You" : session.name).font(.caption.bold()).foregroundStyle(.secondary)
                                 Text((try? AttributedString(markdown: message.text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(message.text))
                                     .textSelection(.enabled)
                             }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
                                 .background(message.role == "user" ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
                                 .id(message.id)
                         }
-                        if session.isSending { ProgressView(session.provider == .grokbot ? "Sending to Grok Bot…" : "\(session.provider.name) is replying…").id("replying") }
+                        if session.isSending { ProgressView(session.provider == .grokbot ? "Sending to Grok Bot…" : "\(session.name) is replying…").id("replying") }
                     }
                 }.onChange(of: session.snapshot.messages.last?.id) { _, id in
                     if let id { proxy.scrollTo(id, anchor: .bottom) }
                 }
             }
-            if session.isSending, provider != nil { Button("Cancel \(session.provider.name) reply") { session.cancelNativeRequest() } }
+            if session.isSending, provider != nil { Button("Cancel \(session.name) reply") { session.cancelNativeRequest() } }
             if session.latestComparisonAttempt?.status == .uncertain {
                 Text("The last request was incomplete. Continuing may consume provider usage again.").font(.caption).foregroundStyle(.orange)
                 Button("Acknowledge incomplete request") { session.acknowledgeIncompleteRequest() }.disabled(busy)
@@ -682,8 +682,8 @@ private struct WebAgentPane: View {
                 Button("Stop waiting for this reply") { session.acknowledgeIncompleteRequest() }.disabled(busy)
             }
             MessageInput(text: Binding(get: { session.state.draft }, set: { text in session.updateState { $0.draft = text } }),
-                attachments: [], addAttachments: { _ in }, removeAttachment: { _ in }, placeholder: "Message \(session.provider.name)",
-                accessibilityName: "Message \(session.provider.name)", sendLabel: "Send to \(session.provider.name)",
+                attachments: [], addAttachments: { _ in }, removeAttachment: { _ in }, placeholder: "Message \(session.name)",
+                accessibilityName: "Message \(session.name)", sendLabel: "Send to \(session.name)",
                 disabled: busy || !session.snapshot.ready, attachmentsEnabled: false) {
                     sendNative(session.state.draft)
                 }

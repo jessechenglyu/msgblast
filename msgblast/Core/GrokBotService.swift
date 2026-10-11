@@ -121,7 +121,7 @@ public enum GrokBotServiceError: LocalizedError, Equatable {
 }
 
 enum GrokBotCredentialStore {
-    private static let worker = GrokBotCredentialWorker()
+    private static let workers = GrokBotCredentialWorkers()
     static func query(_ storageURL: URL) -> [String: Any] {
         let context = LAContext()
         context.interactionNotAllowed = true
@@ -141,7 +141,7 @@ enum GrokBotCredentialStore {
         return false
     }
     static func read(_ storageURL: URL) async throws -> GrokBotCredentials? {
-        try await worker.perform { try readSynchronously(storageURL) }
+        try await workers.worker(for: storageURL).perform { try readSynchronously(storageURL) }
     }
     private static func readSynchronously(_ storageURL: URL) throws -> GrokBotCredentials? {
         try readAvailableStorage(storageURL, hardwareAvailable: SecureEnclave.isAvailable) {
@@ -163,7 +163,7 @@ enum GrokBotCredentialStore {
         return try GrokBotCredentials(webhookURL: value.webhookURL.absoluteString, webhookKey: value.webhookKey)
     }
     static func save(_ credentials: GrokBotCredentials, at storageURL: URL) async throws -> Bool {
-        try await worker.perform { try saveSynchronously(credentials, at: storageURL) }
+        try await workers.worker(for: storageURL).perform { try saveSynchronously(credentials, at: storageURL) }
     }
     private static func saveSynchronously(_ credentials: GrokBotCredentials, at storageURL: URL) throws -> Bool {
         if SecureEnclave.isAvailable {
@@ -181,6 +181,22 @@ enum GrokBotCredentialStore {
         } else if [errSecMissingEntitlement, errSecInteractionNotAllowed, errSecAuthFailed, errSecNotAvailable].contains(status) { return false }
         else if status != errSecSuccess { throw GrokBotServiceError.keychain }
         return true
+    }
+}
+
+/// Different bot profiles can restore independently. A pending call still owns
+/// its profile's admission slot, including after its caller has timed out.
+final class GrokBotCredentialWorkers: @unchecked Sendable {
+    private let lock = NSLock()
+    private var workers: [String: GrokBotCredentialWorker] = [:]
+    func worker(for storageURL: URL) -> GrokBotCredentialWorker {
+        let scope = storageURL.standardizedFileURL.path
+        return lock.withLock {
+            if let worker = workers[scope] { return worker }
+            let worker = GrokBotCredentialWorker()
+            workers[scope] = worker
+            return worker
+        }
     }
 }
 

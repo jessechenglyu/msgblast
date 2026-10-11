@@ -174,6 +174,13 @@ public struct Comparison: Codable, Identifiable, Sendable {
     public var recipientSelection: ConversationRecipients?
     public var summary: ComparisonSummary?
     public var webProviders: [WebProvider]?
+    public var webAgentIDs: [WebAgentID]?
+    public var resolvedWebAgentIDs: [WebAgentID] { webAgentIDs ?? (webProviders ?? []).map { WebAgentID(provider: $0) } }
+    public mutating func setWebAgents(_ agents: [WebAgentID]) {
+        var seen: Set<WebAgentID> = []
+        webAgentIDs = agents.filter { seen.insert($0).inserted }
+        webProviders = WebProvider.allCases.filter { provider in agents.contains { $0.provider == provider } }
+    }
     public var webProviderIdentityVersion: Int?
     public init(prompt: String, members: [Member]) { self.prompt = prompt; self.members = members; webProviderIdentityVersion = 2; sharedContext = [] }
     public mutating func completeSharedBroadcast(followUpID: UUID, recipients: Set<UUID>) {

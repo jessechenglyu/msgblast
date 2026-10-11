@@ -60,6 +60,7 @@ public struct WebWorkspaceState: Codable, Sendable {
     public var grokBotRememberedConnection: Bool?
     var legacyLocalStatePresent = false
     public var sessionID = UUID()
+    public var displayName: String?
     public var draft = ""
     public var selected = true
     public var messageRecipients: Set<UUID> = []
@@ -76,7 +77,7 @@ public struct WebWorkspaceState: Codable, Sendable {
     public var localPreviousSessionIDs: [String: [String]] = [:]
     public var localDrafts: [String: String] = [:]
     public init() {}
-    private enum CodingKeys: String, CodingKey { case providerIdentityVersion, enabled, dotsURL, savedAvatar, grokBotRememberedConnection, sessionID, draft, selected, includeMuse, messageRecipients, comparisonID, attempts, conversationURLs, webDrafts, museConversations, localConversations, localSessionIDs, localDrafts, localConfiguredSessionIDs, localPreviousSessionIDs, localSessionPolicyVersions }
+    private enum CodingKeys: String, CodingKey { case providerIdentityVersion, enabled, dotsURL, savedAvatar, grokBotRememberedConnection, sessionID, displayName, draft, selected, includeMuse, messageRecipients, comparisonID, attempts, conversationURLs, webDrafts, museConversations, localConversations, localSessionIDs, localDrafts, localConfiguredSessionIDs, localPreviousSessionIDs, localSessionPolicyVersions }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         providerIdentityVersion = try c.decodeIfPresent(Int.self, forKey: .providerIdentityVersion) ?? 1
@@ -86,6 +87,7 @@ public struct WebWorkspaceState: Codable, Sendable {
         grokBotRememberedConnection = try c.decodeIfPresent(Bool.self, forKey: .grokBotRememberedConnection)
         legacyLocalStatePresent = c.contains(.localConversations) || c.contains(.localSessionIDs) || c.contains(.localDrafts)
         sessionID = try c.decode(UUID.self, forKey: .sessionID)
+        displayName = try c.decodeIfPresent(String.self, forKey: .displayName)
         draft = try c.decodeIfPresent(String.self, forKey: .draft) ?? ""
         selected = try c.decodeIfPresent(Bool.self, forKey: .selected) ?? c.decodeIfPresent(Bool.self, forKey: .includeMuse) ?? true
         messageRecipients = try c.decodeIfPresent(Set<UUID>.self, forKey: .messageRecipients) ?? []
@@ -109,6 +111,7 @@ public struct WebWorkspaceState: Codable, Sendable {
         try c.encodeIfPresent(savedAvatar, forKey: .savedAvatar)
         try c.encodeIfPresent(grokBotRememberedConnection, forKey: .grokBotRememberedConnection)
         try c.encode(sessionID, forKey: .sessionID)
+        try c.encodeIfPresent(displayName, forKey: .displayName)
         try c.encode(draft, forKey: .draft)
         try c.encode(selected, forKey: .selected)
         try c.encode(messageRecipients, forKey: .messageRecipients)
@@ -184,7 +187,7 @@ public struct WebPageSnapshot: Decodable, Equatable, Sendable {
 }
 
 public struct AgentBroadcastResult: Sendable {
-    public let web: [WebProvider: WebSendAttempt]
+    public let web: [WebAgentID: WebSendAttempt]
     public let comparisonID: UUID?
 }
 
@@ -194,7 +197,7 @@ public enum AgentBroadcast {
         draft: String,
         currentDraft: @MainActor () -> String,
         clearDraft: @MainActor () -> Void,
-        web: @MainActor @Sendable (String) async -> [WebProvider: WebSendAttempt],
+        web: @MainActor @Sendable (String) async -> [WebAgentID: WebSendAttempt],
         messages: @MainActor @Sendable (String) async -> UUID?
     ) async -> AgentBroadcastResult {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)

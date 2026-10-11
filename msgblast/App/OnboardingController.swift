@@ -319,7 +319,7 @@ final class OnboardingController: ObservableObject {
     private func restoreRecipients(from state: OnboardingState) {
         let connected = state.completed.intersection(state.selected)
         for session in model.webAgents.sessions {
-            let selected = connected.contains { $0.provider == session.provider }
+            let selected = session.id.instance == nil && connected.contains { $0.provider == session.provider }
             if session.state.selected != selected { session.updateState { $0.selected = selected } }
         }
         model.state.selection = Set(connected.compactMap { state.messageAgentIDs[$0.rawValue] })

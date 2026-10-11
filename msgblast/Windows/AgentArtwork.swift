@@ -89,7 +89,7 @@ enum AgentArtwork {
     )
 
     static func agent(for session: WebAgentSession) -> Agent {
-        Agent(name: session.provider.name, handles: [],
+        Agent(name: session.name, handles: [],
               avatar: session.provider == .grokbot ? grokBotAvatar : session.avatar ?? (session.provider == .muse ? museDefaultAvatar : webDefaultAvatars[session.provider]),
               colorIndex: WebProvider.allCases.firstIndex(of: session.provider)! + 4)
     }

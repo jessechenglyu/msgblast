@@ -19,6 +19,7 @@ struct AgentGridView: View {
     @State private var hovered: AgentGridID?
     @State private var setup: AgentGridID?
     @State private var arrived: AgentGridID?
+    @State private var configuration: AgentConfigurationAction?
 
     private var catalog: [AgentGridEntry] { model.agentGridCatalog }
     private var motion: Animation? { reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.8) }
@@ -36,6 +37,7 @@ struct AgentGridView: View {
             ScrollViewReader { scroll in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        if let error = web.configurationError { Text(error).font(.caption).foregroundStyle(.orange) }
                         if editing {
                             HStack(alignment: .firstTextBaseline) {
                                 Text("Your agents").font(.headline)
@@ -91,6 +93,14 @@ struct AgentGridView: View {
             }
             .overlay { if let setup { setupOverlay(setup, geometry: geometry) } }
         }
+        .sheet(item: $configuration) { action in
+            AgentConfigurationSheet(action: action, web: web, busy: busy) { session in
+                var grid = model.agentGridLayout
+                grid.add(session.id.gridID)
+                guard model.setAgentGrid(grid) else { throw AppFailure.blocked(model.error ?? "Could not add the agent to your grid.") }
+                if session.provider == .grokbot { setup = session.id.gridID }
+            }
+        }
         .onChange(of: editing) { _, _ in
             query = ""; dragging = nil; previewLayout = nil; hovered = nil; arrived = nil; setup = nil
         }
@@ -110,24 +120,24 @@ struct AgentGridView: View {
                         .accessibilityLabel("Done setting up \(catalog.first { $0.id == id }?.name ?? "agent")")
                 }
                 ScrollView {
-                    switch id {
-                    case .web(.grokbot):
-                        if let session = session(for: id) {
-                            if session.grokBotIsConfigured && !session.isEnabled {
-                                Button("Enable Grok Bot") {
-                                    session.updateState { $0.enabled = true; $0.selected = false }
-                                    session.connect()
-                                }.buttonStyle(.borderedProminent).disabled(busy)
-                            }
-                            GrokBotSetupView(session: session, busy: busy, selectAfterConnecting: false)
+                    if let session = session(for: id), session.provider == .grokbot {
+                        if session.grokBotIsConfigured && !session.isEnabled {
+                            Button("Enable \(session.name)") {
+                                session.updateState { $0.enabled = true; $0.selected = false }
+                                session.connect()
+                            }.buttonStyle(.borderedProminent).disabled(busy)
                         }
-                    case .web, .runtime:
-                        LocalAgentSettingsView(agent: model.personalAgent, web: web, busy: busy)
-                    case .featuredMessages(let choice):
-                        FeaturedMessagesGridSetup(model: model, choice: choice)
-                    case .messages:
-                        Text("Open an existing Messages conversation with this agent, then return to msgblast.")
-                            .foregroundStyle(.secondary)
+                        GrokBotSetupView(session: session, busy: busy, selectAfterConnecting: false)
+                    } else {
+                        switch id {
+                        case .web, .webInstance, .runtime:
+                            LocalAgentSettingsView(agent: model.personalAgent, web: web, busy: busy)
+                        case .featuredMessages(let choice):
+                            FeaturedMessagesGridSetup(model: model, choice: choice)
+                        case .messages:
+                            Text("Open an existing Messages conversation with this agent, then return to msgblast.")
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }.padding(24)
@@ -186,19 +196,28 @@ struct AgentGridView: View {
                     })
                 .accessibilityAction(named: "Move earlier") { move(entry.id, by: -1) }
                 .accessibilityAction(named: "Move later") { move(entry.id, by: 1) }
-            } else {
-                tile.contextMenu {
-                    if !available, let session = session(for: entry.id) {
-                        Button("Open chat") { openChat(session) }.disabled(busy || !session.isEnabled || !session.state.selected)
-                    }
+            } else { tile }
+        }
+        .contextMenu {
+            if let session = session(for: entry.id) {
+                if !available {
+                    Button("Open chat") { openChat(session) }.disabled(busy || !session.isEnabled || !session.state.selected)
+                }
+                if session.provider.supportsCopies {
+                    Button("Duplicate agent…") { configuration = .duplicate(session.id) }.disabled(busy)
+                }
+                if session.provider.supportsCopies || session.provider == .grokbot {
+                    Button("Rename…") { configuration = .rename(session.id) }.disabled(busy)
+                }
+                if session.provider == .grokbot {
+                    Button("Add another Bot…") { configuration = .addBot }.disabled(busy)
                 }
             }
         }
     }
 
     private func session(for id: AgentGridID) -> WebAgentSession? {
-        guard case .web(let provider) = id else { return nil }
-        return web.sessions.first { $0.provider == provider }
+        web.session(for: id)
     }
 
     private func selected(_ id: AgentGridID) -> Bool {
@@ -430,5 +449,93 @@ private struct FeaturedMessagesGridSetup: View {
         do { candidates = choice.contactSuggestions(in: try await model.onboardingContactSuggestions()) }
         catch is CancellationError { }
         catch { if !Task.isCancelled { model.error = error.localizedDescription } }
+    }
+}
+
+enum AgentConfigurationAction: Identifiable {
+    case duplicate(WebAgentID), rename(WebAgentID), addBot
+    var id: String {
+        switch self {
+        case .duplicate(let id): "duplicate:" + id.id
+        case .rename(let id): "rename:" + id.id
+        case .addBot: "add-bot"
+        }
+    }
+}
+
+struct AgentConfigurationSheet: View {
+    let action: AgentConfigurationAction
+    @ObservedObject var web: WebAgents
+    let busy: Bool
+    var onCreated: (WebAgentSession) throws -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var separateAccount = false
+    @State private var error: String?
+
+    private var source: WebAgentSession? {
+        switch action {
+        case .duplicate(let id), .rename(let id): web.session(for: id)
+        case .addBot: nil
+        }
+    }
+    private var title: String {
+        switch action {
+        case .duplicate: "Duplicate \(source?.name ?? "agent")"
+        case .rename: "Rename agent"
+        case .addBot: "Add Grok Bot"
+        }
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(title).font(.title2.bold())
+            TextField("Agent name", text: $name).textFieldStyle(.roundedBorder).accessibilityLabel("Agent name")
+            switch action {
+            case .duplicate:
+                Toggle("Use another account", isOn: $separateAccount)
+                Text(separateAccount ? "Sign in separately in the new agent’s chat." : "Reuse this agent’s sign-in. Signing out affects copies that share this account.")
+                    .font(.callout).foregroundStyle(.secondary)
+                Text("The copy starts a fresh conversation. Choose its model and reasoning level in the website’s controls; the name is your label, not a verified setting.")
+                    .font(.callout).foregroundStyle(.secondary)
+            case .addBot:
+                Text("Connect this bot’s own routine after adding it. Its key and conversation history are kept separately from your other bots.")
+                    .font(.callout).foregroundStyle(.secondary)
+            case .rename: EmptyView()
+            }
+            if let error { Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Save") { save() }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                    .accessibilityLabel("Save agent")
+                    .disabled(busy || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 80)
+            }
+        }.padding(24).frame(width: 440)
+        .onAppear {
+            switch action {
+            case .duplicate:
+                let base = (source?.name ?? "Agent") + " copy"
+                name = base
+                var suffix = 2
+                while web.sessions.contains(where: { $0.name == name }) { name = "\(base) \(suffix)"; suffix += 1 }
+            case .rename: name = source?.name ?? ""
+            case .addBot: name = "Grok Bot \(web.sessions.filter { $0.provider == .grokbot }.count + 1)"
+            }
+        }
+    }
+    private func save() {
+        do {
+            switch action {
+            case .duplicate:
+                guard let source else { throw WebAgentConfigurationError.unavailable }
+                try onCreated(web.duplicate(source, name: name, separateAccount: separateAccount))
+            case .rename:
+                guard let source else { throw WebAgentConfigurationError.unavailable }
+                try source.rename(name)
+            case .addBot:
+                try onCreated(web.addGrokBot(name: name))
+            }
+            dismiss()
+        } catch { self.error = error.localizedDescription }
     }
 }

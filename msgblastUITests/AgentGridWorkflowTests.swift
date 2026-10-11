@@ -88,6 +88,37 @@ final class AgentGridWorkflowTests: XCTestCase {
     }
 
     @MainActor
+    func testDuplicateWebAgentCreatesIndependentRecipientAndCanBeRenamed() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo"]
+        app.launch(); app.activate()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["ChatGPT"].waitForExistence(timeout: 10))
+        app.buttons["ChatGPT"].rightClick()
+        XCTAssertTrue(app.menuItems["Duplicate agent…"].waitForExistence(timeout: 5))
+        app.menuItems["Duplicate agent…"].click()
+        let name = app.textFields["Agent name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.click(); name.typeKey("a", modifierFlags: .command); name.typeText("ChatGPT deep")
+        XCTAssertTrue(app.checkBoxes["Use another account"].exists)
+        capture(app, name: "Duplicate agent with shared sign-in — isolated fixture")
+        app.buttons["Save agent"].click()
+        XCTAssertTrue(app.buttons["ChatGPT deep"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["ChatGPT deep"].value as? String, "Not selected")
+        app.buttons["ChatGPT deep"].click()
+        XCTAssertEqual(app.buttons["ChatGPT deep"].value as? String, "Selected")
+        app.buttons["ChatGPT deep"].rightClick()
+        app.menuItems["Rename…"].click()
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.click(); name.typeKey("a", modifierFlags: .command); name.typeText("ChatGPT research")
+        app.buttons["Save agent"].click()
+        XCTAssertTrue(app.buttons["ChatGPT research"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["ChatGPT"].exists)
+        XCTAssertFalse(app.buttons["ChatGPT deep"].exists)
+        capture(app, name: "Two independently selectable ChatGPT agents — isolated fixture")
+    }
+
+    @MainActor
     private func capture(_ app: XCUIApplication, name: String) {
         let evidence = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         evidence.name = name

@@ -678,7 +678,7 @@ final class MultiWebAgentTests: XCTestCase {
             _ = try await session.webView.callAsyncJavaScript("chat.hidden=true;login.hidden=false", arguments: [:], in: nil, contentWorld: .page)
         }
         let required = await web.signInRequired(for: web.selected)
-        XCTAssertEqual(required, WebProvider.webDefaults)
+        XCTAssertEqual(required, WebProvider.webDefaults.map { WebAgentID(provider: $0) })
         XCTAssertTrue(web.selected.allSatisfy { $0.snapshot.signedIn == false && $0.state.attempts.isEmpty })
         for session in web.selected {
             _ = try await session.webView.callAsyncJavaScript("chat.hidden=false;login.hidden=true", arguments: [:], in: nil, contentWorld: .page)
@@ -1514,7 +1514,7 @@ final class MultiWebAgentTests: XCTestCase {
         try await waitFor { web.selected.allSatisfy { $0.snapshot.ready } }
         let results = await WebAgents.send("Compare a morning walk with an afternoon walk.", to: web.selected)
         XCTAssertEqual(results.count, 4)
-        for provider in WebProvider.webDefaults { XCTAssertEqual(results[provider]?.status, .observed, provider.name) }
+        for provider in WebProvider.webDefaults { XCTAssertEqual(results[WebAgentID(provider: provider)]?.status, .observed, provider.name) }
         try await waitFor { web.selected.allSatisfy { $0.snapshot.messages.contains { $0.role == "assistant" && $0.text.contains("afternoon walk") } } }
         for session in web.selected {
             XCTAssertEqual(session.snapshot.messages.filter { $0.role == "user" }.count, 1)
@@ -1523,8 +1523,8 @@ final class MultiWebAgentTests: XCTestCase {
         }
         let again = await WebAgents.send("Compare a morning walk with an afternoon walk.", to: web.selected)
         for provider in WebProvider.webDefaults {
-            XCTAssertEqual(again[provider]?.status, .observed, provider.name)
-            XCTAssertNotEqual(again[provider]?.messageID, results[provider]?.messageID)
+            XCTAssertEqual(again[WebAgentID(provider: provider)]?.status, .observed, provider.name)
+            XCTAssertNotEqual(again[WebAgentID(provider: provider)]?.messageID, results[WebAgentID(provider: provider)]?.messageID)
         }
     }
 
@@ -1941,7 +1941,7 @@ final class MultiWebAgentTests: XCTestCase {
         XCTAssertFalse(prepared)
         XCTAssertNil(web.comparisonID, "Failed setup must not restore an old comparison on retry")
         XCTAssertTrue(web.availableSessions.allSatisfy { $0.state.comparisonID == nil })
-        XCTAssertTrue(web.availableSessions.allSatisfy { $0.state.conversationURLs[previousID.uuidString] == previous[$0.provider]?.conversationURL })
+        XCTAssertTrue(web.availableSessions.allSatisfy { $0.state.conversationURLs[previousID.uuidString] == previous[$0.id]?.conversationURL })
     }
 
     func testLoginCompletingDuringSetupRequiresAnotherExplicitSubmission() async throws {

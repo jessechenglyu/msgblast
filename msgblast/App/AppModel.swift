@@ -393,13 +393,13 @@ final class AppModel: ObservableObject {
         persist()
     }
 
-    func prepareWebComparison(_ text: String, recipientIDs: Set<UUID>, providers: [WebProvider]) async -> UUID? {
+    func prepareWebComparison(_ text: String, recipientIDs: Set<UUID>, agents: [WebAgentID]) async -> UUID? {
         guard !busy else { return nil }
         do {
             if !recipientIDs.isEmpty, !demo, contacts.status == .notDetermined { try await contacts.request() }
             let members = recipientIDs.isEmpty ? [] : try validateMembers(prompt: text, selectedIDs: recipientIDs)
             var comparison = Comparison(prompt: text, members: members)
-            comparison.webProviders = providers
+            comparison.setWebAgents(agents)
             state.comparisons.insert(comparison, at: 0)
             do { try save() }
             catch { state.comparisons.removeAll { $0.id == comparison.id }; throw error }
@@ -432,7 +432,7 @@ final class AppModel: ObservableObject {
         guard !webBroadcastBusy, let comparison = comparison(id) else { return }
         selectWorkspace(id)
         state.selection = Set(comparison.members.map(\.id))
-        webAgents.restoreSelection(for: comparison.webProviders ?? [])
+        webAgents.restoreSelection(forAgentIDs: comparison.resolvedWebAgentIDs)
         webAgents.connectSelected()
         webComparisonRequest = UUID()
         for session in webAgents.selected {

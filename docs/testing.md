@@ -186,3 +186,17 @@ The [October 9 documentation validation record](evidence/contributor-documentati
 includes verified commands and an intermittent web-editor test failure: the full
 native suite failed one test, which passed unchanged on a focused rerun. This is
 dated evidence, not a current suite-pass guarantee.
+
+## Named agent checks
+
+`WebAgentInstanceTests` covers copies with shared and separate browser sign-in
+stores, independent bot receipts and private follow-ups, saved names and
+comparison membership, legacy selection, and preservation of a malformed
+instance registry. Its cookie test uses newly created isolated WebKit stores,
+not browser cookies from an installed account. Bot responses are simulated;
+no live routine, provider request, or tunnel is started.
+
+`AgentGridWorkflowTests/testDuplicateWebAgentCreatesIndependentRecipientAndCanBeRenamed`
+checks the actual Duplicate/Rename sheets and independently selected tiles in
+an isolated Demo session. Change reasoning in the embedded website manually;
+this feature does not automate or verify provider model settings.
