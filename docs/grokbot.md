@@ -23,6 +23,21 @@ Legacy file-based Keychain entries are left untouched and are not read. Existing
 
 The routine's URL and key belong to a routine, not the generic xAI model API. A successful webhook acknowledgement means the routine was accepted; it does not contain its answer. The callback instructions are necessary.
 
+## Multiple bots
+
+Settings lists each saved Grok Bot connection by name. Choose **Add Grok Bot…**
+to connect another bot or account, then create a routine on that particular bot
+and enter its own URL and key. You can also right-click a Grok Bot tile and choose
+**Add another Bot…**. Adding an entry does not copy another bot's credentials or
+select it as a message recipient.
+
+Each bot has its own enable switch, secure credential storage, drafts, history,
+and reply connection. Saved keys restore independently; a stalled secure-storage
+operation blocks further operations only on that bot's profile. Select several named bots to send a shared prompt, or send
+from one bot's pane to target only that bot. Renaming and hiding a tile retain
+its saved history. Reopening a comparison restores the particular bots that
+participated, including when several use the same provider.
+
 ## What runs and what is stored
 
 The app opens an HTTP listener on a random port bound only to `127.0.0.1`. It launches cloudflared with a private, empty temporary configuration, the loopback origin and info-level logging. It does not read or change existing tunnel configuration or enable a system service. The helper establishes a temporary HTTPS `trycloudflare.com` address. Only authenticated JSON POSTs to `/reply/REQUEST_ID` are accepted; the listener serves no files, chat history, credentials or management API.

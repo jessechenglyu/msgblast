@@ -102,6 +102,9 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
     private var manualRecoveryScopes: [UUID: (comparison: Int, page: WebReceiptGeneration)] = [:]
     private static let sharedDraftKey = "shared-account"
     public let provider: WebProvider
+    public let id: WebAgentID
+    public var name: String { state.displayName ?? provider.name }
+    public var isStorageAvailable: Bool { !storageFailed }
     private var script: WebPageScript { WebPageScript(provider: provider) }
 
     public var isReadyForOnboarding: Bool {
@@ -110,12 +113,16 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
         return !webView.isLoading && canInspectWebsite && snapshot.signedIn == true
     }
 
-    public init(provider: WebProvider, storageURL: URL, fixture: Bool, migrationError: String? = nil) {
+    public init(provider: WebProvider, storageURL: URL, fixture: Bool, migrationError: String? = nil, agentID: WebAgentID? = nil, accountID: UUID? = nil, name: String? = nil) {
         self.provider = provider
+        self.id = agentID ?? WebAgentID(provider: provider)
         self.storageURL = storageURL
         self.fixture = fixture
         var loaded = WebWorkspaceState()
         loaded.selected = WebProvider.webDefaults.contains(provider)
+        if agentID?.instance != nil { loaded.selected = false }
+        if let accountID { loaded.sessionID = accountID }
+        loaded.displayName = name
         var failure: String? = migrationError
         do { loaded = try JSONDecoder().decode(WebWorkspaceState.self, from: Data(contentsOf: storageURL)).recoveringInFlight() }
         catch CocoaError.fileReadNoSuchFile { }
@@ -151,6 +158,14 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
     }
 
     deinit { poll?.cancel() }
+
+    public func rename(_ name: String) throws {
+        let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty, cleaned.count <= 80 else { throw WebAgentConfigurationError.invalidName }
+        let previous = state.displayName
+        state.displayName = cleaned
+        do { try save() } catch { state.displayName = previous; throw error }
+    }
 
     public func updateState(_ edit: (inout WebWorkspaceState) -> Void) {
         guard !storageFailed else { return }

@@ -2,6 +2,42 @@ import SwiftUI
 import AppKit
 import msgblastCore
 
+struct GrokBotConnectionsView: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var web: WebAgents
+    let busy: Bool
+    @State private var expanded: Set<WebAgentID> = [.grokbot]
+    @State private var configuration: AgentConfigurationAction?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Button("Add Grok Bot…") { configuration = .addBot }.disabled(busy)
+            ForEach(web.sessions.filter { $0.provider == .grokbot }, id: \.id) { session in
+                DisclosureGroup(isExpanded: Binding(get: { expanded.contains(session.id) }, set: { value in
+                    if value { expanded.insert(session.id) } else { expanded.remove(session.id) }
+                })) {
+                    GrokBotSettingsView(session: session, busy: busy).padding(.top, 12)
+                } label: {
+                    HStack {
+                        Text(session.name).fontWeight(.medium)
+                        Spacer()
+                        Button("Rename") { configuration = .rename(session.id) }.buttonStyle(.borderless).disabled(busy)
+                    }
+                }
+            }
+            if let error = web.configurationError { Text(error).font(.caption).foregroundStyle(.orange) }
+        }
+        .sheet(item: $configuration) { action in
+            AgentConfigurationSheet(action: action, web: web, busy: busy) { session in
+                var grid = model.agentGridLayout
+                grid.add(session.id.gridID)
+                guard model.setAgentGrid(grid) else { throw AppFailure.blocked(model.error ?? "Could not add the bot to your grid.") }
+                expanded.insert(session.id)
+            }
+        }
+    }
+}
+
 struct GrokBotSettingsView: View {
     @ObservedObject var session: WebAgentSession
     let busy: Bool
@@ -10,9 +46,9 @@ struct GrokBotSettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Toggle(isOn: Binding(get: { session.isEnabled }, set: { session.setEnabled($0); if $0 { session.connect() } })) {
                 HStack(spacing: 12) {
-                    AgentAvatar(agent: AgentArtwork.agent(for: session), name: session.provider.name, size: 32)
+                    AgentAvatar(agent: AgentArtwork.agent(for: session), name: session.name, size: 32)
                         .accessibilityHidden(true)
-                    Text("Enable Grok Bot")
+                    Text("Enable \(session.name)")
                 }
             }
             .toggleStyle(.switch)
@@ -88,7 +124,7 @@ struct GrokBotSetupView: View {
                         .textFieldStyle(.roundedBorder).disabled(session.configuringGrokBot)
                     Text("Paste only the key. msgblast adds the Authorization header automatically.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Button(session.grokBotConnectionActivity?.title ?? "Connect Grok Bot") {
+                    Button(session.grokBotConnectionActivity?.title ?? "Connect \(session.name)") {
                         Task {
                             saved = await session.configureGrokBot(webhookURL: webhookURL, webhookKey: webhookKey, selectAfterConnecting: selectAfterConnecting)
                             if saved { webhookKey = "" }

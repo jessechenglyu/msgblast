@@ -58,6 +58,21 @@ website. Grok Bot is distinct from Grok's website. Comparisons keep each provide
 identity and private history; joining another agent shares only explicitly shared
 context, not private one-to-one turns.
 
+Web agents have a provider identity and a saved agent identity. The original
+agents retain their existing files and WebKit store identifiers. Named copies
+of Muse, ChatGPT, Claude, and Grok use separate state files and conversation
+pages; by default they share the source agent's WebKit sign-in store. Choosing
+**Use another account** gives the copy a separate store. Model and reasoning
+controls remain in the website; a custom agent name does not enforce a preset.
+Dots and rabbit OS3 retain their existing single-conversation behavior, and CLI
+conversations retain their separate local account setup.
+
+Comparison membership, grid tiles, send results, and restored selection use the
+saved agent identity. Legacy provider-only comparisons resolve to the original
+agent. Additional identities live in `web-agent-instances.json`; their state and
+Grok Bot credentials use distinct instance paths. Unreadable state is preserved
+and never replaced with a new empty registry.
+
 rabbit OS3 is featured in the agent grid and available during onboarding, but
 is not selected until the user connects or chooses it. Its account has one
 ongoing conversation: switching comparisons retains that page, its draft, and

@@ -67,14 +67,14 @@ final class PersonalAgentTests: XCTestCase {
         XCTAssertTrue(web.selected.allSatisfy { $0.snapshot.ready })
         let id = UUID(), prompt = "One shared fixture prompt"
         let replies = await WebAgents.send(prompt, to: web.selected, comparisonID: id)
-        XCTAssertEqual(Set(replies.keys), Set(WebProvider.webDefaults + WebProvider.optionalProviders))
+        XCTAssertEqual(Set(replies.keys), Set((WebProvider.webDefaults + WebProvider.optionalProviders).map { WebAgentID(provider: $0) }))
         XCTAssertTrue(replies.values.allSatisfy { $0.status == .observed && $0.text == prompt && $0.comparisonID == id })
         for session in web.selected {
             if session.provider.personalAgentProvider == nil {
-                XCTAssertNotNil(replies[session.provider]?.conversationURL)
+                XCTAssertNotNil(replies[session.id]?.conversationURL)
                 XCTAssertTrue(session.state.localSessionIDs.isEmpty)
             } else {
-                XCTAssertNil(replies[session.provider]?.conversationURL)
+                XCTAssertNil(replies[session.id]?.conversationURL)
                 XCTAssertNotNil(session.state.localSessionIDs[id.uuidString])
             }
             XCTAssertEqual(session.snapshot.messages.first { $0.role == "user" }?.text, prompt)

@@ -35,7 +35,7 @@ extension AppModel {
     }
 
     var agentGridCatalog: [AgentGridEntry] {
-        let webEntries = webAgents.sessions.map { AgentGridEntry(id: .web($0.provider), agent: AgentArtwork.agent(for: $0)) }
+        let webEntries = webAgents.sessions.map { AgentGridEntry(id: $0.id.gridID, agent: AgentArtwork.agent(for: $0)) }
         let featured = featuredMessageChoices.map { choice in
             AgentGridEntry(id: .featuredMessages(choice), agent: featuredMessageAgent(for: choice) ??
                 Agent(name: choice.name, handles: [], avatar: AgentArtwork.messageAvatar(for: choice)))
@@ -55,7 +55,7 @@ extension AppModel {
 
     var defaultAgentGrid: AgentGridLayout {
         let ids = messageGridIDs
-        let connected = webAgents.availableSessions.map { AgentGridID.web($0.provider) }
+        let connected = webAgents.availableSessions.map { $0.id.gridID }
         let messages = state.agents.map { ids[$0.id] ?? .messages($0.id) }
         let local = LocalAgentRuntime.allCases.filter { runtime in
             state.onboarding?.completed.contains { $0.runtime == runtime } == true
@@ -83,8 +83,7 @@ extension AppModel {
         }
         // Membership changes never inherit recipient selections from a previous comparison.
         for id in changed {
-            if case .web(let provider) = id,
-               let session = webAgents.sessions.first(where: { $0.provider == provider }) {
+            if let session = webAgents.session(for: id) {
                 session.updateState { $0.selected = false }
             }
         }
@@ -105,7 +104,7 @@ extension AppModel {
         let shown = Set(agentGridLayout.visibleIDs)
         let ids = messageGridIDs
         state.selection = state.selection.filter { shown.contains(ids[$0] ?? .messages($0)) }
-        for session in webAgents.sessions where session.state.selected && !shown.contains(.web(session.provider)) {
+        for session in webAgents.sessions where session.state.selected && !shown.contains(session.id.gridID) {
             session.updateState { $0.selected = false }
         }
     }

@@ -148,6 +148,32 @@ final class GrokBotTests: XCTestCase {
         release.signal()
         await fulfillment(of: [lateReturn], timeout: 2)
     }
+    func testPendingCredentialOperationOnlyBlocksItsOwnProfile() async throws {
+        let workers = GrokBotCredentialWorkers()
+        let first = URL(fileURLWithPath: "/tmp/msgblast-worker-first/state.json")
+        let alias = URL(fileURLWithPath: "/tmp/msgblast-worker-first/nested/../state.json")
+        let second = URL(fileURLWithPath: "/tmp/msgblast-worker-second/state.json")
+        let release = DispatchSemaphore(value: 0)
+        let lateReturn = expectation(description: "Pending first profile operation finishes")
+        defer { release.signal() }
+        do {
+            _ = try await workers.worker(for: first).perform(timeout: 0.03) {
+                _ = release.wait(timeout: .now() + 2)
+                lateReturn.fulfill()
+                return "late first profile"
+            }
+            XCTFail("Blocked storage still needs a bounded wait")
+        } catch let error as GrokBotServiceError { XCTAssertEqual(error, .keychainWaiting) }
+        let secondResult = try await workers.worker(for: second).perform { "second profile restored" }
+        XCTAssertEqual(secondResult, "second profile restored")
+        do {
+            _ = try await workers.worker(for: alias).perform { "unsafe overlapping mutation" }
+            XCTFail("A normalized alias must retain the same pending-operation guard")
+        } catch let error as GrokBotServiceError { XCTAssertEqual(error, .keychainWaiting) }
+        release.signal()
+        await fulfillment(of: [lateReturn], timeout: 2)
+    }
+
     func testKeychainWorkerPreservesOperationFailures() async throws {
         let worker = GrokBotCredentialWorker()
         do {

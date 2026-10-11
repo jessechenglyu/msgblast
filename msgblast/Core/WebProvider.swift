@@ -6,6 +6,7 @@ public enum WebProvider: String, CaseIterable, Codable, Identifiable, Sendable {
     public static let optionalProviders: [Self] = [.codexCLI, .claudeCode]
     public var id: String { rawValue }
     public var usesNativeConversation: Bool { personalAgentProvider != nil || self == .grokbot }
+    public var supportsCopies: Bool { [.muse, .chatgpt, .claude, .grok].contains(self) }
     public var personalAgentProvider: PersonalAgentProvider? {
         switch self { case .codexCLI: .codex; case .claudeCode: .claude; default: nil }
     }
@@ -71,4 +72,24 @@ public enum WebProvider: String, CaseIterable, Codable, Identifiable, Sendable {
         guard isChatURL(original), let destination = canonicalConversationURL(current) else { return false }
         return original == newChatURL || canonicalConversationURL(original) == destination
     }
+}
+
+/// Provider describes the integration; this identity describes one saved agent.
+/// A nil instance retains the original provider's state and browser login.
+public struct WebAgentID: Codable, Hashable, Sendable, Identifiable {
+    public let provider: WebProvider
+    public let instance: UUID?
+    public init(provider: WebProvider, instance: UUID? = nil) {
+        self.provider = provider; self.instance = instance
+    }
+    public var id: String { instance.map { "\(provider.rawValue):\($0.uuidString)" } ?? provider.rawValue }
+    public static let muse = Self(provider: .muse)
+    public static let chatgpt = Self(provider: .chatgpt)
+    public static let claude = Self(provider: .claude)
+    public static let grok = Self(provider: .grok)
+    public static let codexCLI = Self(provider: .codexCLI)
+    public static let claudeCode = Self(provider: .claudeCode)
+    public static let dots = Self(provider: .dots)
+    public static let grokbot = Self(provider: .grokbot)
+    public static let os3 = Self(provider: .os3)
 }

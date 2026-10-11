@@ -204,7 +204,7 @@ struct MainView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "bubble.left.and.bubble.right.fill").font(.title3).foregroundStyle(.secondary).frame(width: 32)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text((comparison.members.map(\.name) + (comparison.webProviders ?? []).map(\.name)).joined(separator: ", ")).fontWeight(.semibold).lineLimit(1)
+                                Text((comparison.members.map(\.name) + comparison.resolvedWebAgentIDs.map { model.webAgents.name(for: $0) }).joined(separator: ", ")).fontWeight(.semibold).lineLimit(1)
                                 Text(comparison.prompt).foregroundStyle(.secondary).lineLimit(2)
                             }
                         }.padding(.horizontal, 10).padding(.vertical, 8)
@@ -651,9 +651,7 @@ struct AppSettingsView: View {
                 LocalAgentSettingsView(agent: model.personalAgent, web: model.webAgents, busy: model.busy || model.webBroadcastBusy)
             }
             Section("Grok Bot") {
-                if let session = model.webAgents.sessions.first(where: { $0.provider == .grokbot }) {
-                    GrokBotSettingsView(session: session, busy: model.busy || model.webBroadcastBusy)
-                }
+                GrokBotConnectionsView(model: model, web: model.webAgents, busy: model.busy || model.webBroadcastBusy)
             }
             Section("Updates") {
                 Text(updater.version).foregroundStyle(.secondary)

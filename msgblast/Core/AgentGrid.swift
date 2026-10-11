@@ -2,6 +2,7 @@ import Foundation
 
 public enum AgentGridID: Codable, Hashable, Sendable, Identifiable {
     case web(WebProvider)
+    case webInstance(WebAgentID)
     case messages(UUID)
     case featuredMessages(OnboardingChoice)
     case runtime(LocalAgentRuntime)
@@ -9,11 +10,16 @@ public enum AgentGridID: Codable, Hashable, Sendable, Identifiable {
     public var id: String {
         switch self {
         case .web(let provider): "web:\(provider.rawValue)"
+        case .webInstance(let agent): "web-instance:\(agent.id)"
         case .messages(let id): "messages:\(id.uuidString)"
         case .featuredMessages(let choice): "featured:\(choice.rawValue)"
         case .runtime(let runtime): "runtime:\(runtime.rawValue)"
         }
     }
+}
+
+public extension WebAgentID {
+    var gridID: AgentGridID { instance == nil ? .web(provider) : .webInstance(self) }
 }
 
 // Membership here controls the picker, not account configuration or chat history.
