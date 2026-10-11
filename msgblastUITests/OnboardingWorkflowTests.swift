@@ -317,10 +317,15 @@ final class OnboardingWorkflowTests: XCTestCase {
         defer { app.terminate() }
         app.buttons["Choose ChatGPT"].click()
         app.buttons["Continue setup"].click()
-        skipBrowserImportIfPresent(app)
+        XCTAssertTrue(app.buttons["Import from Chrome"].waitForExistence(timeout: 5))
+        app.buttons["Import from Chrome"].click()
+        XCTAssertTrue(app.buttons["Import Demo profile"].waitForExistence(timeout: 5))
+        app.buttons["Import Demo profile"].click()
         XCTAssertTrue(app.buttons["Continue"].waitForExistence(timeout: 10))
         app.buttons["Continue"].click()
-        XCTAssertTrue(app.staticTexts["Share feedback anytime"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Help shape msgblast"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Share feedback"].exists)
+        XCTAssertTrue(app.staticTexts["Build a new feature"].exists)
         XCTAssertTrue(app.images["Help menu with Share Feedback highlighted"].exists)
         XCTAssertFalse(app.buttons["New Blast"].exists)
         XCTAssertFalse(app.buttons["Skip for now"].exists)
@@ -333,7 +338,13 @@ final class OnboardingWorkflowTests: XCTestCase {
         let feedback = app.windows["Send Feedback"]
         XCTAssertTrue(feedback.waitForExistence(timeout: 5))
         feedback.buttons[XCUIIdentifierCloseWindow].click()
-        XCTAssertTrue(app.staticTexts["Share feedback anytime"].exists)
+        XCTAssertTrue(app.staticTexts["Help shape msgblast"].exists)
+        app.buttons["Build a New Feature…"].click()
+        let buildFeature = app.windows["Build a New Feature"]
+        XCTAssertTrue(buildFeature.waitForExistence(timeout: 5))
+        XCTAssertTrue(buildFeature.buttons["Copy Prompt"].exists)
+        buildFeature.buttons[XCUIIdentifierCloseWindow].click()
+        XCTAssertTrue(app.staticTexts["Help shape msgblast"].exists)
         app.buttons["Start chatting"].click()
         XCTAssertTrue(app.buttons["New Blast"].waitForExistence(timeout: 5))
     }

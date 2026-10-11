@@ -205,14 +205,35 @@ private struct OnboardingFeedbackView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Share feedback anytime").font(.system(size: 28, weight: .bold))
+                Text("Help shape msgblast").font(.system(size: 28, weight: .bold))
+                Text("msgblast is open source. Share your feedback or build the feature you want to use.")
+                    .foregroundStyle(.secondary)
             }
-            if let screenshot = Self.screenshot {
-                Image(nsImage: screenshot).resizable().scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.12)))
-                    .accessibilityLabel("Help menu with Share Feedback highlighted")
+            HStack(alignment: .top, spacing: 24) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Label("Share feedback", systemImage: "bubble.left.and.bubble.right").font(.title2.bold())
+                    Text("Tell us what works, what could be better, or what you’d like to see next.")
+                        .foregroundStyle(.secondary)
+                    if let screenshot = Self.screenshot {
+                        Image(nsImage: screenshot).resizable().scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityLabel("Help menu with Share Feedback highlighted")
+                    }
+                    Text("Help → Share Feedback…").font(.callout.weight(.medium))
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Divider()
+                VStack(alignment: .leading, spacing: 16) {
+                    Label("Build a new feature", systemImage: "hammer").font(.title2.bold())
+                    Text("Make msgblast your own. Build a feature yourself or with a coding agent, then share it with the community.")
+                        .foregroundStyle(.secondary)
+                    Text("Get a ready-to-copy prompt with the source repository and instructions to get started.")
+                        .foregroundStyle(.secondary)
+                    Button("Build a New Feature…") { BuildFeatureWindowController.show() }
+                        .buttonStyle(.bordered)
+                    Text("Help → Build a New Feature…").font(.callout.weight(.medium))
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: 680).padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
