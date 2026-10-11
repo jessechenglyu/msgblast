@@ -147,7 +147,7 @@ final class AppModel: ObservableObject {
             for name in ["Fo", "Instinct", "Szn", "Poke"] {
                 if name == "Poke", ProcessInfo.processInfo.arguments.contains("--business-messages-preview") {
                     chats.append(Chat(id: "demo-business-poke", handle: "opaque-business-fixture", lastActivity: 0,
-                                      displayName: "Poke (simulated Business conversation)", businessConversation: true))
+                                      displayName: "Poke", businessConversation: true))
                     continue
                 }
                 let handle = name.lowercased() + "@example.com"
@@ -319,7 +319,7 @@ final class AppModel: ObservableObject {
                 if demo { saved.contactID = "fixture-manual-\(saved.id.uuidString)" }
                 else { saved = try await contacts.saveManual(saved) }
             }
-            if saved.destination == nil, let chat = route(saved) { saved.destination = MessagesDestination(chat: chat) }
+            if saved.destination == nil, let chat = conversation(saved) { saved.destination = MessagesDestination(chat: chat) }
             if let existing = state.agents.first(where: { $0.contactID == saved.contactID }) {
                 if route(existing) != nil { state.selection.insert(existing.id) }
             } else {
@@ -340,6 +340,14 @@ final class AppModel: ObservableObject {
     }
     func conversation(_ agent: Agent) -> Chat? { ChatResolver.conversation(agent: destinationAgent(agent), chats: chats) }
     func route(_ agent: Agent) -> Chat? { ChatResolver.resolve(agent: destinationAgent(agent), chats: chats) }
+    func matchConversationAutomatically(for agent: Agent) {
+        guard let saved = savedAgent(matching: agent), saved.destination == nil,
+              let chat = ChatResolver.conversation(agent: saved, chats: chats),
+              let index = state.agents.firstIndex(where: { $0.id == saved.id }) else { return }
+        let previous = state
+        state.agents[index].destination = MessagesDestination(chat: chat)
+        do { try save() } catch { state = previous; self.error = error.localizedDescription }
+    }
     func chooseConversation(_ chat: Chat, for agent: Agent) {
         guard let saved = savedAgent(matching: agent),
               let index = state.agents.firstIndex(where: { $0.id == saved.id }),

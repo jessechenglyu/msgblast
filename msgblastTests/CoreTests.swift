@@ -275,7 +275,7 @@ final class CoreTests: XCTestCase {
         let first = Chat(id: "first", handle: "+100001", lastActivity: 1)
         let second = Chat(id: "second", handle: "+100002", lastActivity: 99)
         var agent = Agent(name: "Poke", handles: [first.handle, second.handle])
-        XCTAssertNil(ChatResolver.resolve(agent: agent, chats: [first, second]), "Two matched contact numbers require an explicit choice")
+        XCTAssertEqual(ChatResolver.resolve(agent: agent, chats: [first, second])?.id, second.id, "Two numbers automatically use one most recent existing conversation")
         agent.destination = MessagesDestination(chat: first)
         let restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(agent))
         XCTAssertEqual(ChatResolver.resolve(agent: restored, chats: [second, first])?.id, first.id)
@@ -286,6 +286,32 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [business]))
         XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [first, first]), "Duplicate identities are ambiguous")
         XCTAssertEqual(ChatResolver.normalize("opaque-100001"), "opaque-100001")
+    }
+    func testPokeBusinessConversationMatchesAutomaticallyAndPersistsWithoutPhoneGuessing() throws {
+        var poke = Agent(name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
+        let business = Chat(id: "business-poke", handle: "opaque-brand-destination", lastActivity: 10,
+                            displayName: "Poke", businessConversation: true)
+        let ordinary = Chat(id: "ordinary", handle: poke.handles[0], lastActivity: 100)
+        let selected = try XCTUnwrap(ChatResolver.conversation(agent: poke, chats: [ordinary, business]))
+        XCTAssertEqual(selected.id, business.id)
+        poke.destination = MessagesDestination(chat: selected)
+        let restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(poke))
+        XCTAssertEqual(ChatResolver.conversation(agent: restored, chats: [business, ordinary])?.id, business.id)
+        XCTAssertNil(ChatResolver.conversation(agent: restored, chats: [ordinary]), "Never fall back to phone numbers when the saved Business thread disappears")
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [business, ordinary]), "Matching does not prove Business sending is supported")
+    }
+    func testAutomaticBusinessMatchRejectsUnidentifiedAndAmbiguousBrands() {
+        let poke = Agent(name: "Poke", handles: ["+15550000001"])
+        let wrongBrand = Chat(id: "wrong", handle: "opaque-one", lastActivity: 10, displayName: "Pokemon", businessConversation: true)
+        let unverified = Chat(id: "unknown", handle: "opaque-two", lastActivity: 20, displayName: "Poke")
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [wrongBrand, unverified]))
+        let first = Chat(id: "one", handle: "business-one", lastActivity: 10, displayName: "Poke", businessConversation: true)
+        let second = Chat(id: "two", handle: "business-two", lastActivity: 20, displayName: "Poke", businessConversation: true)
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [first, second]))
+        XCTAssertNil(ChatResolver.conversation(agent: Agent(name: "Alex Poke", handles: poke.handles), chats: [first]))
+        var missingHandle = first; missingHandle.handle = ""
+        var anotherMissing = second; anotherMissing.handle = ""
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [missingHandle, anotherMissing]))
     }
     func testLegacyAgentStillDecodesWithoutDestination() throws {
         let bytes = Data(#"{"id":"00000000-0000-0000-0000-000000000001","name":"Old","handles":["old@example.com"],"colorIndex":0}"#.utf8)

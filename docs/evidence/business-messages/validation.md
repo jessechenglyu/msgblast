@@ -4,7 +4,7 @@ This implementation is fixture-verified infrastructure, not proof that the user'
 
 ## Behavior
 
-Contacts addresses remain discovery hints. The conversation chooser records one exact chat GUID, address, service, and Business capability classification. A saved identity must still match after refresh; disappearance or changed metadata never falls back to another number. Multiple matching contact addresses require an explicit choice. Legacy contacts with one matching address still choose their newest ordinary iMessage thread.
+Contacts addresses remain discovery hints. The conversation chooser records one exact chat GUID, address, service, and Business capability classification. A saved identity must still match after refresh; disappearance or changed metadata never falls back to another number. Unbound regular contacts automatically use the most recent supported conversation across their saved addresses. Poke automatically matches an exact Poke title with positive Business metadata, provided the matching threads share one Business identity. The exact destination is then persisted; different Business identities remain unresolved rather than being guessed.
 
 The reader retains chat service/display metadata and positively flags the Apple Business extension payload identifier. Business conversations are inspectable/selectable but never send-ready. Opaque non-phone/non-email addresses are also unavailable for sending, even when the database says iMessage. The existing sender remains exact-chat AppleScript and rejects unsupported destinations before running the script or staging an attachment. No Business send was attempted.
 
@@ -34,15 +34,15 @@ A playable interaction recording is not yet available. Local Xcode UI test evide
 
 ## Integration with the current onboarding redesign
 
-Read-only context: `/Users/contains/.codex/worktrees/b6d0/msgblast`, branch `codex/onboarding-checklist`. No edits or commits were made there. Its current flow is connector selection → Messages checklist → `OnboardingDiscoveredMessagesView` (`Agents we found`). This implementation is based on its committed base `61ab391536b500856a854b9bddd59d0d063a4d06`; uncommitted redesign changes were not absorbed.
+Integrated on `codex/poke-onboarding-integration`, based on onboarding PR #52.
+The discovery list saves an automatic destination, displays the matched Business
+name and capability state, and offers no conversation chooser. Already-saved
+contacts without a destination are matched too. Unsupported Business destinations
+remain visible but are excluded from send recipients and from the actionable
+setup reminder. Business sends remain blocked until the adapter is verified.
 
-The calling chat must integrate these helpers into that discovery list after incorporating the implementation:
-
-- Resolve the saved agent via `model.savedAgent(matching: agent)` when rendering the Contacts snapshot. `model.route`, `model.conversation`, and `model.messageConnectionStatus` already do that internally when the incoming snapshot has no explicit destination.
-- Replace `No conversation yet · saved for later` with `model.messageConnectionStatus(agent)`. A chosen Business destination needs to say `Business conversation found · sending unavailable`.
-- Replace `Uses your most recent conversation` with the actual `model.conversation(agent)?.displayName` or GUID/handle. Multiple matching contact numbers now require a choice; they are not activity-ranked alternatives.
-- Render `MessagesConversationMenu(model: model, agent: saved)` outside the Select/Deselect button. It saves exactly one identity and deselects the previous send recipient.
-- Recompute completion from `model.route(saved) != nil` after a choice; save the Business identity while keeping it incomplete/unavailable for shared sending.
-- In `restoreRecipients`, filter discovered/saved IDs through `model.route` before making them recipients. Being discovered or checked is not evidence of send readiness.
-
-Current-flow UI acceptance should launch the isolated Business fixture, choose `Connect Messages`, continue through the simulated permissions checklist, find the Poke row with two fixture numbers on `Agents we found`, choose the opaque Business conversation, verify the saved capability label, continue with another supported agent, and verify Poke is never a send recipient. Test this against the integrated redesign, not the committed old chooser.
+The synthetic fixture uses an exact `Poke` Business title and positive Business
+classification with an opaque destination, separate from its two contact numbers.
+Routing tests cover automatic matching, persistence, removal without phone fallback,
+wrong/unverified names, ambiguous Business identities, and multiple regular numbers.
+Live Poke metadata and sending still require verification through the app.

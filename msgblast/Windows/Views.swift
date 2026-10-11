@@ -232,12 +232,18 @@ struct MainView: View {
             } else {
             VStack(spacing: 0) {
                 if model.demo { demoControls }
-                if let setup = model.state.onboarding, !setup.skipped.isEmpty {
+                if let setup = model.state.onboarding {
+                    let unresolved = setup.skipped.filter { choice in
+                        guard let agent = model.onboarding.candidate(for: choice) else { return true }
+                        return model.conversation(agent)?.businessConversation != true
+                    }
+                    if !unresolved.isEmpty {
                     HStack {
-                        Text("\(setup.skipped.count) \(setup.skipped.count == 1 ? "agent" : "agents") still need setup.").foregroundStyle(.secondary)
+                        Text("\(unresolved.count) \(unresolved.count == 1 ? "agent still needs" : "agents still need") setup.").foregroundStyle(.secondary)
                         Spacer()
                         Button("Finish setup") { model.onboarding.resume() }
                     }.padding(18).background(.bar)
+                    }
                 }
                 if model.usesMessages { MessagesAccessBanner(model: model) }
                 AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: newBlastRequest)

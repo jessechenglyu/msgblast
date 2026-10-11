@@ -640,6 +640,12 @@ private struct OnboardingDiscoveredMessagesView: View {
         return results.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    private func destinationLabel(_ agent: Agent) -> String {
+        guard let chat = model.conversation(agent) else { return agent.handles.joined(separator: ", ") }
+        if let name = chat.displayName, !name.isEmpty { return name }
+        return chat.handle
+    }
+
     private func included(_ agent: Agent) -> Bool {
         guard let saved = model.savedAgent(matching: agent) else { return false }
         return !(setup.state.excludedDiscoveredMessageAgentIDs ?? []).contains(saved.id)
@@ -678,9 +684,9 @@ private struct OnboardingDiscoveredMessagesView: View {
                                 .accessibilityHidden(true)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(agent.name).font(.headline)
-                                    Text(model.route(agent)?.handle ?? agent.handles.joined(separator: ", ")).foregroundStyle(.secondary)
+                                    Text(destinationLabel(agent)).foregroundStyle(.secondary)
                                     if model.route(agent) == nil {
-                                        Text("No conversation yet · saved for later").font(.caption).foregroundStyle(.secondary)
+                                        Text(model.messageConnectionStatus(agent)).font(.caption).foregroundStyle(.secondary)
                                     }
                                     if agent.handles.count > 1, model.route(agent) != nil {
                                         Text("Uses your most recent conversation").font(.caption).foregroundStyle(.secondary)

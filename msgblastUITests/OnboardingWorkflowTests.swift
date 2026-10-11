@@ -95,6 +95,25 @@ final class OnboardingWorkflowTests: XCTestCase {
     }
 
     @MainActor
+    func testPokeBusinessFixtureIsMatchedWithoutAChooserAndNotSelectedForSending() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo", "--onboarding-preview", "--business-messages-preview"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["Connect your agents"].waitForExistence(timeout: 5))
+        choose("Messages", in: app)
+        app.buttons["Continue setup"].click()
+        XCTAssertTrue(app.buttons["Deselect Poke 🌴"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Business conversation found · sending unavailable"].exists)
+        XCTAssertFalse(app.buttons["Choose conversation"].exists)
+        app.buttons["Continue setup"].click()
+        XCTAssertTrue(app.buttons["Start chatting"].waitForExistence(timeout: 5))
+        app.buttons["Start chatting"].click()
+        XCTAssertTrue(app.buttons["Poke 🌴"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Poke 🌴"].value as? String, "Not selected")
+    }
+
+    @MainActor
     func testAppsKeepBrowserImportAndManualConnection() {
         let app = launch()
         defer { app.terminate() }

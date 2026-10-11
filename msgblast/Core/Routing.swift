@@ -12,7 +12,22 @@ public enum ChatResolver {
             let matches = chats.filter { destination.matches($0) }
             return matches.count == 1 ? matches[0] : nil
         }
+        if let business = automaticBusinessConversation(agent: agent, chats: chats) { return business }
         return resolve(handles: agent.handles, chats: chats)
+    }
+    public static func automaticBusinessConversation(agent: Agent, chats: [Chat]) -> Chat? {
+        func brand(_ name: String) -> String {
+            name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+                .components(separatedBy: .alphanumerics.inverted).filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        guard ["poke", "poke ai", "poke agent"].contains(brand(agent.name)) else { return nil }
+        let matches = chats.filter {
+            $0.businessConversation == true && brand($0.displayName ?? "") == "poke"
+        }
+        // Match only positively identified Business metadata and an exact brand.
+        // Different Business identities are ambiguous; never guess from phone numbers.
+        guard !matches.isEmpty, matches.count == 1 || (matches.allSatisfy { !$0.handle.isEmpty } && Set(matches.map(\.handle)).count == 1) else { return nil }
+        return matches.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }
     }
     public static func resolve(agent: Agent, chats: [Chat]) -> Chat? {
         guard let chat = conversation(agent: agent, chats: chats), chat.eligible else { return nil }
@@ -23,13 +38,12 @@ public enum ChatResolver {
             if chat.businessConversation == true { return "Business conversation found · sending unavailable" }
             return chat.eligible ? "Connected" : "Conversation found · sending unavailable"
         }
-        return agent.destination == nil ? "Choose an existing conversation" : "Saved conversation unavailable · choose again"
+        return agent.destination == nil ? "No supported conversation found" : "Saved conversation unavailable · choose again"
     }
     public static func resolve(handles: [String], chats: [Chat]) -> Chat? {
         let normalized = Set(handles.map(normalize))
         let matches = chats.filter { $0.eligible && normalized.contains(normalize($0.handle)) }
-        // Multiple contact addresses are alternatives, never a broadcast or an activity-based choice.
-        guard Set(matches.map { normalize($0.handle) }).count <= 1 else { return nil }
+        // Contact addresses are alternatives; choose one existing conversation, never broadcast.
         return matches.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }
     }
 }

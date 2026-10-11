@@ -287,6 +287,7 @@ final class OnboardingController: ObservableObject {
         guard state.messagesDiscoveryReviewed == false, !model.busy else { return }
         if let saved = model.savedAgent(matching: agent), (state.excludedDiscoveredMessageAgentIDs ?? []).contains(saved.id) { return }
         await model.addAgent(agent)
+        model.matchConversationAutomatically(for: agent)
         guard !Task.isCancelled, state.messagesDiscoveryReviewed == false,
               model.contactStatus.isEmpty, let saved = model.savedAgent(matching: agent) else { return }
         let ready = model.route(saved) != nil
@@ -401,7 +402,8 @@ final class OnboardingController: ObservableObject {
             let selected = session.id.instance == nil && connected.contains { $0.provider == session.provider }
             if session.state.selected != selected { session.updateState { $0.selected = selected } }
         }
-        model.state.selection = Set(state.selected.filter(\.isMessages).compactMap { state.messageAgentIDs[$0.rawValue] } + (state.discoveredMessageAgentIDs ?? []))
+        let selectedIDs = Set(state.selected.filter(\.isMessages).compactMap { state.messageAgentIDs[$0.rawValue] } + (state.discoveredMessageAgentIDs ?? []))
             .subtracting(state.excludedDiscoveredMessageAgentIDs ?? [])
+        model.state.selection = Set(model.state.agents.filter { selectedIDs.contains($0.id) && model.route($0) != nil }.map(\.id))
     }
 }
