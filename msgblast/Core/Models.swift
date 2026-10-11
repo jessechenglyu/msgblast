@@ -6,13 +6,36 @@ public struct Chat: Codable, Identifiable, Hashable, Sendable {
     public var lastActivity: Int64
     public var participantCount: Int
     public var service: String
-    public init(id: String, handle: String, lastActivity: Int64, participantCount: Int = 1, service: String = "iMessage") {
+    public var displayName: String?
+    public var businessConversation: Bool?
+    public init(id: String, handle: String, lastActivity: Int64, participantCount: Int = 1, service: String = "iMessage", displayName: String? = nil, businessConversation: Bool? = nil) {
         self.id = id; self.handle = handle; self.lastActivity = lastActivity; self.participantCount = participantCount; self.service = service
+        self.displayName = displayName; self.businessConversation = businessConversation
     }
-    public var eligible: Bool { participantCount == 1 && service == "iMessage" }
+    public var eligible: Bool {
+        let address = handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let ordinaryAddress = address.contains("@")
+            ? !address.contains(":") && !address.contains(where: \.isWhitespace)
+            : address.filter(\.isNumber).count >= 5 && address.allSatisfy { $0.isNumber || "+()- .".contains($0) }
+        return participantCount == 1 && service == "iMessage" && businessConversation != true && ordinaryAddress
+    }
+}
+public struct MessagesDestination: Codable, Hashable, Sendable {
+    public var chatID: String
+    public var handle: String
+    public var service: String
+    public var businessConversation: Bool
+    public init(chat: Chat) {
+        chatID = chat.id; handle = chat.handle; service = chat.service
+        businessConversation = chat.businessConversation == true
+    }
+    public func matches(_ chat: Chat) -> Bool {
+        chatID == chat.id && handle == chat.handle && service == chat.service && businessConversation == (chat.businessConversation == true)
+    }
 }
 public struct Agent: Codable, Identifiable, Hashable, Sendable {
     public var id = UUID()
+    public var destination: MessagesDestination?
     public var contactID: String?
     public var name: String
     public var handles: [String]
@@ -248,7 +271,7 @@ public struct AppState: Codable, Sendable {
     public init() {}
     @discardableResult
     public mutating func retainAvailableSelection(chats: [Chat]) -> Bool {
-        let available = Set(agents.filter { ChatResolver.resolve(handles: $0.handles, chats: chats) != nil }.map(\.id))
+        let available = Set(agents.filter { ChatResolver.resolve(agent: $0, chats: chats) != nil }.map(\.id))
         let retained = selection.intersection(available)
         guard retained != selection else { return false }
         selection = retained

@@ -137,7 +137,7 @@ struct DiscoverView: View {
             AgentAvatar(agent: agent, name: agent.name)
             VStack(alignment: .leading, spacing: 3) {
                 Text(agent.name).font(.headline)
-                Text(model.route(agent) != nil ? "Existing Messages conversation" : (agent.handles.first ?? "No existing chat"))
+                Text(model.messageConnectionStatus(agent))
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()

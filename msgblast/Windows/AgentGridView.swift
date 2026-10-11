@@ -227,6 +227,7 @@ struct AgentGridView: View {
     }
 
     private func subtitle(_ id: AgentGridID) -> String? {
+        if let agent = model.messageAgent(for: id), model.route(agent) == nil { return model.messageConnectionStatus(agent) }
         if case .runtime = id { return "Local setup" }
         if let session = session(for: id), !session.provider.supportsSharedSubmissions { return "Manual chat" }
         if let session = session(for: id), !session.isEnabled { return "Set up" }
@@ -422,8 +423,9 @@ private struct FeaturedMessagesGridSetup: View {
                     Text(agent.name)
                     Spacer()
                     if let saved = model.savedAgent(matching: agent) {
-                        Text(model.route(saved) != nil ? "Connected" : "Start a Messages conversation")
+                        Text(model.messageConnectionStatus(saved))
                             .foregroundStyle(.secondary)
+                        MessagesConversationMenu(model: model, agent: saved)
                     } else {
                         Button("Connect") { Task { await model.addAgent(agent) } }
                             .disabled(model.busy || !model.databaseAvailable || !model.contactsAvailable)
@@ -537,5 +539,20 @@ struct AgentConfigurationSheet: View {
             }
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+}
+
+// Shared by setup surfaces, including the discovered-Contacts onboarding list.
+struct MessagesConversationMenu: View {
+    @ObservedObject var model: AppModel
+    let agent: Agent
+    var body: some View {
+        Menu("Choose conversation") {
+            ForEach(model.chats) { chat in
+                Button("\(chat.displayName?.isEmpty == false ? chat.displayName! : chat.handle) · \(chat.businessConversation == true ? "Business · sending unavailable" : chat.service) · \(chat.id)") {
+                    model.chooseConversation(chat, for: agent)
+                }
+            }
+        }.disabled(model.busy || !model.databaseAvailable)
     }
 }

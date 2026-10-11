@@ -3,11 +3,34 @@ public enum ChatResolver {
     public static func normalize(_ value: String) -> String {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if value.contains("@") { return value }
+        guard value.allSatisfy({ $0.isNumber || "+()- .".contains($0) }) else { return value }
         return value.filter { $0.isNumber || $0 == "+" }
+    }
+    // A chosen conversation never falls back to a contact number or a newer thread.
+    public static func conversation(agent: Agent, chats: [Chat]) -> Chat? {
+        if let destination = agent.destination {
+            let matches = chats.filter { destination.matches($0) }
+            return matches.count == 1 ? matches[0] : nil
+        }
+        return resolve(handles: agent.handles, chats: chats)
+    }
+    public static func resolve(agent: Agent, chats: [Chat]) -> Chat? {
+        guard let chat = conversation(agent: agent, chats: chats), chat.eligible else { return nil }
+        return chat
+    }
+    public static func status(agent: Agent, chats: [Chat]) -> String {
+        if let chat = conversation(agent: agent, chats: chats) {
+            if chat.businessConversation == true { return "Business conversation found · sending unavailable" }
+            return chat.eligible ? "Connected" : "Conversation found · sending unavailable"
+        }
+        return agent.destination == nil ? "Choose an existing conversation" : "Saved conversation unavailable · choose again"
     }
     public static func resolve(handles: [String], chats: [Chat]) -> Chat? {
         let normalized = Set(handles.map(normalize))
-        return chats.filter { $0.eligible && normalized.contains(normalize($0.handle)) }.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }
+        let matches = chats.filter { $0.eligible && normalized.contains(normalize($0.handle)) }
+        // Multiple contact addresses are alternatives, never a broadcast or an activity-based choice.
+        guard Set(matches.map { normalize($0.handle) }).count <= 1 else { return nil }
+        return matches.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }
     }
 }
 public enum ComparisonRange {

@@ -145,6 +145,11 @@ final class AppModel: ObservableObject {
         if onboardingPreview {
             state.draft = ""
             for name in ["Fo", "Instinct", "Szn", "Poke"] {
+                if name == "Poke", ProcessInfo.processInfo.arguments.contains("--business-messages-preview") {
+                    chats.append(Chat(id: "demo-business-poke", handle: "opaque-business-fixture", lastActivity: 0,
+                                      displayName: "Poke (simulated Business conversation)", businessConversation: true))
+                    continue
+                }
                 let handle = name.lowercased() + "@example.com"
                 if !chats.contains(where: { $0.handle == handle }) {
                     chats.append(Chat(id: "demo-onboarding-" + name.lowercased(), handle: handle, lastActivity: 0))
@@ -286,7 +291,7 @@ final class AppModel: ObservableObject {
         }
         if demo {
             return ["Fo", "Instinct", "Szn", "Poke"].map {
-                Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0 == "Poke" ? "Poke 🌴" : $0, handles: [$0.lowercased() + "@example.com"])
+                Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0 == "Poke" ? "Poke 🌴" : $0, handles: $0 == "Poke" && ProcessInfo.processInfo.arguments.contains("--business-messages-preview") ? ["+15550000001", "+15550000002"] : [$0.lowercased() + "@example.com"])
             }
         }
         let known = KnownAgentContacts(agents: try DiscoverCatalog.bundled().discoverAgents)
@@ -300,7 +305,12 @@ final class AppModel: ObservableObject {
     func addAgent(_ agent: Agent) async {
         guard !busy else { return }
         contactStatus = ""
-        guard savedAgent(matching: agent) == nil else { return }
+        if let existing = savedAgent(matching: agent) {
+            if let destination = agent.destination, let chat = chats.first(where: destination.matches) {
+                chooseConversation(chat, for: existing)
+            }
+            return
+        }
         busy = true
         defer { busy = false }
         do {
@@ -309,6 +319,7 @@ final class AppModel: ObservableObject {
                 if demo { saved.contactID = "fixture-manual-\(saved.id.uuidString)" }
                 else { saved = try await contacts.saveManual(saved) }
             }
+            if saved.destination == nil, let chat = route(saved) { saved.destination = MessagesDestination(chat: chat) }
             if let existing = state.agents.first(where: { $0.contactID == saved.contactID }) {
                 if route(existing) != nil { state.selection.insert(existing.id) }
             } else {
@@ -323,7 +334,24 @@ final class AppModel: ObservableObject {
             contactStatus = error.localizedDescription
         }
     }
-    func route(_ agent: Agent) -> Chat? { ChatResolver.resolve(handles: agent.handles, chats: chats) }
+    private func destinationAgent(_ agent: Agent) -> Agent {
+        // Discovery rows may still hold a Contacts snapshot from before the choice was saved.
+        agent.destination != nil ? agent : savedAgent(matching: agent) ?? agent
+    }
+    func conversation(_ agent: Agent) -> Chat? { ChatResolver.conversation(agent: destinationAgent(agent), chats: chats) }
+    func route(_ agent: Agent) -> Chat? { ChatResolver.resolve(agent: destinationAgent(agent), chats: chats) }
+    func chooseConversation(_ chat: Chat, for agent: Agent) {
+        guard let saved = savedAgent(matching: agent),
+              let index = state.agents.firstIndex(where: { $0.id == saved.id }),
+              chats.contains(chat) else { return }
+        let previous = state
+        state.agents[index].destination = MessagesDestination(chat: chat)
+        state.selection.remove(saved.id)
+        do { try save() } catch { state = previous; self.error = error.localizedDescription }
+    }
+    func messageConnectionStatus(_ agent: Agent) -> String {
+        ChatResolver.status(agent: destinationAgent(agent), chats: chats)
+    }
     func removeAgent(_ agent: Agent) { state.agents.removeAll { $0.id == agent.id }; state.selection.remove(agent.id); persist() }
     func validateMembers(prompt: String, selectedIDs: Set<UUID>? = nil) throws -> [Member] {
         guard databaseAvailable else { throw AppFailure.blocked(databaseStatus) }
@@ -338,7 +366,7 @@ final class AppModel: ObservableObject {
             }
             guard let chat = route(fresh) else { throw AppFailure.blocked("\(agent.name) no longer has a matching existing one-to-one Messages chat. Refresh setup before sending.") }
             // If activity reroutes the contact after preview, update the picker and require a new review.
-            guard ChatResolver.resolve(handles: agent.handles, chats: previewChats)?.id == chat.id else { throw AppFailure.blocked("\(agent.name)'s destination changed. Refresh and review the new destination.") }
+            guard ChatResolver.resolve(agent: agent, chats: previewChats)?.id == chat.id else { throw AppFailure.blocked("\(agent.name)'s destination changed. Refresh and review the new destination.") }
             guard !state.comparisons.contains(where: { $0.prompt == prompt && $0.members.contains(where: { $0.chat.id == chat.id && $0.anchor == nil && [.submitted, .uncertain, .sending].contains($0.submission) }) }) else {
                 throw AppFailure.blocked("An earlier submission of this text to \(agent.name) still needs reconciliation. Resolve it before sending the same prompt again.")
             }

@@ -2,6 +2,38 @@ import XCTest
 import SQLite3
 @testable import msgblastCore
 final class MessagesDatabaseTests: XCTestCase {
+    func testBusinessPayloadIdentifiesSeparateDestinationAndNeverRoutesByPhone() throws {
+        let url = try fixture(); defer { try? FileManager.default.removeItem(at: url) }
+        var writer: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(url.path, &writer), SQLITE_OK)
+        defer { sqlite3_close(writer) }
+        let sql = """
+        ALTER TABLE chat ADD COLUMN display_name TEXT;
+        ALTER TABLE chat ADD COLUMN service_name TEXT;
+        ALTER TABLE message ADD COLUMN balloon_bundle_id TEXT;
+        INSERT INTO chat(guid,display_name,service_name) VALUES('business-guid','Poke','iMessage');
+        INSERT INTO handle VALUES('opaque-business-123456','iMessage');
+        INSERT INTO chat_handle_join VALUES(5,5);
+        INSERT INTO message(guid,text,date,is_from_me,balloon_bundle_id) VALUES('business-message','fixture',810000004000000000,0,'com.apple.messages.MSMessageExtensionBalloonPlugin:XXX:com.apple.icloud.apps.messages.business.extension');
+        INSERT INTO chat_message_join VALUES(5,5);
+        """
+        XCTAssertEqual(sqlite3_exec(writer, sql, nil, nil, nil), SQLITE_OK)
+        let bytes = try Data(contentsOf: url)
+        let chats = try MessagesDatabase(path: url.path).chats()
+        let business = try XCTUnwrap(chats.first { $0.id == "business-guid" })
+        XCTAssertEqual(business.displayName, "Poke")
+        XCTAssertEqual(business.businessConversation, true)
+        XCTAssertFalse(business.eligible)
+        XCTAssertFalse(Chat(id: "unknown", handle: "opaque-business-123456", lastActivity: 0).eligible,
+                       "An opaque address is never assumed sendable without a Business payload")
+        XCTAssertNil(ChatResolver.resolve(handles: ["123456", "opaque-business-123456"], chats: chats))
+        var agent = Agent(name: "Poke", handles: ["123456", "999999"])
+        agent.destination = MessagesDestination(chat: business)
+        XCTAssertEqual(ChatResolver.conversation(agent: agent, chats: chats)?.id, business.id)
+        XCTAssertNil(ChatResolver.resolve(agent: agent, chats: chats))
+        XCTAssertEqual(ChatResolver.status(agent: agent, chats: chats), "Business conversation found · sending unavailable")
+        XCTAssertEqual(try Data(contentsOf: url), bytes)
+    }
     func testDeliveryFailureIsReadFromHistoryWithoutAssumingSubmissionMeansDelivered() throws {
         let url = try fixture(); defer { try? FileManager.default.removeItem(at: url) }
         var writer: OpaquePointer?

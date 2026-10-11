@@ -271,6 +271,28 @@ final class CoreTests: XCTestCase {
         XCTAssertNotNil(unicode.linkPreview)
         XCTAssertEqual(unicode.linkPreview?.remainingText, "")
     }
+    func testChosenDestinationPersistsAndDoesNotRerouteAcrossContactNumbers() throws {
+        let first = Chat(id: "first", handle: "+100001", lastActivity: 1)
+        let second = Chat(id: "second", handle: "+100002", lastActivity: 99)
+        var agent = Agent(name: "Poke", handles: [first.handle, second.handle])
+        XCTAssertNil(ChatResolver.resolve(agent: agent, chats: [first, second]), "Two matched contact numbers require an explicit choice")
+        agent.destination = MessagesDestination(chat: first)
+        let restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(agent))
+        XCTAssertEqual(ChatResolver.resolve(agent: restored, chats: [second, first])?.id, first.id)
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [second]))
+        var changed = first; changed.handle = second.handle
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [changed, second]))
+        var business = first; business.businessConversation = true
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [business]))
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [first, first]), "Duplicate identities are ambiguous")
+        XCTAssertEqual(ChatResolver.normalize("opaque-100001"), "opaque-100001")
+    }
+    func testLegacyAgentStillDecodesWithoutDestination() throws {
+        let bytes = Data(#"{"id":"00000000-0000-0000-0000-000000000001","name":"Old","handles":["old@example.com"],"colorIndex":0}"#.utf8)
+        let agent = try JSONDecoder().decode(Agent.self, from: bytes)
+        XCTAssertNil(agent.destination)
+        XCTAssertEqual(ChatResolver.resolve(agent: agent, chats: [Chat(id: "old", handle: "old@example.com", lastActivity: 1)])?.id, "old")
+    }
     func testResolverExcludesGroupsAndChoosesNewestExistingIMessage() throws {
         let chats = [Chat(id: "old", handle: "palcowen@gmail.com", lastActivity: 1), Chat(id: "new", handle: "PALCOWEN@gmail.com", lastActivity: 9), Chat(id: "group", handle: "palcowen@gmail.com", lastActivity: 99, participantCount: 2), Chat(id: "sms", handle: "palcowen@gmail.com", lastActivity: 100, service: "SMS")]
         XCTAssertEqual(ChatResolver.resolve(handles: ["palcowen@gmail.com"], chats: chats)?.id, "new")

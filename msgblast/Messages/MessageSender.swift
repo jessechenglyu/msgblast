@@ -9,7 +9,7 @@ struct MessageSender {
     }
     func send(_ attachment: MessageAttachment, to chat: Chat) async throws {
         guard FileManager.default.isReadableFile(atPath: attachment.url.path) else { throw SendFailure.notSubmitted("The attachment is unavailable. Restore the saved file before retrying.") }
-        guard chat.eligible else { throw SendFailure.notSubmitted("Only existing one-to-one Messages chats can receive a prompt.") }
+        guard chat.eligible else { throw SendFailure.notSubmitted("This conversation cannot be sent to by msgblast. Business messaging support has not been verified.") }
         // Messages' sandboxed transfer processes cannot read arbitrary app-data
         // paths. Hand off a private copy in its attachment namespace; the saved
         // draft remains in msgblast. Retain the copy for asynchronous processing.
@@ -23,7 +23,7 @@ struct MessageSender {
         "\"" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\r", with: "\\r").replacingOccurrences(of: "\n", with: "\\n") + "\""
     }
     private func sendExpression(_ expression: String, to chat: Chat) async throws {
-        guard chat.eligible else { throw SendFailure.notSubmitted("Only existing one-to-one Messages chats can receive a prompt.") }
+        guard chat.eligible else { throw SendFailure.notSubmitted("This conversation cannot be sent to by msgblast. Business messaging support has not been verified.") }
         let source = """
         try
             with timeout of 20 seconds
