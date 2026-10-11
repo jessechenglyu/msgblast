@@ -30,7 +30,7 @@ Outputs, intentionally ignored by Git:
 - `renders/final-frame.png`: matching illustrated final frame, frame 239.
 - `renders/finder-background.png`: matching static background with both icon slots empty for actual Finder draggable items. Designed as a 960 × 600 point window at 2× resolution; app center (290,340), Applications center (670,340). Final Finder text/icon positioning and Retina background selection must be verified during later DMG integration.
 
-**Standard Finder DMG backgrounds are static. This animation is a preview, not an animation that will run in a standard DMG.** No installer, DMG, app build, deployment, release, real conversation, or paid generation is part of this prototype.
+**Standard Finder DMG backgrounds are static. This animation is a preview, not an animation that will run in a standard DMG.** The existing DMG packager now supports the matching static layout explicitly; see Installer integration below. No custom executable installer, deployment, release, real conversation, or paid generation is introduced.
 
 ## Artwork inventory and fidelity
 
@@ -58,7 +58,7 @@ Remotion's own license applies to its tooling; evaluate its terms before adoptin
 - `npm run render`, `npm run still`, `npm run background`: completed locally. The explicit optional Apple Silicon compositor package ensures rendering works when npm omits transitive optional dependencies on this host.
 - `ffprobe`: H.264, 1920 × 1200, 30 fps, 240 frames, 8.000 seconds.
 - Inspected the final PNG and sampled video frames throughout the sequence. Adjusted the header timing to avoid two text lines overlapping during the reveal. The 140 px tiles use consistent spacing and scale on white. All 102 source assets participate once, with no invented or redrawn logos. A white halo keeps msgblast legible during consolidation. Sampled frames show the orderly opening, nearest-first intake, cleared screen and installation hold. This is not a readable provider catalog.
-- Native app tests were not run: only the standalone prototype changed. Standard Finder DMG behavior and draggable items are not demonstrated; integration remains future work. No PR was created.
+- Native app unit/UI tests were not run because native app behavior is unchanged. Installer integration was subsequently built and inspected using the real mounted isolated Demo DMG; the 83 Python tooling tests pass, including layout serialization. No PR was created.
 
 ## Installer integration
 
