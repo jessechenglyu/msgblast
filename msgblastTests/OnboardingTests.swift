@@ -2,6 +2,61 @@ import XCTest
 @testable import msgblastCore
 
 final class OnboardingTests: XCTestCase {
+    func testConnectorStartPersistsAndRoutesEachCategory() throws {
+        for connector in OnboardingConnector.allCases {
+            var setup = OnboardingState()
+            XCTAssertEqual(setup.connectorStartCompleted, false)
+            setup.chooseConnector(connector)
+            let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+            XCTAssertEqual(restored.connector, connector)
+            XCTAssertEqual(restored.connectorStartCompleted, true)
+            XCTAssertEqual(restored.prerequisitesCompleted, connector != .messages)
+            XCTAssertEqual(restored.messagesDiscoveryReviewed, connector != .messages)
+        }
+        XCTAssertTrue(OnboardingConnector.apps.includes(.grokbot))
+        XCTAssertFalse(OnboardingConnector.apps.includes(.codexCLI))
+        XCTAssertTrue(OnboardingConnector.clis.includes(.codexCLI))
+        XCTAssertTrue(OnboardingConnector.clis.includes(.hermes))
+        XCTAssertFalse(OnboardingConnector.clis.includes(.chatgpt))
+    }
+
+    func testDiscoveryReviewDoesNotRepeatMessagesSelection() throws {
+        var setup = OnboardingState()
+        setup.selected = [.fo, .szn, .chatgpt]
+        setup.completed = [.fo]
+        setup.reviewMessagesDiscovery()
+        setup.begin(); setup.beginConnections()
+        XCTAssertEqual(setup.pendingSteps, [.agent(.chatgpt)])
+        setup.complete(.chatgpt)
+        XCTAssertEqual(setup.stage, .feedback)
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        XCTAssertTrue(restored.pendingSteps.isEmpty)
+        XCTAssertEqual(restored.completed, [.fo, .chatgpt])
+        XCTAssertEqual(restored.skipped, [.szn])
+    }
+
+    func testChecklistAndConnectionsSurvivePermissionRestart() throws {
+        var setup = OnboardingState()
+        XCTAssertEqual(setup.prerequisitesCompleted, false)
+        setup.prerequisitesCompleted = true
+        setup.toggle(.chatgpt)
+        setup.toggle(.fo)
+        setup.begin(); setup.beginConnections(); setup.complete(.chatgpt)
+        setup.prerequisitesCompleted = false
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        XCTAssertEqual(restored.prerequisitesCompleted, false)
+        XCTAssertEqual(restored.completed, [.chatgpt])
+        XCTAssertEqual(restored.currentStep, .messages)
+        XCTAssertTrue(restored.pendingWebProviders.isEmpty)
+    }
+
+    func testOlderSetupDoesNotAcquireANewChecklist() throws {
+        let data = Data(#"{"selected":[],"completed":[],"skipped":[],"messageAgentIDs":{},"stage":"choosing"}"#.utf8)
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: data)
+        XCTAssertNil(restored.prerequisitesCompleted)
+        XCTAssertNil(restored.connectorStartCompleted)
+    }
+
     func testHarkAndPokeUseSeparateSetupPathsAndRestoreProgress() throws {
         var setup = OnboardingState()
         setup.toggle(.hark)

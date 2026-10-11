@@ -28,6 +28,7 @@ final class AppModel: ObservableObject {
         false
         #endif
     }
+    var onboardingRestartRequested = false
     var needsOnboarding: Bool { state.onboarding.map { !$0.isFinished } ?? false }
     var usesMessages: Bool {
         (state.onboarding?.stage == .connecting && state.onboarding?.currentStep == .messages) || !state.agents.isEmpty ||
@@ -68,9 +69,8 @@ final class AppModel: ObservableObject {
         do {
             state = try local.load()
             if !existingStore && (!demo || onboardingPreview) { state.onboarding = OnboardingState() }
-            // Saved intent survives a restart; readiness is checked against the
-            // actual accounts and permissions again before opening any chats.
-            state.onboarding?.recheckConnections()
+            // Preserve completed setup across permission restarts. The final
+            // connection check verifies readiness before opening chats.
             try local.save(state)
         } catch { storageLoadFailed = true; self.error = "Local state could not be loaded or saved: \(error.localizedDescription). Sending is unavailable until storage works." }
         if demo { setupDemo() }
@@ -88,7 +88,7 @@ final class AppModel: ObservableObject {
         persist()
         accessGuide.checkHistory = { [weak self] in
             guard let self, !self.busy else { return false }
-            self.refresh()
+            self.refresh(forMessagesSetup: true)
             return self.databaseAvailable
         }
         refresh()
@@ -180,10 +180,10 @@ final class AppModel: ObservableObject {
         } catch { database = nil; lastDataVersion = nil }
         refresh()
     }
-    func refresh() {
+    func refresh(forMessagesSetup: Bool = false) {
         guard !busy else { return }
         refreshContactAccess()
-        guard !needsOnboarding || usesMessages else { return }
+        guard forMessagesSetup || !needsOnboarding || usesMessages else { return }
         defer { accessGuide.observeHistory(available: databaseAvailable) }
         if permissionGuidePreview {
             databaseAvailable = false
@@ -280,14 +280,18 @@ final class AppModel: ObservableObject {
     }
 
     func onboardingContactSuggestions() async throws -> [Agent] {
-        guard databaseAvailable, contactsAvailable else { return [] }
+        refresh(forMessagesSetup: true)
+        guard databaseAvailable, contactsAvailable else {
+            throw AppFailure.blocked(databaseAvailable ? "Enable Contacts access to find your agents." : databaseStatus)
+        }
         if demo {
             return ["Fo", "Instinct", "Szn", "Poke"].map {
                 Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0 == "Poke" ? "Poke 🌴" : $0, handles: [$0.lowercased() + "@example.com"])
             }
         }
+        let known = KnownAgentContacts(agents: try DiscoverCatalog.bundled().discoverAgents)
         let search = Task.detached(priority: .userInitiated) {
-            try ContactSearch().knownAgents(matching: KnownAgentContacts(agents: []))
+            try ContactSearch().knownAgents(matching: known)
         }
         let results = try await withTaskCancellationHandler { try await search.value } onCancel: { search.cancel() }
         guard !Task.isCancelled, databaseAvailable, contactsAvailable else { return [] }

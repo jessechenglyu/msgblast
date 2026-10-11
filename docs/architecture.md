@@ -191,3 +191,22 @@ See [documentation index](README.md#maintainer-operations) for each operation.
 - Keep production, Dev, and Demo mode/state/update configuration explicit.
 - Verify current live behavior separately from fixtures when the change depends on
   website layouts, provider authentication, Messages, or macOS permissions.
+
+## Onboarding permission checklist
+
+New installs start with Messages, Apps, and CLIs connector cards. Apps and CLIs
+continue through their existing account and local setup flows; Messages opens
+the permission checklist and contact discovery. The first screen has no Back
+action. The connector choice is saved across relaunch, and older onboarding
+states retain their current step. The contribution screen stays before chatting.
+
+Messages setup uses a uniform permission checklist (history access,
+Contacts, and sending), using the same native permission checks as Settings.
+Each checklist row opens its permission request or Settings recovery action.
+Continue appears only after all three permissions are allowed. Users can set up Messages
+later and continue to agent selection. Full Disk Access opens System Settings;
+Restart & check access saves state before requesting the existing safe quit flow.
+The app relaunches only after termination is approved and resumes the checklist.
+Completed agent setup is retained across launch; the final readiness check still
+runs before entering the workspace. Existing saved onboarding states without the
+optional checklist field resume their previous step.

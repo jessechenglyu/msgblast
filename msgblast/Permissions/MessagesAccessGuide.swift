@@ -258,7 +258,7 @@ private final class MessagesAccessPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-private struct PermissionSourceAnchor: NSViewRepresentable {
+struct PermissionSourceAnchor: NSViewRepresentable {
     let guide: MessagesAccessGuide
     func makeNSView(context: Context) -> NSView { let view = NSView(); guide.sourceView = view; return view }
     func updateNSView(_ nsView: NSView, context: Context) { guide.sourceView = nsView }

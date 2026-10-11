@@ -24,8 +24,14 @@ final class OnboardingController: ObservableObject {
         change(&next)
         if next.isFinished {
             restoreRecipients(from: next)
-            if !previous.isFinished, model.state.agentGrid == nil {
-                model.state.agentGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
+            if !previous.isFinished {
+                let setupGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
+                if var grid = model.state.agentGrid {
+                    for id in setupGrid.visibleIDs.reversed() { grid.add(id) }
+                    model.state.agentGrid = grid
+                } else {
+                    model.state.agentGrid = setupGrid
+                }
             }
         }
         model.state.onboarding = next
@@ -35,6 +41,30 @@ final class OnboardingController: ObservableObject {
             model.state.agentGrid = previousGrid
             self.error = "Could not save setup progress: \(error.localizedDescription)"
         }
+    }
+
+    func completePrerequisites(discoverMessages: Bool = false) {
+        error = nil
+        edit {
+            $0.prerequisitesCompleted = true
+            if discoverMessages, $0.messagesDiscoveryReviewed == nil { $0.messagesDiscoveryReviewed = false }
+        }
+    }
+
+    func restartForAccess() {
+        guard !model.busy, !model.webBroadcastBusy else { return }
+        error = nil
+        let previous = model.state.onboarding
+        model.state.onboarding?.prerequisitesCompleted = false
+        do {
+            try model.saveForTermination()
+        } catch {
+            model.state.onboarding = previous
+            self.error = "Could not save setup progress: \(error.localizedDescription)"
+            return
+        }
+        model.onboardingRestartRequested = true
+        NSApp.terminate(nil)
     }
 
     func begin() {
@@ -167,7 +197,9 @@ final class OnboardingController: ObservableObject {
         defer { if checkGeneration == generation { checking = false } }
         model.refresh()
         var hasUsableAgent = false
+        var checkedChoices: Set<OnboardingChoice> = []
         for choice in OnboardingChoice.allCases where state.completed.intersection(state.selected).contains(choice) {
+            checkedChoices.insert(choice)
             if let provider = choice.provider {
                 let session = session(for: provider)
                 guard session.isEnabled else { continue }
@@ -189,7 +221,7 @@ final class OnboardingController: ObservableObject {
         }
         guard checkGeneration == generation, state.stage == .feedback else { return }
         guard hasUsableAgent else {
-            edit { $0.recheckConnections(); $0.chooseAgain() }
+            edit { $0.completed.subtract(checkedChoices); $0.chooseAgain() }
             error = "Connect at least one agent before starting a chat."
             return
         }
@@ -249,6 +281,53 @@ final class OnboardingController: ObservableObject {
     func candidate(for choice: OnboardingChoice) -> Agent? {
         guard let id = state.messageAgentIDs[choice.rawValue] else { return nil }
         return model.state.agents.first { $0.id == id }
+    }
+
+    func connectDiscoveredMessage(_ agent: Agent, choice: OnboardingChoice) async {
+        guard state.messagesDiscoveryReviewed == false, !model.busy else { return }
+        if let saved = model.savedAgent(matching: agent), (state.excludedDiscoveredMessageAgentIDs ?? []).contains(saved.id) { return }
+        await model.addAgent(agent)
+        guard !Task.isCancelled, state.messagesDiscoveryReviewed == false,
+              model.contactStatus.isEmpty, let saved = model.savedAgent(matching: agent) else { return }
+        let ready = model.route(saved) != nil
+        edit {
+            $0.selected.insert(choice)
+            // Keep a usable representative when several contacts share Other Messages.
+            if ready || !$0.completed.contains(choice) { $0.messageAgentIDs[choice.rawValue] = saved.id }
+            if !($0.discoveredMessageAgentIDs ?? []).contains(saved.id) {
+                $0.discoveredMessageAgentIDs = ($0.discoveredMessageAgentIDs ?? []) + [saved.id]
+            }
+            if ready {
+                $0.completed.insert(choice)
+                $0.skipped.remove(choice)
+            }
+        }
+    }
+
+    func toggleDiscoveredMessage(_ agent: Agent) async {
+        guard let saved = model.savedAgent(matching: agent), !model.busy else { return }
+        if (state.excludedDiscoveredMessageAgentIDs ?? []).contains(saved.id) {
+            edit { $0.excludedDiscoveredMessageAgentIDs?.removeAll { $0 == saved.id } }
+            let choice = OnboardingChoice.allCases.first { !$0.contactSuggestions(in: [saved]).isEmpty } ?? .otherMessages
+            await connectDiscoveredMessage(saved, choice: choice)
+        } else {
+            edit { next in
+                next.excludedDiscoveredMessageAgentIDs = (next.excludedDiscoveredMessageAgentIDs ?? []) + [saved.id]
+                next.discoveredMessageAgentIDs?.removeAll { $0 == saved.id }
+                for choice in OnboardingChoice.allCases where next.messageAgentIDs[choice.rawValue] == saved.id {
+                    next.messageAgentIDs.removeValue(forKey: choice.rawValue)
+                    next.selected.remove(choice)
+                    next.completed.remove(choice)
+                    if choice == .otherMessages, let replacement = (next.discoveredMessageAgentIDs ?? []).compactMap({ id in
+                        model.state.agents.first { $0.id == id }
+                    }).sorted(by: { (model.route($0) != nil) && (model.route($1) == nil) }).first {
+                        next.messageAgentIDs[choice.rawValue] = replacement.id
+                        next.selected.insert(choice)
+                        if model.route(replacement) != nil { next.completed.insert(choice) }
+                    }
+                }
+            }
+        }
     }
 
     func connectMessages(_ contacts: [OnboardingChoice: Agent], selected: Set<OnboardingChoice>) async {
@@ -322,6 +401,7 @@ final class OnboardingController: ObservableObject {
             let selected = session.id.instance == nil && connected.contains { $0.provider == session.provider }
             if session.state.selected != selected { session.updateState { $0.selected = selected } }
         }
-        model.state.selection = Set(connected.compactMap { state.messageAgentIDs[$0.rawValue] })
+        model.state.selection = Set(state.selected.filter(\.isMessages).compactMap { state.messageAgentIDs[$0.rawValue] } + (state.discoveredMessageAgentIDs ?? []))
+            .subtracting(state.excludedDiscoveredMessageAgentIDs ?? [])
     }
 }

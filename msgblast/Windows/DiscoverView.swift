@@ -15,7 +15,7 @@ private enum DiscoverResources {
     }
     private static func loadCatalog() throws -> DiscoverCatalog {
         guard let directory else { throw CocoaError(.fileNoSuchFile) }
-        return try JSONDecoder().decode(DiscoverCatalog.self, from: Data(contentsOf: directory.appendingPathComponent("catalog.json")))
+        return try DiscoverCatalog.bundled()
     }
     static func image(_ filename: String?) -> NSImage? {
         guard let filename, let directory else { return nil }

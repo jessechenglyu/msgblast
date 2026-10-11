@@ -170,6 +170,17 @@ final class AppLifecycle: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         #endif
         return true
     }
+    func applicationWillTerminate(_ notification: Notification) {
+        guard model?.onboardingRestartRequested == true else { return }
+        // Launch only after safe termination has actually been approved. Pass
+        // the bundle path as an argument, never interpolate it into shell code.
+        let relaunch = Process()
+        relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
+        relaunch.arguments = ["-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; shift; app=\"$1\"; shift; /usr/bin/open \"$app\" --args \"$@\"", "msgblast-relaunch",
+                              String(ProcessInfo.processInfo.processIdentifier), Bundle.main.bundleURL.path] + Array(ProcessInfo.processInfo.arguments.dropFirst())
+        try? relaunch.run()
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--update-probe") { FileHandle.standardOutput.write(Data("update-probe: safe quit requested\n".utf8)) }
@@ -186,18 +197,21 @@ final class AppLifecycle: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             return .terminateLater
         case .deferred: return .terminateLater
         case .cancelled:
+            model.onboardingRestartRequested = false
             showSaveError(termination.error ?? "Your drafts could not be saved.")
             return .terminateCancel
         }
     }
     private func replyToTermination(_ sender: NSApplication, allowed: Bool) {
         guard allowed, let model else {
+            self.model?.onboardingRestartRequested = false
             completeTerminationReply(sender, allowed: false)
             return
         }
         Task {
             do { try await model.webAgents.saveBrowserDrafts() }
             catch {
+                model.onboardingRestartRequested = false
                 showSaveError("Your browser drafts could not be saved: \(error.localizedDescription)")
                 completeTerminationReply(sender, allowed: false)
                 return

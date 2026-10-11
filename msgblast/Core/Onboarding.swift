@@ -48,6 +48,18 @@ public enum OnboardingChoice: String, CaseIterable, Codable, Identifiable, Senda
     }
 }
 
+public enum OnboardingConnector: String, CaseIterable, Codable, Sendable {
+    case messages, apps, clis
+    public var name: String { switch self { case .messages: "Messages"; case .apps: "Apps"; case .clis: "CLIs" } }
+    public func includes(_ choice: OnboardingChoice) -> Bool {
+        switch self {
+        case .messages: choice.isMessages
+        case .apps: !choice.isMessages && choice.runtime == nil && choice != .codexCLI && choice != .claudeCode
+        case .clis: choice.runtime != nil || choice == .codexCLI || choice == .claudeCode
+        }
+    }
+}
+
 public enum OnboardingStep: Hashable, Sendable {
     case agent(WebProvider)
     case runtime(LocalAgentRuntime)
@@ -57,6 +69,13 @@ public enum OnboardingStep: Hashable, Sendable {
 public struct OnboardingState: Codable, Equatable, Sendable {
     public enum Stage: String, Codable, Sendable { case choosing, importing, connecting, feedback, finished }
 
+    // Optional for compatibility: older saved setups continue at their existing step.
+    public var connectorStartCompleted: Bool? = false
+    public var connector: OnboardingConnector?
+    public var prerequisitesCompleted: Bool? = false
+    public var messagesDiscoveryReviewed: Bool?
+    public var discoveredMessageAgentIDs: [UUID]?
+    public var excludedDiscoveredMessageAgentIDs: [UUID]?
     public var selected: Set<OnboardingChoice> = []
     public var completed: Set<OnboardingChoice> = []
     public var skipped: Set<OnboardingChoice> = []
@@ -64,6 +83,14 @@ public struct OnboardingState: Codable, Equatable, Sendable {
     public var stage: Stage = .choosing
 
     public init() {}
+
+    public mutating func chooseConnector(_ connector: OnboardingConnector) {
+        self.connector = connector
+        connectorStartCompleted = true
+        stage = .choosing
+        prerequisitesCompleted = connector != .messages
+        messagesDiscoveryReviewed = connector == .messages ? false : true
+    }
 
     public var pendingChoices: [OnboardingChoice] {
         OnboardingChoice.allCases.filter { selected.contains($0) && !completed.contains($0) && !skipped.contains($0) }
@@ -99,6 +126,13 @@ public struct OnboardingState: Codable, Equatable, Sendable {
         guard stage == .importing else { return }
         stage = .connecting
         finishIfResolved()
+    }
+    public mutating func reviewMessagesDiscovery() {
+        messagesDiscoveryReviewed = true
+        // Contacts without a supported conversation remain saved for later setup.
+        skipped.formUnion(pendingChoices.filter(\.isMessages))
+        if stage == .connecting && currentStep == nil { finishIfResolved() }
+        else if stage == .connecting { stage = .choosing }
     }
     public mutating func chooseAgain() { stage = .choosing }
     public mutating func complete(_ choice: OnboardingChoice) {
