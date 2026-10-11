@@ -1534,7 +1534,7 @@ final class MultiWebAgentTests: XCTestCase {
         try Data("invalid persisted state".utf8).write(to: directory.appendingPathComponent(WebProvider.claude.storageFilename))
         let web = WebAgents(directory: directory, fixture: true)
         web.availableSessions.forEach { $0.connect() }
-        try await waitFor { web.availableSessions.filter { $0.provider != .claude }.allSatisfy { $0.snapshot.ready } }
+        try await waitFor { web.availableSessions.filter { $0.provider != .claude && $0.provider != .hark }.allSatisfy { $0.snapshot.ready } }
         let chatgpt = web.availableSessions[1], claude = web.availableSessions[2]
         _ = try await chatgpt.webView.callAsyncJavaScript("document.querySelector('textarea,[contenteditable]').value = 'Keep this draft'", arguments: [:], in: nil, contentWorld: .page)
         let results = await WebAgents.send("New question", to: web.availableSessions)
@@ -1542,6 +1542,7 @@ final class MultiWebAgentTests: XCTestCase {
         XCTAssertEqual(results[.grok]?.status, .observed)
         XCTAssertEqual(results[.chatgpt]?.status, .notSent)
         XCTAssertNil(results[.claude])
+        XCTAssertEqual(results[.hark]?.status, .notSent, "Manual-only Hark must not block other websites")
         XCTAssertEqual(chatgpt.snapshot.draft, "Keep this draft")
         XCTAssertNotNil(claude.error)
     }
