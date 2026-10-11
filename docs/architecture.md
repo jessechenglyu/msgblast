@@ -60,7 +60,9 @@ context, not private one-to-one turns.
 
 Hark is available during onboarding at `https://hark.com/chat`. Its embedded
 page supports manual chat; shared submissions and receipt extraction remain
-disabled until its authenticated layout is verified. Poke is a Messages setup
+disabled until its authenticated layout is verified. Selecting Hark keeps its
+manual pane available but excludes it from shared-send recipients and comparison
+preparation, so it cannot block submissions to other agents. Poke is a Messages setup
 choice with exact-name Contacts suggestions. Connection requires a saved contact
 and a supported existing one-to-one iMessage chat; Apple Messages for Business
 conversations are not assumed to be Contacts entries or supported destinations.

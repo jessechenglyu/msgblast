@@ -5,6 +5,7 @@ public enum WebProvider: String, CaseIterable, Codable, Identifiable, Sendable {
     public static let webDefaults: [Self] = [.muse, .chatgpt, .claude, .grok]
     public static let optionalProviders: [Self] = [.codexCLI, .claudeCode]
     public var id: String { rawValue }
+    public var supportsSharedSubmissions: Bool { self != .hark }
     public var usesNativeConversation: Bool { personalAgentProvider != nil || self == .grokbot }
     public var personalAgentProvider: PersonalAgentProvider? {
         switch self { case .codexCLI: .codex; case .claudeCode: .claude; default: nil }

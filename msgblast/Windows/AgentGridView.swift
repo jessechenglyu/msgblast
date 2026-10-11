@@ -206,6 +206,7 @@ struct AgentGridView: View {
 
     private func subtitle(_ id: AgentGridID) -> String? {
         if case .runtime = id { return "Local setup" }
+        if let session = session(for: id), !session.provider.supportsSharedSubmissions { return "Manual chat" }
         if let session = session(for: id), !session.isEnabled { return "Set up" }
         if case .featuredMessages = id, model.messageAgent(for: id) == nil { return "Connect Messages" }
         return nil

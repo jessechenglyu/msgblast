@@ -1528,6 +1528,22 @@ final class MultiWebAgentTests: XCTestCase {
         }
     }
 
+    func testManualOnlyHarkStaysDisplayedWithoutBlockingSharedComparisonPreparation() async throws {
+        let web = WebAgents(directory: temporaryDirectory(), fixture: true)
+        let hark = try XCTUnwrap(web.sessions.first { $0.provider == .hark })
+        hark.updateState { $0.selected = true }
+        XCTAssertTrue(web.displayed.contains { $0.provider == .hark })
+        XCTAssertFalse(web.selected.contains { $0.provider == .hark })
+        web.connectSelected()
+        try await waitFor { hark.snapshot.signedIn == true }
+        let prepared = await web.prepareComparison(nil, for: web.selected)
+        XCTAssertTrue(prepared)
+        let attempts = await WebAgents.send("Send only to shared recipients", to: web.selected)
+        XCTAssertNil(attempts[.hark])
+        XCTAssertEqual(attempts[.chatgpt]?.status, .observed)
+        XCTAssertTrue(hark.state.attempts.isEmpty)
+    }
+
     func testDraftOrUnavailableAgentDoesNotBlockIndependentSubmissions() async throws {
         let directory = temporaryDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
