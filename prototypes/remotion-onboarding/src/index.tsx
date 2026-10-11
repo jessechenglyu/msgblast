@@ -1,9 +1,10 @@
 import React from 'react';
+import {Audio} from '@remotion/media';
 import {AbsoluteFill, Composition, Easing, Img, interpolate, registerRoot, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import icons from './inventory.json';
 const clamp={extrapolateLeft:'clamp',extrapolateRight:'clamp'} as const;
 const mix=(t:number,a:number,b:number)=>a+(b-a)*t;
-const Scene: React.FC<{background?:boolean}> = ({background=false})=>{
+const Scene: React.FC<{background?:boolean; withAudio?:boolean}> = ({background=false, withAudio=false})=>{
  const frame=useCurrentFrame(); const {fps}=useVideoConfig(); const t=background?8:frame/fps;
  const appReveal=interpolate(t,[1.9,2.2],[0,1],clamp);
  const folderReveal=interpolate(t,[5.15,5.65],[0,1],clamp);
@@ -12,7 +13,8 @@ const Scene: React.FC<{background?:boolean}> = ({background=false})=>{
  const appX=mix(settle,960,580),appY=mix(settle,820,680);
  const pulse=t<2.2?0:t<4.3?.025*Math.sin((t-2.2)*12):.02*Math.sin((t-4.3)*14)*Math.exp(-(t-4.3)*6);
  return <AbsoluteFill style={{background:'#ffffff',fontFamily:'-apple-system, BlinkMacSystemFont, sans-serif',color:'#202124',overflow:'hidden'}}>
-  <div style={{position:'absolute',top:152,width:'100%',textAlign:'center',opacity:interpolate(t,[5.2,5.8],[0,1],clamp),transform:`translateY(${(1-reveal)*16}px)`}}><div style={{fontSize:54,fontWeight:600,letterSpacing:-2}}>Welcome to msgblast.</div><div style={{fontSize:24,color:'#74787a',marginTop:18}}>Your next conversation starts here.</div></div>
+  {withAudio && !background && <Audio src={staticFile('audio/onboarding.mp3')} />}
+  <div style={{position:'absolute',top:152,width:'100%',textAlign:'center',opacity:interpolate(t,[5.2,5.8],[0,1],clamp),transform:`translateY(${(1-reveal)*16}px)`}}><div style={{fontSize:54,fontWeight:600,letterSpacing:-2}}>Welcome to msgblast.</div><div style={{fontSize:24,color:'#74787a',marginTop:18}}>your next agent message starts here</div></div>
   {!background && icons.map((icon,i)=>{
    // Uniform tiles and spacing: quantity overwhelms, choreography stays orderly.
    const col=i%13,row=Math.floor(i/13),base=col*154+(row%2)*77;
@@ -40,5 +42,5 @@ const Scene: React.FC<{background?:boolean}> = ({background=false})=>{
   <div style={{position:'absolute',top:950,width:'100%',textAlign:'center',opacity:reveal}}><div style={{fontSize:38,fontWeight:500,letterSpacing:-.7}}>Drag to Applications</div><div style={{fontSize:21,color:'#74787a',marginTop:14}}>Then open msgblast from your Applications folder.</div></div>
  </AbsoluteFill>;
 };
-const Root=()=> <><Composition id="Onboarding" component={Scene} width={1920} height={1200} fps={30} durationInFrames={240}/><Composition id="FinderBackground" component={()=> <Scene background/>} width={1920} height={1200} fps={30} durationInFrames={1}/></>;
+const Root=()=> <><Composition id="Onboarding" component={Scene} defaultProps={{withAudio:true}} width={1920} height={1200} fps={30} durationInFrames={240}/><Composition id="OnboardingSilent" component={Scene} width={1920} height={1200} fps={30} durationInFrames={240}/><Composition id="FinderBackground" component={()=> <Scene background/>} width={1920} height={1200} fps={30} durationInFrames={1}/></>;
 registerRoot(Root);

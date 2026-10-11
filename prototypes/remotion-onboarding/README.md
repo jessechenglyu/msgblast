@@ -3,7 +3,7 @@
 Local comparison prototype on `codex/remotion-onboarding`.
 Base-SHA: `2cc4e312bf036a82abd0ccb168ed8a030382fdb2`.
 
-An eight-second, 1920 × 1200, 30 fps silent sequence follows the approved story: **too many agents → one place → ready to use**.
+An eight-second, 1920 × 1200, 30 fps sequence follows the approved story: **too many agents → one place → ready to use**.
 
 1. **Overload (0–2 s):** 102 actual agent assets form a dense wall of uniformly sized 140 px tiles, with consistent 154 px horizontal / 150 px vertical spacing and half-column staggered rows passing steadily across white. No jitter, random rotation, scale variation, or chaotic scattering.
 2. **Consolidation (2–4.3 s):** the green msgblast icon appears as the rows decelerate. Distance from the anchored intake orders a nearest-first cascade; icons accelerate along direct lines, shrink, and disappear at the intake. The app has a subtle 2.5% pulse. There are no spirals or orbits.
@@ -58,8 +58,15 @@ Remotion's own license applies to its tooling; evaluate its terms before adoptin
 - `npm run render`, `npm run still`, `npm run background`: completed locally. The explicit optional Apple Silicon compositor package ensures rendering works when npm omits transitive optional dependencies on this host.
 - `ffprobe`: H.264, 1920 × 1200, 30 fps, 240 frames, 8.000 seconds.
 - Inspected the final PNG and sampled video frames throughout the sequence. Adjusted the header timing to avoid two text lines overlapping during the reveal. The 140 px tiles use consistent spacing and scale on white. All 102 source assets participate once, with no invented or redrawn logos. A white halo keeps msgblast legible during consolidation. Sampled frames show the orderly opening, nearest-first intake, cleared screen and installation hold. This is not a readable provider catalog.
-- Native app unit/UI tests were not run because native app behavior is unchanged. Installer integration was subsequently built and inspected using the real mounted isolated Demo DMG; the 83 Python tooling tests pass, including layout serialization. No PR was created.
+- Native app unit/UI tests were not run because native app behavior is unchanged. Installer integration was subsequently built and inspected using the real mounted isolated Demo DMG; the 83 Python tooling tests pass, including layout serialization. The PR evidence records the submitted revision.
 
 ## Installer integration
 
 The selected static layout is implemented as an opt-in style in the repository's existing `scripts/build_installer.py`. See `../../scripts/installer-assets/README.md` for packing and regeneration. The background is committed separately from ignored review renders, so packaging requires no Node or Remotion installation. The app and Applications items in the DMG are real Finder items, not baked-in illustrations. Release automation still selects its existing default style.
+
+
+## Audio alignment
+
+The supplied `onboarding.mp3` is eight seconds long. The sound composition starts it at frame zero, at original speed/pitch and gain. Its main energy rise at about 2.25 s meets the app reveal/intake at 2.2 s; its decay after 5 s accompanies the installation reveal, ending naturally during the final hold. The approved visual timing is preserved. Alignment was checked with signal analysis; direct listening is unavailable in the authoring session.
+
+The supplied recording is bundled at `public/audio/onboarding.mp3`, so `npm ci` and `npm run render` reproduce the sound composition. `npm run render:silent` works without it. `Onboarding` in Studio includes sound; `OnboardingSilent` and `FinderBackground` do not. The static DMG asset and installer packaging are unaffected.
