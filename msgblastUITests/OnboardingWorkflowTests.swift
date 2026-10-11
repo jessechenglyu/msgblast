@@ -110,7 +110,7 @@ final class OnboardingWorkflowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Start chatting"].waitForExistence(timeout: 5))
         app.buttons["Start chatting"].click()
         XCTAssertTrue(app.buttons["Poke 🌴"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["Poke 🌴"].value as? String, "Not selected")
+        XCTAssertEqual(app.buttons["Poke 🌴"].value as? String, "Business conversation found · sending unavailable")
     }
 
     @MainActor

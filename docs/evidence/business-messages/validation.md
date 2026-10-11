@@ -46,3 +46,16 @@ classification with an opaque destination, separate from its two contact numbers
 Routing tests cover automatic matching, persistence, removal without phone fallback,
 wrong/unverified names, ambiguous Business identities, and multiple regular numbers.
 Live Poke metadata and sending still require verification through the app.
+
+## Integrated validation (2026-10-11)
+
+80 focused native routing/database/onboarding/grid tests passed. The final Dev
+and Demo previews built and passed packaging signature/icon checks. Native Demo
+inspection verified automatic Poke Business matching without a chooser, a saved
+Business capability label, a visible workspace tile excluded from send recipients,
+and no actionable setup reminder for that unsupported capability.
+
+The rebuilt live Dev app reported missing Full Disk Access. The older build's
+granted access did not remain usable after this ad-hoc rebuild, so the user's
+actual Poke metadata and Business sending remain unverified. No real message was
+sent. The matching integration is complete; the send-ready user experience is not.
