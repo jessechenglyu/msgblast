@@ -1,0 +1,64 @@
+{
+  "source_revision": "b075b6c48080945cf282932b0b3b69ed0849fe9b",
+  "fixture": true,
+  "app_bundle_identifier": "com.msgblast.profile-names.demo",
+  "support_directory": "msgblast-ProfileNames-Demo",
+  "onboarding_preview": true,
+  "preview_build": {
+    "source_revision": "b075b6c48080945cf282932b0b3b69ed0849fe9b",
+    "run_url": "local-chrome-profile-names",
+    "retention_days": 14,
+    "expiry": "GitHub deletes these artifacts 14 days after the workflow run.",
+    "production_feed_used": false,
+    "variants": [
+      {
+        "id": "development",
+        "label": "blue-green development",
+        "fixture": false,
+        "app_name": "msgblast Dev.app",
+        "bundle_id": "com.msgblast.development",
+        "support_directory": "~/Library/Application Support/msgblast-Dev",
+        "zip": "msgblast-dev-b075b6c48080.zip",
+        "sha256": "71f94ff8045412d4116a77c0be9871425671c9bec83159deebffa8fec94a95f7",
+        "compiled_icon": "AppIcon.icns",
+        "compiled_icon_representation": "ic13",
+        "compiled_icon_sha256": "c98ec59998f24b23d6d7eff18df429859fae6aa605baf25ff2ca692b1a2c7ccd",
+        "compiled_icon_rgb": [
+          8.0,
+          143.0,
+          124.5
+        ],
+        "icon_fill_sha256": "121fb234b4774341b371520478c43a495940e94559ff795ee222adc633617229",
+        "updates": "disabled",
+        "instructions": "Unzip msgblast Dev.app and use it to exercise this branch with live data. Do not pass --demo or --isolated-demo; use the blue msgblast Demo.app for fixtures and simulated demonstrations. It is not a fixture and can read real Messages. Grant this bundle Full Disk Access, Contacts, and Messages Automation. Those permissions belong to com.msgblast.development, do not transfer from com.msgblast.mac, and may need to be granted again after a rebuild because the ad-hoc code hash changes. Preferences are the standard defaults for that bundle ID. Grok Bot remembers its connection using hardware-encrypted storage when a Secure Enclave is available. Settings labels session-only storage if no secure backend is available. Saved state is in ~/Library/Application Support/msgblast-Dev. A quarantined download may App Translocate and show an install gate. Drag this app file to Applications and leave /Applications/msgblast.app in place. Ad-hoc builds may need System Settings \u2192 Privacy & Security \u2192 Open Anyway. There is no Sparkle feed, so this app will not download or relaunch over the installed production app."
+      },
+      {
+        "id": "demo",
+        "label": "blue demo fixture",
+        "fixture": true,
+        "app_name": "msgblast Demo.app",
+        "bundle_id": "com.msgblast.demo",
+        "support_directory": "~/Library/Application Support/msgblast-Demo",
+        "zip": "msgblast-demo-b075b6c48080.zip",
+        "sha256": "5ce290cbe6a97eb1ee750043e97184210274fcd815a41909e084412a6de83b91",
+        "compiled_icon": "AppIconDemo.icns",
+        "compiled_icon_representation": "ic13",
+        "compiled_icon_sha256": "3e233b2177364f165add299fa575edd050c02a43ec24d65dd0ebd65da6b0e4f7",
+        "compiled_icon_rgb": [
+          64.8,
+          38.8,
+          216.0
+        ],
+        "icon_fill_sha256": "32ec7e63c53a2cbcbea32d82b508b033f1dffd1821bd74d1b304a67d07a80194",
+        "updates": "disabled",
+        "instructions": "Unzip msgblast Demo.app. Fixture mode is explicit (msgblastDemo): it uses simulated Cedar, Lumen, and Orbit data and does not read Messages. A blue icon alone is not what turns fixture mode on. Preferences follow the bundle ID com.msgblast.demo. Saved state is in ~/Library/Application Support/msgblast-Demo, which other local demo builds also use, and is separate from production and from msgblast Dev. A quarantined download may App Translocate and show an install gate. Drag this app file to Applications and leave /Applications/msgblast.app in place. Ad-hoc builds may need System Settings \u2192 Privacy & Security \u2192 Open Anyway. There is no Sparkle feed, so this app will not download or relaunch over the installed production app."
+      }
+    ]
+  },
+  "screenshots": {
+    "01-import.png": "b175df229b9932fd51a221c1841764f7ccc8bbdd529cb976b8c7880c114c5009",
+    "02-picker.png": "6515a3d1b20467e436d96a35c1c90f527e0ab8120e5a1f0795d8f0024e718d1e",
+    "03-connected.png": "ef3a4eda6e1cfa259a04fce55fdc18a12e400cc8802b6a0a75368b7e78d57509"
+  },
+  "video": "Native window snapshots, edited timing, repeated frames; not a continuous recording."
+}

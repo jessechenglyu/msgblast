@@ -74,7 +74,7 @@ final class OnboardingController: ObservableObject {
                 let profiles: [BrowserLoginProfile]
                 if model.demo {
                     profiles = source == .chrome
-                        ? [BrowserLoginProfile(id: "demo", name: "Demo profile"), BrowserLoginProfile(id: "signed-out", name: "Signed-out profile")]
+                        ? [BrowserLoginProfile(id: "demo", name: "Alex (Personal)"), BrowserLoginProfile(id: "signed-out", name: "Jordan (Work)")]
                         : [BrowserLoginProfile(id: "signed-out", name: "Demo Safari")]
                 } else {
                     profiles = try await Task.detached(priority: .userInitiated) {
