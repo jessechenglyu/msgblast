@@ -685,10 +685,10 @@ private struct OnboardingDiscoveredMessagesView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(agent.name).font(.headline)
                                     Text(destinationLabel(agent)).foregroundStyle(.secondary)
-                                    if model.route(agent) == nil {
+                                    if model.route(agent) == nil || model.conversation(agent)?.businessConversation == true {
                                         Text(model.messageConnectionStatus(agent)).font(.caption).foregroundStyle(.secondary)
                                     }
-                                    if agent.handles.count > 1, model.route(agent) != nil {
+                                    if agent.handles.count > 1, model.route(agent) != nil, model.conversation(agent)?.businessConversation != true {
                                         Text("Uses your most recent conversation").font(.caption).foregroundStyle(.secondary)
                                     }
                                 }
@@ -699,6 +699,7 @@ private struct OnboardingDiscoveredMessagesView: View {
                                 .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
                             }.buttonStyle(.plain).disabled(loading || model.busy)
                                 .accessibilityLabel("\(included(agent) ? "Deselect" : "Select") \(agent.name)")
+                                .accessibilityValue(model.messageConnectionStatus(agent))
                         }
                     }
                 }

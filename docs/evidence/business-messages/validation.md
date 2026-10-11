@@ -1,5 +1,7 @@
 # Business conversation routing validation
 
+The matching-stage limitations below are historical. See [Business sending verification](sending.md) for the implemented send path and current live-test limits.
+
 This implementation is fixture-verified infrastructure, not proof that the user's Poke conversation is Apple Messages for Business or that Messages can send to it through AppleScript.
 
 ## Behavior

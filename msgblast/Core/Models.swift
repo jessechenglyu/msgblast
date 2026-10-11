@@ -12,7 +12,23 @@ public struct Chat: Codable, Identifiable, Hashable, Sendable {
         self.id = id; self.handle = handle; self.lastActivity = lastActivity; self.participantCount = participantCount; self.service = service
         self.displayName = displayName; self.businessConversation = businessConversation
     }
+    // Messages scripting uses the existing `any;-;` chat for Business URNs.
+    // Database GUIDs may use `iMessage;-;`; accept only this exact, verified alias.
+    public var businessScriptingID: String? {
+        guard businessConversation == true, service == "iMessage", participantCount == 1,
+              handle.hasPrefix("urn:biz:"),
+              String(handle.dropFirst(8)).count == 36,
+              UUID(uuidString: String(handle.dropFirst(8))) != nil else { return nil }
+        let scriptingID = "any;-;" + handle
+        guard id == scriptingID || id == "iMessage;-;" + handle else { return nil }
+        return scriptingID
+    }
+    public var messagesScriptingID: String? {
+        if businessConversation == true { return businessScriptingID }
+        return eligible ? id : nil
+    }
     public var eligible: Bool {
+        if businessConversation == true { return businessScriptingID != nil }
         let address = handle.trimmingCharacters(in: .whitespacesAndNewlines)
         let ordinaryAddress = address.contains("@")
             ? !address.contains(":") && !address.contains(where: \.isWhitespace)
@@ -269,6 +285,16 @@ public struct AppState: Codable, Sendable {
     public var agentGrid: AgentGridLayout?
     public var effectiveWindowStyle: ComparisonWindowStyle { windowStyle ?? .connected }
     public init() {}
+    @discardableResult
+    public mutating func pinBusinessDestinations(chats: [Chat]) -> Bool {
+        var changed = false
+        for index in agents.indices where agents[index].destination == nil {
+            guard let chat = ChatResolver.automaticBusinessConversation(agent: agents[index], chats: chats), chat.eligible else { continue }
+            agents[index].destination = MessagesDestination(chat: chat)
+            changed = true
+        }
+        return changed
+    }
     @discardableResult
     public mutating func retainAvailableSelection(chats: [Chat]) -> Bool {
         let available = Set(agents.filter { ChatResolver.resolve(agent: $0, chats: chats) != nil }.map(\.id))

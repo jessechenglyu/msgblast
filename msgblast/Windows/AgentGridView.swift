@@ -549,7 +549,7 @@ struct MessagesConversationMenu: View {
     var body: some View {
         Menu("Choose conversation") {
             ForEach(model.chats) { chat in
-                Button("\(chat.displayName?.isEmpty == false ? chat.displayName! : chat.handle) · \(chat.businessConversation == true ? "Business · sending unavailable" : chat.service) · \(chat.id)") {
+                Button("\(chat.displayName?.isEmpty == false ? chat.displayName! : chat.handle) · \(chat.businessConversation == true ? (chat.eligible ? "Business" : "Business · sending unavailable") : chat.service) · \(chat.id)") {
                     model.chooseConversation(chat, for: agent)
                 }
             }

@@ -95,7 +95,7 @@ final class OnboardingWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    func testPokeBusinessFixtureIsMatchedWithoutAChooserAndNotSelectedForSending() {
+    func testPokeBusinessFixtureIsMatchedWithoutAChooserAndSelectedForSending() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo", "--onboarding-preview", "--business-messages-preview"]
         app.launch()
@@ -104,13 +104,13 @@ final class OnboardingWorkflowTests: XCTestCase {
         choose("Messages", in: app)
         app.buttons["Continue setup"].click()
         XCTAssertTrue(app.buttons["Deselect Poke 🌴"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Business conversation found · sending unavailable"].exists)
+        XCTAssertEqual(app.buttons["Deselect Poke 🌴"].value as? String, "Connected · Business conversation")
         XCTAssertFalse(app.buttons["Choose conversation"].exists)
         app.buttons["Continue setup"].click()
         XCTAssertTrue(app.buttons["Start chatting"].waitForExistence(timeout: 5))
         app.buttons["Start chatting"].click()
         XCTAssertTrue(app.buttons["Poke 🌴"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.buttons["Poke 🌴"].value as? String, "Business conversation found · sending unavailable")
+        XCTAssertEqual(app.buttons["Poke 🌴"].value as? String, "Selected")
     }
 
     @MainActor

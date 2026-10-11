@@ -35,7 +35,7 @@ public enum ChatResolver {
     }
     public static func status(agent: Agent, chats: [Chat]) -> String {
         if let chat = conversation(agent: agent, chats: chats) {
-            if chat.businessConversation == true { return "Business conversation found · sending unavailable" }
+            if chat.businessConversation == true { return chat.eligible ? "Connected · Business conversation" : "Business conversation found · sending unavailable" }
             return chat.eligible ? "Connected" : "Conversation found · sending unavailable"
         }
         return agent.destination == nil ? "No supported conversation found" : "Saved conversation unavailable · choose again"

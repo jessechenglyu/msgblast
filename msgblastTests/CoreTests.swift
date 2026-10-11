@@ -287,6 +287,46 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [first, first]), "Duplicate identities are ambiguous")
         XCTAssertEqual(ChatResolver.normalize("opaque-100001"), "opaque-100001")
     }
+    func testExistingSavedPokeIsPinnedOnceAndNeverFallsBackAfterRefresh() throws {
+        let handle = "urn:biz:00000000-0000-0000-0000-000000000123"
+        let chat = Chat(id: "any;-;" + handle, handle: handle, lastActivity: 1, displayName: "Poke", businessConversation: true)
+        var state = AppState()
+        let poke = Agent(contactID: "fixture-poke", name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
+        let regular = Agent(name: "Fo", handles: ["fo@example.com"])
+        state.agents = [poke, regular]
+        XCTAssertTrue(state.pinBusinessDestinations(chats: [chat]))
+        let destination = try XCTUnwrap(state.agents[0].destination)
+        XCTAssertEqual(destination.chatID, chat.id)
+        XCTAssertNil(state.agents[1].destination, "Regular legacy routing is unchanged")
+        state = try JSONDecoder().decode(AppState.self, from: JSONEncoder().encode(state))
+        var newer = chat; newer.id = "iMessage;-;" + handle; newer.lastActivity = 999
+        XCTAssertFalse(state.pinBusinessDestinations(chats: [newer]))
+        XCTAssertEqual(state.agents[0].destination, destination)
+        let phone = Chat(id: "phone", handle: poke.handles[0], lastActivity: 1000)
+        XCTAssertNil(ChatResolver.resolve(agent: state.agents[0], chats: [phone, newer]))
+    }
+    func testVerifiedBusinessURNIsOneExactSendableDestination() throws {
+        let handle = "urn:biz:00000000-0000-0000-0000-000000000123"
+        let chat = Chat(id: "iMessage;-;" + handle, handle: handle, lastActivity: 1,
+                        displayName: "Poke", businessConversation: true)
+        XCTAssertTrue(chat.eligible)
+        let agent = Agent(name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
+        XCTAssertEqual(ChatResolver.resolve(agent: agent, chats: [chat])?.id, chat.id)
+        XCTAssertEqual(ChatResolver.status(agent: agent, chats: [chat]), "Connected · Business conversation")
+        var restored = agent; restored.destination = MessagesDestination(chat: chat)
+        restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(restored))
+        XCTAssertEqual(ChatResolver.resolve(agent: restored, chats: [chat])?.id, chat.id)
+        var group = chat; group.participantCount = 2
+        XCTAssertFalse(group.eligible)
+        var sms = chat; sms.service = "SMS"
+        XCTAssertFalse(sms.eligible)
+        var unverified = chat; unverified.businessConversation = nil
+        XCTAssertFalse(unverified.eligible)
+        var wrongGUID = chat; wrongGUID.id = "any;+;some-other-thread"
+        XCTAssertFalse(wrongGUID.eligible)
+        var invalidURN = chat; invalidURN.handle = "urn:biz:not-a-uuid"
+        XCTAssertFalse(invalidURN.eligible)
+    }
     func testPokeBusinessConversationMatchesAutomaticallyAndPersistsWithoutPhoneGuessing() throws {
         var poke = Agent(name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
         let business = Chat(id: "business-poke", handle: "opaque-brand-destination", lastActivity: 10,

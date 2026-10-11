@@ -146,7 +146,7 @@ final class AppModel: ObservableObject {
             state.draft = ""
             for name in ["Fo", "Instinct", "Szn", "Poke"] {
                 if name == "Poke", ProcessInfo.processInfo.arguments.contains("--business-messages-preview") {
-                    chats.append(Chat(id: "demo-business-poke", handle: "opaque-business-fixture", lastActivity: 0,
+                    chats.append(Chat(id: "any;-;urn:biz:00000000-0000-0000-0000-000000000123", handle: "urn:biz:00000000-0000-0000-0000-000000000123", lastActivity: 0,
                                       displayName: "Poke", businessConversation: true))
                     continue
                 }
@@ -197,7 +197,9 @@ final class AppModel: ObservableObject {
         }
         if demo {
             databaseAvailable = true; databaseStatus = "Simulated Messages · no real sends"
-            if state.retainAvailableSelection(chats: chats) { persist() }
+            let destinationChanged = state.pinBusinessDestinations(chats: chats)
+            let selectionChanged = state.retainAvailableSelection(chats: chats)
+            if destinationChanged || selectionChanged { persist() }
             return
         }
         do {
@@ -206,7 +208,9 @@ final class AppModel: ObservableObject {
             let version = try database.changeVersion()
             let freshChats = try database.chats()
             if chats != freshChats { chats = freshChats }
-            if state.retainAvailableSelection(chats: freshChats) { try save() }
+            let destinationChanged = state.pinBusinessDestinations(chats: freshChats)
+            let selectionChanged = state.retainAvailableSelection(chats: freshChats)
+            if destinationChanged || selectionChanged { try save() }
             if !databaseAvailable { databaseAvailable = true }
             if databaseStatus != "Messages history available · read-only" { databaseStatus = "Messages history available · read-only" }
             let members = state.comparisons.flatMap(\.members)
