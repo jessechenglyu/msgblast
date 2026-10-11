@@ -20,12 +20,19 @@ final class OnboardingController: ObservableObject {
     func edit(_ change: (inout OnboardingState) -> Void) {
         guard var next = model.state.onboarding else { return }
         let previous = next
+        let previousGrid = model.state.agentGrid
         change(&next)
-        if next.isFinished { restoreRecipients(from: next) }
+        if next.isFinished {
+            restoreRecipients(from: next)
+            if !previous.isFinished, model.state.agentGrid == nil {
+                model.state.agentGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
+            }
+        }
         model.state.onboarding = next
         do { try model.save() }
         catch {
             model.state.onboarding = previous
+            model.state.agentGrid = previousGrid
             self.error = "Could not save setup progress: \(error.localizedDescription)"
         }
     }
@@ -74,7 +81,7 @@ final class OnboardingController: ObservableObject {
                 let profiles: [BrowserLoginProfile]
                 if model.demo {
                     profiles = source == .chrome
-                        ? [BrowserLoginProfile(id: "demo", name: "Demo profile"), BrowserLoginProfile(id: "signed-out", name: "Signed-out profile")]
+                        ? [BrowserLoginProfile(id: "demo", name: "Alex (Personal)"), BrowserLoginProfile(id: "signed-out", name: "Jordan (Work)")]
                         : [BrowserLoginProfile(id: "signed-out", name: "Demo Safari")]
                 } else {
                     profiles = try await Task.detached(priority: .userInitiated) {

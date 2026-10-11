@@ -9,6 +9,22 @@ struct WebPageScript {
         switch provider {
         case .codexCLI, .claudeCode, .grokbot: preconditionFailure("Native agents do not use page scripts")
         case .muse: return MusePageScript.helpers
+        case .hark:
+            // The authenticated layout is not verified. Recognize a chat composer
+            // for setup, but never insert text, click Send, or infer receipts.
+            return #"""
+            const visible = e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
+            const status = () => {
+                const chat = location.protocol === 'https:' && location.hostname === 'hark.com' && location.pathname === '/chat' && !location.search && !location.hash;
+                const inputs = [...document.querySelectorAll('textarea,[contenteditable="true"][role="textbox"]')].filter(visible);
+                const login = location.pathname === '/login';
+                const signedIn = login ? false : chat && inputs.length === 1 ? true : null;
+                return {url:location.href,ready:false,signedIn,draft:'',draftAvailable:false,
+                    reason:signedIn ? 'Use Hark’s composer directly. Shared sending is not supported yet.' : 'Sign in to Hark to open your chat.'};
+            };
+            const inspect = () => ({...status(),messages:[]});
+            const submissionStatus = status;
+            """#
         case .chatgpt:
             selectors = (#"textarea[aria-label="Chat with ChatGPT"],#prompt-textarea[contenteditable="true"],[contenteditable="true"][role="textbox"][aria-label="Ask ChatGPT"]"#,
                          #"button[data-testid="send-button"],button[aria-label="Send message"],button[aria-label="Send prompt"],button[aria-label="Send"]"#,
@@ -223,6 +239,7 @@ struct WebPageScript {
         case .dots: #"<div contenteditable="true" role="textbox" aria-label="Message" data-composer-markdown></div>"#
         case .claude: #"<div class="ProseMirror" role="textbox" aria-label="Message Claude" contenteditable="true"></div>"#
         case .chatgpt: #"<textarea aria-label="Chat with ChatGPT"></textarea>"#
+        case .hark: #"<textarea aria-label="Message Hark"></textarea>"#
         case .os3: #"<textarea aria-label="message input"></textarea>"#
         default: #"<textarea aria-label="Ask Grok anything"></textarea>"#
         }

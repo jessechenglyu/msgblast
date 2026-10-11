@@ -4,6 +4,25 @@ import WebKit
 
 @MainActor
 final class WebServiceTests: XCTestCase {
+    func testHarkOnlyRecognizesItsChatAndNeverAutomatesAnUnknownLayout() async throws {
+        XCTAssertEqual(WebProvider.hark.homeURL.absoluteString, "https://hark.com/chat")
+        XCTAssertTrue(WebProvider.hark.isChatURL(URL(string: "https://hark.com/chat")!))
+        for url in ["https://hark.com/login", "https://hark.com/chat/other", "https://hark.com.evil.test/chat"] {
+            XCTAssertFalse(WebProvider.hark.isChatURL(URL(string: url)!))
+        }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let session = WebAgentSession(provider: .hark, storageURL: directory.appendingPathComponent("hark.json"), fixture: true)
+        session.connect()
+        try await waitFor { session.snapshot.signedIn == true }
+        XCTAssertTrue(session.isReadyForOnboarding)
+        XCTAssertFalse(session.snapshot.ready)
+        let attempt = await session.send("Do not submit this")
+        XCTAssertEqual(attempt?.status, .notSent)
+        XCTAssertTrue(session.snapshot.messages.isEmpty)
+    }
+
     func testWorkspaceReloadPreservesNewProvidersAlongsideComparisonDrafts() throws {
         var state = WebWorkspaceState()
         let comparison = UUID().uuidString

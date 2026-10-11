@@ -31,8 +31,8 @@ enum AgentArtwork {
 
     static let grokBotAvatar: Data? = grokBotImage?.tiffRepresentation
     private static let messageAvatars: [OnboardingChoice: Data] = Dictionary(uniqueKeysWithValues:
-        [OnboardingChoice.instinct, .fo, .szn].compactMap { choice in
-            guard let url = bundle.url(forResource: choice.rawValue, withExtension: "jpg", subdirectory: "WebAgentIcons"),
+        [OnboardingChoice.instinct, .fo, .szn, .poke].compactMap { choice in
+            guard let url = bundle.url(forResource: choice.rawValue, withExtension: choice == .poke ? "png" : "jpg", subdirectory: "WebAgentIcons"),
                   let data = try? Data(contentsOf: url) else { return nil }
             return (choice, data)
         }
@@ -40,10 +40,11 @@ enum AgentArtwork {
     static func messageAvatar(for choice: OnboardingChoice) -> Data? { messageAvatars[choice] }
     static func avatar(for agent: Agent?, name: String) -> Data? {
         let saved = agent?.avatar
-        guard let choice = [OnboardingChoice.instinct, .fo, .szn].first(where: {
-            name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let choice = [OnboardingChoice.instinct, .fo, .szn, .poke].first(where: {
+            name.trimmingCharacters(in: $0 == .poke ? .alphanumerics.inverted : .whitespacesAndNewlines)
                 .caseInsensitiveCompare($0.name) == .orderedSame
         }) else { return saved }
+        if choice == .poke { return messageAvatar(for: choice) ?? saved }
         if choice == .instinct, let saved, saved.count == 17_474 {
             // Older saved agents contain the retired beige Instinct placeholder.
             let digest = SHA256.hash(data: saved).map { String(format: "%02x", $0) }.joined()
@@ -64,11 +65,25 @@ enum AgentArtwork {
     private static let museDefaultAvatar = bundle.url(forResource: "MuseAvatar", withExtension: "jpg")
         .flatMap { try? Data(contentsOf: $0) }
     private static let webDefaultAvatars: [WebProvider: Data] = Dictionary(uniqueKeysWithValues:
-        [WebProvider.chatgpt, .claude, .grok, .codexCLI, .claudeCode, .dots, .os3].compactMap { provider in
+        [WebProvider.chatgpt, .claude, .grok, .codexCLI, .claudeCode, .dots, .os3, .hark].compactMap { provider in
             let resource = provider == .codexCLI ? "chatgpt" : provider == .claudeCode ? "claude" : provider.rawValue
-            let fileExtension = provider == .dots ? "pdf" : [.grok, .os3].contains(provider) ? "png" : "jpg"
+            let fileExtension = provider == .dots ? "pdf" : [.grok, .os3, .hark].contains(provider) ? "png" : "jpg"
             guard let url = bundle.url(forResource: resource, withExtension: fileExtension, subdirectory: "WebAgentIcons"),
                   let data = try? Data(contentsOf: url) else { return nil }
+            if provider == .hark, let source = NSImage(data: data) {
+                // Hark publishes a black transparent mark; white backing keeps
+                // the official artwork legible in both light and dark appearance.
+                let size = NSSize(width: 256, height: 256)
+                let image = NSImage(size: size, flipped: false) { bounds in
+                    NSColor.white.setFill()
+                    bounds.fill()
+                    let height = 192 * source.size.height / source.size.width
+                    source.draw(in: NSRect(x: 32, y: (256 - height) / 2, width: 192, height: height),
+                                from: .zero, operation: .sourceOver, fraction: 1)
+                    return true
+                }
+                return image.tiffRepresentation.map { (provider, $0) }
+            }
             return (provider, data)
         }
     )

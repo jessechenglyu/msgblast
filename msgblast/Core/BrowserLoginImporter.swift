@@ -52,9 +52,54 @@ public struct BrowserLoginImporter: Sendable {
     }
 
     public func profiles(in source: BrowserLoginSource) throws -> [BrowserLoginProfile] {
-        selectedStores(in: source).compactMap { store in
+        var namesByRoot: [URL: [String: String]] = [:]
+        return selectedStores(in: source).compactMap { store in
             guard let url = store.databaseURL else { return nil }
-            return BrowserLoginProfile(id: Self.storeID(url), name: store.profile.name)
+            var name = store.profile.name
+            if source == .chrome {
+                let directory = URL(fileURLWithPath: store.profile.id)
+                let root = directory.deletingLastPathComponent()
+                if namesByRoot[root] == nil {
+                    namesByRoot[root] = Self.chromeProfileNames(in: root)
+                }
+                name = namesByRoot[root]?[directory.lastPathComponent] ?? name
+            }
+            return BrowserLoginProfile(id: Self.storeID(url), name: name)
+        }
+    }
+
+    // Chrome keeps user-facing names in Local State, independently of the
+    // directory names used to locate cookie stores. Missing metadata must not
+    // prevent import or change which store a selection refers to.
+    private static func chromeProfileNames(in root: URL) -> [String: String] {
+        guard let data = try? Data(contentsOf: root.appendingPathComponent("Local State")),
+              let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let profile = state["profile"] as? [String: Any],
+              let cache = profile["info_cache"] as? [String: [String: Any]] else { return [:] }
+        return cache.reduce(into: [:]) { names, entry in
+            func text(_ key: String) -> String? {
+                guard let value = entry.value[key] as? String,
+                      !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+                return value
+            }
+            let local = text("enterprise_label") ?? text("name")
+            let account = text("gaia_given_name") ?? text("gaia_name")
+            if let account {
+                let hasDuplicateAccount = cache.contains { other in
+                    other.key != entry.key &&
+                    ((other.value["gaia_given_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                        ?? other.value["gaia_name"] as? String) == account
+                }
+                let showLocal = entry.value["is_using_default_name"] as? Bool != true ||
+                    text("enterprise_label") != nil || hasDuplicateAccount
+                if let local, showLocal, local.caseInsensitiveCompare(account) != .orderedSame {
+                    names[entry.key] = "\(account) (\(local))"
+                } else {
+                    names[entry.key] = account
+                }
+            } else if let local {
+                names[entry.key] = local
+            }
         }
     }
 
