@@ -280,7 +280,7 @@ final class AppModel: ObservableObject {
         guard databaseAvailable, contactsAvailable else { return [] }
         if demo {
             return ["Fo", "Instinct", "Szn", "Poke"].map {
-                Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0, handles: [$0.lowercased() + "@example.com"])
+                Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0 == "Poke" ? "Poke 🌴" : $0, handles: [$0.lowercased() + "@example.com"])
             }
         }
         let search = Task.detached(priority: .userInitiated) {

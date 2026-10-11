@@ -44,6 +44,9 @@ final class OnboardingWorkflowTests: XCTestCase {
         capture("poke-messages-contact-demo")
         app.buttons["Connect selected"].click()
         XCTAssertTrue(app.buttons["Start chatting"].waitForExistence(timeout: 10))
+        app.buttons["Start chatting"].click()
+        XCTAssertTrue(app.buttons["Poke 🌴"].waitForExistence(timeout: 10))
+        capture("connected-poke-official-icon-demo")
     }
 
     @MainActor

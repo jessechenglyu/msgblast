@@ -41,7 +41,7 @@ enum AgentArtwork {
     static func avatar(for agent: Agent?, name: String) -> Data? {
         let saved = agent?.avatar
         guard let choice = [OnboardingChoice.instinct, .fo, .szn, .poke].first(where: {
-            name.trimmingCharacters(in: .whitespacesAndNewlines)
+            name.trimmingCharacters(in: $0 == .poke ? .alphanumerics.inverted : .whitespacesAndNewlines)
                 .caseInsensitiveCompare($0.name) == .orderedSame
         }) else { return saved }
         if choice == .poke { return messageAvatar(for: choice) ?? saved }
