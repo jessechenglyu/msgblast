@@ -183,3 +183,26 @@ checks, and what CI actually validates.
 
 Releases are a separate maintainer workflow. Building or pushing source does not
 publish to the production update feed.
+
+## Optional local installer preview
+
+The selected Remotion onboarding source lives in `prototypes/remotion-onboarding`.
+Its MP4 is a standalone preview; standard Finder DMGs display a static PNG.
+The existing packager accepts the matching layout explicitly, without changing
+release defaults or the updater ZIP:
+
+```sh
+python3 -m venv build/installer-venv
+build/installer-venv/bin/pip install -r scripts/installer-requirements.txt
+build/installer-venv/bin/python scripts/build_installer.py \
+  'build/contributor-preview/msgblast Demo.app' \
+  build/msgblast-demo-remotion.dmg --style remotion
+```
+
+Build the isolated preview apps first using the command above. Choose an unused
+DMG output filename. The mounted volume contains the real blue `msgblast Demo.app`
+and an Applications alias, positioned on the white static background. Inspect
+that separate volume without overwriting `/Applications/msgblast.app`; Demo has
+fixture mode, separate state and disabled updates. See
+[saved layout and regeneration](../scripts/installer-assets/README.md) and
+[animation commands and limits](../prototypes/remotion-onboarding/README.md).

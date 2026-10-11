@@ -1,0 +1,614 @@
+[
+  {
+    "name": "222",
+    "file": "000-222.png",
+    "source": "msgblast/Resources/Discover/icons/222.png",
+    "sha256": "2b15fc05dfd3e060bc80ed7f7f65f385258803337b18f64678df24393bb5c520"
+  },
+  {
+    "name": "agent-store",
+    "file": "001-agent-store.png",
+    "source": "msgblast/Resources/Discover/icons/agent-store.png",
+    "sha256": "dc0c6d8c4d33f9a203b85129afe0b49f684974a80c1486f81ad77e9cbc5d7b91"
+  },
+  {
+    "name": "alfi",
+    "file": "002-alfi.png",
+    "source": "msgblast/Resources/Discover/icons/alfi.png",
+    "sha256": "3071ab8a67749da3ae8e42d1e8aa95663c0d7ce378f9799fb182f9b7f441e0b4"
+  },
+  {
+    "name": "alfred-2",
+    "file": "003-alfred-2.png",
+    "source": "msgblast/Resources/Discover/icons/alfred-2.png",
+    "sha256": "a3bb1437275e82fa61fe430b5a330005126f61d90970ec9adb42b13df2ddfe06"
+  },
+  {
+    "name": "alfred",
+    "file": "004-alfred.png",
+    "source": "msgblast/Resources/Discover/icons/alfred.png",
+    "sha256": "56156148a6e4cb9cccbf4691dc1acaaba214a634d98364ef54b2454e14675bba"
+  },
+  {
+    "name": "allora",
+    "file": "005-allora.png",
+    "source": "msgblast/Resources/Discover/icons/allora.png",
+    "sha256": "a4ff781f9b771aac4b3a0cf99f2b73e852ae00aae103a6c0a144eb94476e2249"
+  },
+  {
+    "name": "allowance",
+    "file": "006-allowance.png",
+    "source": "msgblast/Resources/Discover/icons/allowance.png",
+    "sha256": "cbfaa79e27365b8f2a8e874b16922761b928f6f70844f38d0596f994c0b7f850"
+  },
+  {
+    "name": "arden",
+    "file": "007-arden.png",
+    "source": "msgblast/Resources/Discover/icons/arden.png",
+    "sha256": "55cfd21f8a67aa32cdd328b310e2711b80ae3ed0d34784e8bbe61082e7118073"
+  },
+  {
+    "name": "arlo",
+    "file": "008-arlo.png",
+    "source": "msgblast/Resources/Discover/icons/arlo.png",
+    "sha256": "f8bfcb61e6d20e1121811e139c95bbf4573622efd4f9ffb4d93604104cb61255"
+  },
+  {
+    "name": "asaply",
+    "file": "009-asaply.png",
+    "source": "msgblast/Resources/Discover/icons/asaply.png",
+    "sha256": "a2fa124b7d2918ea2f166026d989078ac6d9447b3fcd254cd95d668b44c1c3c9"
+  },
+  {
+    "name": "askpetal",
+    "file": "010-askpetal.png",
+    "source": "msgblast/Resources/Discover/icons/askpetal.png",
+    "sha256": "2d141758d32ab910d667cd0ed3c9297fee3f6ad6277829a546958e6768ca774a"
+  },
+  {
+    "name": "asmi",
+    "file": "011-asmi.png",
+    "source": "msgblast/Resources/Discover/icons/asmi.png",
+    "sha256": "a0808c20e133717085ec5dd1eeeb5d807169bd7999646beb0c355738a5211a9f"
+  },
+  {
+    "name": "avenue",
+    "file": "012-avenue.png",
+    "source": "msgblast/Resources/Discover/icons/avenue.png",
+    "sha256": "b03d24494e36bbd3da787ef1f24281cd28c7bb330ae0bb97694e2401f428f954"
+  },
+  {
+    "name": "bach-tran",
+    "file": "013-bach-tran.png",
+    "source": "msgblast/Resources/Discover/icons/bach-tran.png",
+    "sha256": "6791b2df5d11b449958a67c515e160ebd083b23fd86924056b2160af7acf2997"
+  },
+  {
+    "name": "bantr",
+    "file": "014-bantr.png",
+    "source": "msgblast/Resources/Discover/icons/bantr.png",
+    "sha256": "5afe903482beb76471bea9f167a81d942de60ba40a03323060618377782b6681"
+  },
+  {
+    "name": "bo",
+    "file": "015-bo.png",
+    "source": "msgblast/Resources/Discover/icons/bo.png",
+    "sha256": "3111e0c39a2af50501aae766b7001160b9e15d9c815cd6516d8469b76a0b080f"
+  },
+  {
+    "name": "caddy",
+    "file": "016-caddy.png",
+    "source": "msgblast/Resources/Discover/icons/caddy.png",
+    "sha256": "81a83613c3cb681c7aa7d3dbf8573bed71600f2420909ff522209af0964fdb67"
+  },
+  {
+    "name": "cappy",
+    "file": "017-cappy.png",
+    "source": "msgblast/Resources/Discover/icons/cappy.png",
+    "sha256": "301d1b13971fc145d036c8a9330376e46896ac65c8b4e4a627a6af1fa792b731"
+  },
+  {
+    "name": "capy",
+    "file": "018-capy.png",
+    "source": "msgblast/Resources/Discover/icons/capy.png",
+    "sha256": "5848faebe2c0e7391f0b65d5139a416d026d3610d32ad17ca9be687b191c59d5"
+  },
+  {
+    "name": "caresupport",
+    "file": "019-caresupport.png",
+    "source": "msgblast/Resources/Discover/icons/caresupport.png",
+    "sha256": "9b74183e4a2604f1157e143efada42610d6361b9ef4d86f53a6f80f0a2e70b6a"
+  },
+  {
+    "name": "catch",
+    "file": "020-catch.png",
+    "source": "msgblast/Resources/Discover/icons/catch.png",
+    "sha256": "4807f8f96dc696ea44424d72f1437050ec5eddbbe08ebc8e263c9f52cec8bf91"
+  },
+  {
+    "name": "clera",
+    "file": "021-clera.png",
+    "source": "msgblast/Resources/Discover/icons/clera.png",
+    "sha256": "b0e44307546d22a19942ecc2ca80f06550c63cd9f1b3c9b1b8b0d2fa0a6bcf0d"
+  },
+  {
+    "name": "doctours",
+    "file": "022-doctours.png",
+    "source": "msgblast/Resources/Discover/icons/doctours.png",
+    "sha256": "855e860acf8edecd149904ff271bf8d71120a12bb0f554117c2d31b9dbf10031"
+  },
+  {
+    "name": "dunnit-ai",
+    "file": "023-dunnit-ai.png",
+    "source": "msgblast/Resources/Discover/icons/dunnit-ai.png",
+    "sha256": "83069b0000dce6aeff35408f435aeadc5f5945b349de64129754eddc461688a5"
+  },
+  {
+    "name": "emailed-chat-2",
+    "file": "024-emailed-chat-2.png",
+    "source": "msgblast/Resources/Discover/icons/emailed-chat-2.png",
+    "sha256": "eb020473196a1def33b758bf2d55d79a7fd86a18d807328df28f541adea47b32"
+  },
+  {
+    "name": "endearing",
+    "file": "025-endearing.png",
+    "source": "msgblast/Resources/Discover/icons/endearing.png",
+    "sha256": "4b57168205c95e51b64b389a02b162b230d71a76c217d22d9b05f86f621eeea7"
+  },
+  {
+    "name": "espa",
+    "file": "026-espa.png",
+    "source": "msgblast/Resources/Discover/icons/espa.png",
+    "sha256": "dda1aa9f9538195d284044c09cfe3930eedffeeef7dece94acfb1a33e6b20632"
+  },
+  {
+    "name": "figment",
+    "file": "027-figment.png",
+    "source": "msgblast/Resources/Discover/icons/figment.png",
+    "sha256": "14dec8ee68c97ed4ef7415787d5287e4f69ead2995ac119880274028f8e19fde"
+  },
+  {
+    "name": "folk",
+    "file": "028-folk.png",
+    "source": "msgblast/Resources/Discover/icons/folk.png",
+    "sha256": "166857a573bbccbe66c36bea1eb3398f60a29cc8f4d316f3baac57a793ed6099"
+  },
+  {
+    "name": "fonzi",
+    "file": "029-fonzi.png",
+    "source": "msgblast/Resources/Discover/icons/fonzi.png",
+    "sha256": "d51d55b2ea89ed6429305cf57d5083b5a1110afa37f224c4bfa3db3ee6524b61"
+  },
+  {
+    "name": "friday",
+    "file": "030-friday.png",
+    "source": "msgblast/Resources/Discover/icons/friday.png",
+    "sha256": "a232a150210bee876dccef1184bd7cb00a17e651001e0ec524b80f5f2b668c39"
+  },
+  {
+    "name": "gambly-bot",
+    "file": "031-gambly-bot.png",
+    "source": "msgblast/Resources/Discover/icons/gambly-bot.png",
+    "sha256": "9c19a4bbaa1dfbe3373bb885d5dfd6db8f5a96e9249683a383716820c61f6482"
+  },
+  {
+    "name": "geo",
+    "file": "032-geo.png",
+    "source": "msgblast/Resources/Discover/icons/geo.png",
+    "sha256": "6f7815dbcc86ef595449f19dc049936da3f9de5fabdecfe9d25dc4e883cbad1e"
+  },
+  {
+    "name": "hallie",
+    "file": "033-hallie.png",
+    "source": "msgblast/Resources/Discover/icons/hallie.png",
+    "sha256": "788f2b3c5f758c94c285f7bd6ec590a225d749e1267999528751515d4576530d"
+  },
+  {
+    "name": "https-chat-dev",
+    "file": "034-https-chat-dev.png",
+    "source": "msgblast/Resources/Discover/icons/https-chat-dev.png",
+    "sha256": "e551dafc3b850ad4c4930223f6d6e0d218f22684da0955ad5af591816a79a6f0"
+  },
+  {
+    "name": "huzi-ai",
+    "file": "035-huzi-ai.png",
+    "source": "msgblast/Resources/Discover/icons/huzi-ai.png",
+    "sha256": "4d4aebc1315e0e05ca112f0159a36b68dd69acbaa5bca339b3eec1bc1d080339"
+  },
+  {
+    "name": "hyperneobroker-com",
+    "file": "036-hyperneobroker-com.png",
+    "source": "msgblast/Resources/Discover/icons/hyperneobroker-com.png",
+    "sha256": "a2a3a0e1e07eee365417cee204dfa1c3daf6b2bbb738e3d9decd93c96e52433a"
+  },
+  {
+    "name": "informed-now",
+    "file": "037-informed-now.png",
+    "source": "msgblast/Resources/Discover/icons/informed-now.png",
+    "sha256": "2301966fc85fb707e0dd9615e68045bfa551eac8119b0bdd5a03e808dad09018"
+  },
+  {
+    "name": "iris",
+    "file": "038-iris.png",
+    "source": "msgblast/Resources/Discover/icons/iris.png",
+    "sha256": "93f7c213b8babdbdc4934de8d031143250f29b33a5109528c6935f67e9a385e3"
+  },
+  {
+    "name": "iru",
+    "file": "039-iru.png",
+    "source": "msgblast/Resources/Discover/icons/iru.png",
+    "sha256": "3ebd9d569dea6dd86112715f1de8688aee9367892856a0ad1fdf46d1b07a847c"
+  },
+  {
+    "name": "jarvie",
+    "file": "040-jarvie.png",
+    "source": "msgblast/Resources/Discover/icons/jarvie.png",
+    "sha256": "36c7f6d0d350d1b6ccabd0af2633ea673a035a6c3f2d9b3ef4fb5b3f18397b82"
+  },
+  {
+    "name": "juke",
+    "file": "041-juke.png",
+    "source": "msgblast/Resources/Discover/icons/juke.png",
+    "sha256": "54a8562aefde1e3cdfd23065263689fb07dfa44eeec94f433ec290393854d676"
+  },
+  {
+    "name": "julie",
+    "file": "042-julie.png",
+    "source": "msgblast/Resources/Discover/icons/julie.png",
+    "sha256": "f6241ae24aed6e96c7f1eb27e580dc55e5636964d3f8c3e51e814e96f9c8ce29"
+  },
+  {
+    "name": "just-read",
+    "file": "043-just-read.png",
+    "source": "msgblast/Resources/Discover/icons/just-read.png",
+    "sha256": "375a3fb005dfa183ed1c808dd3c8df986617f057d8f9694785022c604bb3b6d7"
+  },
+  {
+    "name": "karpo",
+    "file": "044-karpo.png",
+    "source": "msgblast/Resources/Discover/icons/karpo.png",
+    "sha256": "436b844d8bdfbd7a62d2b1dd56e5d7ffd25daccba6c0af5008d45753e454e8ab"
+  },
+  {
+    "name": "kicker",
+    "file": "045-kicker.png",
+    "source": "msgblast/Resources/Discover/icons/kicker.png",
+    "sha256": "5f09e01baa9d2d34b823f319e5dca028cb19b0c2cc393fb259370726750242be"
+  },
+  {
+    "name": "kindroid",
+    "file": "046-kindroid.png",
+    "source": "msgblast/Resources/Discover/icons/kindroid.png",
+    "sha256": "2a9f91a93ef9d7b3cfda646e49a99e59fe81e8576df157b65796fc5641dae048"
+  },
+  {
+    "name": "lucas",
+    "file": "047-lucas.png",
+    "source": "msgblast/Resources/Discover/icons/lucas.png",
+    "sha256": "5b13846dad252b370afd25ea1db34fef547e976c06db904539fa3dce0db5bd46"
+  },
+  {
+    "name": "lux",
+    "file": "048-lux.png",
+    "source": "msgblast/Resources/Discover/icons/lux.png",
+    "sha256": "473e510f1b922a8d5addab9a7b8ca3917c60db54c24e42d71381a6ec9318ad8a"
+  },
+  {
+    "name": "mage",
+    "file": "049-mage.png",
+    "source": "msgblast/Resources/Discover/icons/mage.png",
+    "sha256": "2b004bc8ea8830b4f90299ab84b2a2e051011a2279ceb8d41158a2249c0d861c"
+  },
+  {
+    "name": "maxi",
+    "file": "050-maxi.png",
+    "source": "msgblast/Resources/Discover/icons/maxi.png",
+    "sha256": "55dee7d61c11acfa54105130f375233164db18e480f23686993167ea17f2faf0"
+  },
+  {
+    "name": "miora",
+    "file": "051-miora.png",
+    "source": "msgblast/Resources/Discover/icons/miora.png",
+    "sha256": "7cc634b45cb3a8fe30b60ad6cc4f921850930c1895cb829f4f7e0b83d8579b0c"
+  },
+  {
+    "name": "murph",
+    "file": "052-murph.png",
+    "source": "msgblast/Resources/Discover/icons/murph.png",
+    "sha256": "2fc4c67b2b7a3bcba97fb7bc8b306245472d354526410728cdb3f32e88b887b3"
+  },
+  {
+    "name": "navi",
+    "file": "053-navi.png",
+    "source": "msgblast/Resources/Discover/icons/navi.png",
+    "sha256": "dac0c34de38b17f706aac83face34b87eaace7ab3d5c670bf6c368048c1d3013"
+  },
+  {
+    "name": "ninjachat-ai",
+    "file": "054-ninjachat-ai.png",
+    "source": "msgblast/Resources/Discover/icons/ninjachat-ai.png",
+    "sha256": "5b2e1dd2943baaaedf3b16b242e89f0f416dea7fb1198d15108e5adf2c2076ce"
+  },
+  {
+    "name": "noscroll",
+    "file": "055-noscroll.png",
+    "source": "msgblast/Resources/Discover/icons/noscroll.png",
+    "sha256": "da56ad0be16ab06f7a84b899d0c966b8cb3e35df7a9d3f35faef9dc3c4b6f458"
+  },
+  {
+    "name": "nudge",
+    "file": "056-nudge.png",
+    "source": "msgblast/Resources/Discover/icons/nudge.png",
+    "sha256": "dfda8dbae4d2e5706e99199a3c48130aec41fdc5457a02a0c5cc8999daa26ebf"
+  },
+  {
+    "name": "omg-dev",
+    "file": "057-omg-dev.png",
+    "source": "msgblast/Resources/Discover/icons/omg-dev.png",
+    "sha256": "63b8c0bec1366a331a03219e144d630012afa0d0a569087d3799e3267861e07c"
+  },
+  {
+    "name": "orchid",
+    "file": "058-orchid.png",
+    "source": "msgblast/Resources/Discover/icons/orchid.png",
+    "sha256": "3b407d270558ee420f2282cad07cdf199c11a418a5ab0a97285b96f14e140627"
+  },
+  {
+    "name": "ori-2",
+    "file": "059-ori-2.png",
+    "source": "msgblast/Resources/Discover/icons/ori-2.png",
+    "sha256": "f7f7f47f94112cf2ce8d904d0424762d5130bfb225bbf509c48b046963dd5bf8"
+  },
+  {
+    "name": "outgoing",
+    "file": "060-outgoing.png",
+    "source": "msgblast/Resources/Discover/icons/outgoing.png",
+    "sha256": "1e3dda540eb8f546b0fff1334d05612eb5080b0ed2c0a7fdf08035156383d877"
+  },
+  {
+    "name": "pally",
+    "file": "061-pally.png",
+    "source": "msgblast/Resources/Discover/icons/pally.png",
+    "sha256": "b526f28c704832783ad1a674e03c43c0c243ae729361f4544dedf82bfb061f88"
+  },
+  {
+    "name": "pickle",
+    "file": "062-pickle.png",
+    "source": "msgblast/Resources/Discover/icons/pickle.png",
+    "sha256": "73398b56f6122234b0d83e740f18e15d262546a4067d536e48e3b43432cee04e"
+  },
+  {
+    "name": "pika",
+    "file": "063-pika.png",
+    "source": "msgblast/Resources/Discover/icons/pika.png",
+    "sha256": "f4f1e2a0fd540b4778c3e767b7ea270d29eee81313e1dc4d558f2396ba8cf32c"
+  },
+  {
+    "name": "pray-up",
+    "file": "064-pray-up.png",
+    "source": "msgblast/Resources/Discover/icons/pray-up.png",
+    "sha256": "ba776d3903f93a9fcae18ef011513c996c13515e7f9a9bdf5db5ae2256ed43fd"
+  },
+  {
+    "name": "remi",
+    "file": "065-remi.png",
+    "source": "msgblast/Resources/Discover/icons/remi.png",
+    "sha256": "27537d22709a327c89ac29c18e7144430d8acab07e55210958670d02dceae40c"
+  },
+  {
+    "name": "sam",
+    "file": "066-sam.png",
+    "source": "msgblast/Resources/Discover/icons/sam.png",
+    "sha256": "a1b85475804c1f0a6e1a4a0f8a048257ba52c233a145d65d63bf22bc83016261"
+  },
+  {
+    "name": "series",
+    "file": "067-series.png",
+    "source": "msgblast/Resources/Discover/icons/series.png",
+    "sha256": "00581a0346def11846293ff50c6b21ba3700a24d313b144c0956ded9c3ef4b68"
+  },
+  {
+    "name": "served",
+    "file": "068-served.png",
+    "source": "msgblast/Resources/Discover/icons/served.png",
+    "sha256": "d0943c0e699f832395b79ed831741b8587c59f57e7b09eb73fc2fd9892ae306b"
+  },
+  {
+    "name": "sidekicks",
+    "file": "069-sidekicks.png",
+    "source": "msgblast/Resources/Discover/icons/sidekicks.png",
+    "sha256": "274e87c6912fe021b198bdff63eef7c459fcbc282eba100e176fae184e6926ed"
+  },
+  {
+    "name": "soar",
+    "file": "070-soar.png",
+    "source": "msgblast/Resources/Discover/icons/soar.png",
+    "sha256": "b8914a25462f515d1c329293a37a7180957922067ee8c1ae8c9eaea67b5b739c"
+  },
+  {
+    "name": "stanley",
+    "file": "071-stanley.png",
+    "source": "msgblast/Resources/Discover/icons/stanley.png",
+    "sha256": "1842908b724b4e53e7fc83093fa563a74c8768b8c80c4451a236ac895ab4b1cc"
+  },
+  {
+    "name": "stiled",
+    "file": "072-stiled.png",
+    "source": "msgblast/Resources/Discover/icons/stiled.png",
+    "sha256": "855ed5e0d4cc104954cb0700159178c8805e6f646e2084594f8139b52988238c"
+  },
+  {
+    "name": "studyarena",
+    "file": "073-studyarena.png",
+    "source": "msgblast/Resources/Discover/icons/studyarena.png",
+    "sha256": "86bcbcdeb3694c4ec9b30866da682033d146cabe3c8af13330af9c915e7617ca"
+  },
+  {
+    "name": "sumolevel-ai",
+    "file": "074-sumolevel-ai.png",
+    "source": "msgblast/Resources/Discover/icons/sumolevel-ai.png",
+    "sha256": "3a7d7813b98eee5523ee44d8c0f60dc3c2e2685b10474768c5e48fd0f32feb4f"
+  },
+  {
+    "name": "super",
+    "file": "075-super.png",
+    "source": "msgblast/Resources/Discover/icons/super.png",
+    "sha256": "07c05f3f07cfedc8be0d19082c82bb844e1328ee062f84bdacd113893775a1ec"
+  },
+  {
+    "name": "tempo-ai-health-companion",
+    "file": "076-tempo-ai-health-companion.png",
+    "source": "msgblast/Resources/Discover/icons/tempo-ai-health-companion.png",
+    "sha256": "e7cefccfdf72e97f5a2e045884ee6c9345883c7740cd695c5d9f2b06b02eac08"
+  },
+  {
+    "name": "terac",
+    "file": "077-terac.png",
+    "source": "msgblast/Resources/Discover/icons/terac.png",
+    "sha256": "f6accdad1427dd657e4cbf5bea48cdc4a8e5fb8234092a8bedc354e44ab3c7ed"
+  },
+  {
+    "name": "textmyagent-app",
+    "file": "078-textmyagent-app.png",
+    "source": "msgblast/Resources/Discover/icons/textmyagent-app.png",
+    "sha256": "ae6d4df0d112a5c0d8be4a3e753944a6b49797562767f0b0433285663d070e83"
+  },
+  {
+    "name": "tinynature",
+    "file": "079-tinynature.png",
+    "source": "msgblast/Resources/Discover/icons/tinynature.png",
+    "sha256": "e4462fb5b3e5b9a60e994ac20ed65233d88411500372b13ade6cb4bf1d44414f"
+  },
+  {
+    "name": "tomo",
+    "file": "080-tomo.png",
+    "source": "msgblast/Resources/Discover/icons/tomo.png",
+    "sha256": "3f2d1be0b4f95ead3ac14b1cada090d803a074e04f3df3b4e10b7855d74cac0d"
+  },
+  {
+    "name": "toyo",
+    "file": "081-toyo.png",
+    "source": "msgblast/Resources/Discover/icons/toyo.png",
+    "sha256": "77ef7612ce842af8916136fbf3f3ebe0b300c9fb853c3fdc2c2757e6367eae07"
+  },
+  {
+    "name": "tsenta",
+    "file": "082-tsenta.png",
+    "source": "msgblast/Resources/Discover/icons/tsenta.png",
+    "sha256": "7ab4b8a24d80f9fec18482ba04f71355511a3d76577bc2808586f400796beebb"
+  },
+  {
+    "name": "turf",
+    "file": "083-turf.png",
+    "source": "msgblast/Resources/Discover/icons/turf.png",
+    "sha256": "80100dab21ea771f902eef154bf831cf3c8e5f006e10578a0c7fe56646455cf8"
+  },
+  {
+    "name": "vantura",
+    "file": "084-vantura.png",
+    "source": "msgblast/Resources/Discover/icons/vantura.png",
+    "sha256": "6c5a4d7f684f638ddf23152bda6b742cf76a7eca2fbcf408e3fee0255bd0d8d3"
+  },
+  {
+    "name": "vent-now",
+    "file": "085-vent-now.png",
+    "source": "msgblast/Resources/Discover/icons/vent-now.png",
+    "sha256": "611b68d1ee2ac9bcf6c215cc7b5726841c67ce069db4446289b5eeb911cf6a48"
+  },
+  {
+    "name": "vic",
+    "file": "086-vic.png",
+    "source": "msgblast/Resources/Discover/icons/vic.png",
+    "sha256": "442b4b14f94f1f083cc6e658a332b799b54f2d1006f6a6f87f2d51dd8b9acead"
+  },
+  {
+    "name": "viralt",
+    "file": "087-viralt.png",
+    "source": "msgblast/Resources/Discover/icons/viralt.png",
+    "sha256": "60dc36c56fb6791c1b3bbc1b00497d15b6a86b04e0a56ca0050bab9bed698ed1"
+  },
+  {
+    "name": "webair-ai",
+    "file": "088-webair-ai.png",
+    "source": "msgblast/Resources/Discover/icons/webair-ai.png",
+    "sha256": "d46b924e906574bf4df956b4b50021cc54f7ccfab0131cf8b1edf4a7d80edd6c"
+  },
+  {
+    "name": "zo",
+    "file": "089-zo.png",
+    "source": "msgblast/Resources/Discover/icons/zo.png",
+    "sha256": "89078b10701455c68a9bbc4d396e43ff60d22ea7c6cac8183478602406f231ad"
+  },
+  {
+    "name": "chatgpt",
+    "file": "090-chatgpt.jpg",
+    "source": "msgblast/Resources/WebAgentIcons/chatgpt.jpg",
+    "sha256": "243ff2cead1bf06f43f2c90dfde5f7420d5b1b8ddd8f1bd497df4877ddef3bb2"
+  },
+  {
+    "name": "claude",
+    "file": "091-claude.jpg",
+    "source": "msgblast/Resources/WebAgentIcons/claude.jpg",
+    "sha256": "50d784959c3e09b6c3ed992d306efcdf306d949d3ae833c510d91a7623135b30"
+  },
+  {
+    "name": "dots",
+    "file": "092-dots.png",
+    "source": "msgblast/Resources/WebAgentIcons/dots.pdf",
+    "sha256": "05f90e62c15e529e52c8c3e611ab1b0fedcfe921522f5d82f749999af4dd301d"
+  },
+  {
+    "name": "fo",
+    "file": "093-fo.jpg",
+    "source": "msgblast/Resources/WebAgentIcons/fo.jpg",
+    "sha256": "f46197dd5e2564221dd8284014f2d7809fb416aca948ce83833736ec949ab178"
+  },
+  {
+    "name": "grok",
+    "file": "094-grok.png",
+    "source": "msgblast/Resources/WebAgentIcons/grok.png",
+    "sha256": "07875b0e663ee7ebbd8ec085a8460621f2d0faf431a8e41f3ca49688e7b28faf"
+  },
+  {
+    "name": "grokbot",
+    "file": "095-grokbot.png",
+    "source": "msgblast/Resources/WebAgentIcons/grokbot.icns",
+    "sha256": "0174e1ce966156a20c07f5715bbf6577b39cec60bd539267395e5f5fa15bbf80"
+  },
+  {
+    "name": "hermes",
+    "file": "096-hermes.png",
+    "source": "msgblast/Resources/WebAgentIcons/hermes.png",
+    "sha256": "2e69dd9a8a1d3f9e3f627efc37102aed416f703e22f599e31c5d86b212a4d6de"
+  },
+  {
+    "name": "instinct",
+    "file": "097-instinct.jpg",
+    "source": "msgblast/Resources/WebAgentIcons/instinct.jpg",
+    "sha256": "c8b5cc54b618246582c37003b52d649e139200963ffb4c241d30965a7e25a1e4"
+  },
+  {
+    "name": "openclaw",
+    "file": "098-openclaw.png",
+    "source": "msgblast/Resources/WebAgentIcons/openclaw.png",
+    "sha256": "8ce11071e6cc34f3086b1947bb5f4b7f43f237a7a023bd8e0aa0ac529173ceb8"
+  },
+  {
+    "name": "os3",
+    "file": "099-os3.png",
+    "source": "msgblast/Resources/WebAgentIcons/os3.png",
+    "sha256": "5e3aaff6e262feea0a6c4c2c73af5e30706108009f78741b2b0ca24f3fb88c6c"
+  },
+  {
+    "name": "szn",
+    "file": "100-szn.jpg",
+    "source": "msgblast/Resources/WebAgentIcons/szn.jpg",
+    "sha256": "1bae5f8770021358dd4825a95d1672a2e9bcea62c92c144ad246bda9aa7d700b"
+  },
+  {
+    "name": "MuseAvatar",
+    "file": "101-MuseAvatar.jpg",
+    "source": "msgblast/Resources/MuseAvatar.jpg",
+    "sha256": "1a7b2feea735cd2fd5bd65afe9e201e8fc868cc0afc02bb7897025266e49340d"
+  }
+]
