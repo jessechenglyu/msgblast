@@ -1,11 +1,11 @@
 {
   "base_sha": "2cc4e312bf036a82abd0ccb168ed8a030382fdb2",
-  "source_sha": "7b49b20b9d76e5b3d3afceb050ecfab441df8766",
+  "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
   "captured_on": "2026-10-10 America/Los_Angeles",
   "app": {
-    "name": "msgblast Hark Poke Demo",
-    "bundle_id": "com.msgblast.demo.harkpoke",
-    "profile": "msgblast-HarkPoke-Evidence-7b49b20",
+    "name": "msgblast Connected Grid Demo",
+    "bundle_id": "com.msgblast.demo.connectedgrid",
+    "profile": "msgblast-ConnectedGrid-Evidence-4300973",
     "demo": true,
     "onboarding_preview": true,
     "updates_disabled": true,
@@ -22,9 +22,9 @@
   },
   "video": {
     "file": "workflow.mp4",
-    "duration_seconds": 39.1,
-    "recording": "Two native window-only recordings: selection/connection through final acknowledgement, then the connected grid result.",
-    "timing": "2x playback; clips joined. The Start chatting transition between recordings is omitted.",
+    "duration_seconds": 45.066667,
+    "recording": "Two native window-only recordings: onboarding connection, then the connected-agent grid and Edit catalog.",
+    "timing": "2x playback; clips joined. Some transitions between recordings are omitted.",
     "encoding": "H.264, yuv420p, faststart; scaled to 1280px width"
   },
   "checks": [
@@ -98,6 +98,83 @@
       "check": "Project generator",
       "passed": true,
       "note": "Existing folder resources register both new PNGs; regeneration produced no project diff."
+    },
+    {
+      "check": "Connected grid core regressions",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "tests": 31,
+      "includes": [
+        "AgentGridTests",
+        "OnboardingTests"
+      ]
+    },
+    {
+      "check": "Actual AppModel/controller fixtures",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "command": "bash scripts/test_web_comparisons.sh build/onboarding-tests",
+      "includes": [
+        "Onboarding completion persists connected grid",
+        "Finished nil-grid fallback",
+        "Customized layout survives finishing setup again",
+        "Existing comparison/send lifecycle fixtures"
+      ]
+    },
+    {
+      "check": "Native connected grid/Edit UI",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "test": "OnboardingWorkflowTests/testHarkAndPokeConnectThroughWebsiteAndMessagesSetup",
+      "includes": [
+        "Only Hark/Poke visible after setup",
+        "Unconnected ChatGPT/Cedar available in Edit",
+        "Hiding all agents keeps catalog behind Edit"
+      ]
+    },
+    {
+      "check": "Manual legacy-grid migration/relaunch fixture",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "note": "In the isolated Demo profile only, removed agentGrid from finished fixture state to simulate an older setup. Relaunch restored and persisted Hark/Poke. Then hid Hark in Edit and relaunched again; only Poke stayed visible, preserving explicit customization."
+    },
+    {
+      "check": "Connected grid code review",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "status": "complete",
+      "verdict": "Ready to merge",
+      "actionable_findings": 0
+    },
+    {
+      "check": "Updated Dev/Demo packaging",
+      "source_sha": "4300973c0b501b36a1a49d9abc4d0c1927d59e95",
+      "passed": true,
+      "variants": [
+        {
+          "app_name": "msgblast Dev.app",
+          "bundle_id": "com.msgblast.development",
+          "sha256": "488f81e07d6fd33a80ed3021d26d2814a5d97b3de480ca519ee64fcb8792ee70",
+          "compiled_icon": "AppIcon.icns",
+          "compiled_icon_rgb": [
+            8.0,
+            143.0,
+            124.5
+          ],
+          "updates": "disabled"
+        },
+        {
+          "app_name": "msgblast Demo.app",
+          "bundle_id": "com.msgblast.demo",
+          "sha256": "3c0f5c3574000c774edc9425ce4e5a9f28d6b59004b05ea62f501959c1a8c8df",
+          "compiled_icon": "AppIconDemo.icns",
+          "compiled_icon_rgb": [
+            64.8,
+            38.8,
+            216.0
+          ],
+          "updates": "disabled"
+        }
+      ]
     }
   ],
   "limitations": [
@@ -107,24 +184,28 @@
   ],
   "media": {
     "hark.png": {
-      "sha256": "f12196be3052c52f432bfa4467209ef1fc79b2230c2358aedfbe36b42e06b086",
-      "bytes": 146159
+      "sha256": "678b6e0c8cbfcd826ed7d0403c66164b385f59c3eadc69653edd517bd2ca1ab7",
+      "bytes": 147816
     },
     "connected.png": {
-      "sha256": "008b67a88785d8bf6fb9f3010e3c4139ac579ab8c2d8770a9392cdad10f7367c",
-      "bytes": 570906
+      "sha256": "76f735fa25d9ba3fe4cb40a548d6f0a8ae2278f57c0bb2aca29430dc454beb74",
+      "bytes": 317813
     },
     "workflow.mp4": {
-      "sha256": "66c175306812d52cacb280f8cd10ff0756adea3a28a6a363d4a4ffe382adcfae",
-      "bytes": 341190
+      "sha256": "01209efbf95d8043423aa3bdc4b26c6b081cad1b6ed94b3115158f9863aac0a9",
+      "bytes": 338452
     },
     "poke.png": {
-      "sha256": "c347698245419c7257fbb117795b63b2c396259b7b56cb43fd3719626e12593f",
-      "bytes": 190785
+      "sha256": "049358b5edeb9f1093b34bd862f5cd0f81e06ebc84d02c2cf262b8ab449c956b",
+      "bytes": 192660
     },
     "chooser.png": {
-      "sha256": "196025b529b2789cf7af6205b0bec3eb66439eb8b222b3a407d9e6e9bfbd287a",
-      "bytes": 369691
+      "sha256": "ffd7d0e29df950f82ffa3217db870c3c72333b706a6ea564996a8c3dc2da7978",
+      "bytes": 371833
+    },
+    "edit.png": {
+      "sha256": "2e9c482d749c62cd3ba6917e03564a2fd3c09f47eda37dd7adf3a101c24a731a",
+      "bytes": 616616
     }
   }
 }
