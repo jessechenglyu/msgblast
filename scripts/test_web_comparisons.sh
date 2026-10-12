@@ -25,7 +25,7 @@ end = source.index("\n@MainActor\nprivate final class AppStartup", start)
 Path(sys.argv[2]).write_text(source[:start] + source[end:])
 PY_SUPPORT
 web_sources+=("$web_tmp/app-support.swift")
-xcrun swiftc "${web_flags[@]}" "${web_sources[@]}" "$web_root/scripts/fixtures/web_comparison_model.swift" -o "$web_tmp/model"
+xcrun swiftc "${web_flags[@]}" "${web_sources[@]}" "$web_root/scripts/fixtures/web_comparison_model.swift" "$web_root/scripts/fixtures/storage_feedback.swift" -o "$web_tmp/model"
 "$web_tmp/model" --demo --isolated-demo
 xcrun swiftc "${web_flags[@]}" "$web_root/msgblast/App/AppUpdater.swift" "$web_root/scripts/fixtures/web_broadcast_lifecycle.swift" -o "$web_tmp/lifecycle"
 "$web_tmp/lifecycle"

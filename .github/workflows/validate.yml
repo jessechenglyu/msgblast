@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_ui:
+        description: Run isolated native UI tests on the GitHub Mac desktop
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,6 +41,9 @@ jobs:
           npm test
           npm run check
 
+      - name: Test private feedback handler with local fixtures
+        run: node --test feedback/worker.test.mjs
+
   native:
     runs-on: xcode-27
     timeout-minutes: 60
@@ -63,6 +71,7 @@ jobs:
             -derivedDataPath build/updater-validation \
             -destination 'platform=macOS,arch=arm64' \
             -resultBundlePath "$PWD/build/native-tests.xcresult" \
+            MSGBLAST_APP_BUNDLE_IDENTIFIER=com.msgblast.validation-tests \
             ASSETCATALOG_COMPILER_APPICON_NAME=AppIconDemo \
             -only-testing:msgblastTests test 2>&1 | tee build/native-tests.log
 
@@ -93,6 +102,48 @@ jobs:
 
       - name: Verify Settings permission checks and consent boundaries
         run: bash scripts/test_app_permissions.sh
+
+      - name: Exercise app controllers with isolated local fixtures
+        run: |
+          set -o pipefail
+          bash scripts/test_web_comparisons.sh build/updater-validation 2>&1 | tee build/web-controller-tests.log
+          bash scripts/test_configured_cli_conversations.sh build/updater-validation 2>&1 | tee build/configured-cli-tests.log
+          bash scripts/test_personal_agent_shutdown.sh build/updater-validation 2>&1 | tee build/report-controller-tests.log
+
+      - name: Upload controller fixture results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: msgblast-controller-tests-${{ env.REVIEW_SHA }}
+          path: |
+            build/web-controller-tests.log
+            build/configured-cli-tests.log
+            build/report-controller-tests.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Exercise isolated native UI workflows on request
+        if: github.event_name == 'workflow_dispatch' && inputs.run_ui
+        run: |
+          set -o pipefail
+          xcodebuild -project msgblast.xcodeproj -scheme msgblast \
+            -configuration Debug -derivedDataPath build/updater-validation \
+            -destination 'platform=macOS,arch=arm64' \
+            -resultBundlePath build/ui-tests.xcresult \
+            MSGBLAST_APP_BUNDLE_IDENTIFIER=com.msgblast.validation-tests \
+            ASSETCATALOG_COMPILER_APPICON_NAME=AppIconDemo \
+            -only-testing:msgblastUITests test 2>&1 | tee build/ui-tests.log
+
+      - name: Upload requested UI results
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.run_ui
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: msgblast-ui-tests-${{ env.REVIEW_SHA }}
+          path: |
+            build/ui-tests.xcresult
+            build/ui-tests.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   preview:
     if: >-

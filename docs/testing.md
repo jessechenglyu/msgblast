@@ -5,6 +5,11 @@ the tested revision, command, result, and limits. Building/testing is separate
 from releasing an app or deploying a Worker. See [Build from source](build-from-source.md)
 for prerequisites and [Contributing](../CONTRIBUTING.md) for PR evidence.
 
+Prefer GitHub validation or a dedicated remote Mac when native checks would
+interrupt your working desktop. [Remote Mac testing](remote-mac-testing.md)
+provides an explicit SSH/Tailscale runner with no local fallback, committed-source
+transport, and retrieved logs/results. UI runs require a separate explicit option.
+
 ## Choose checks by change
 
 | Change | Relevant checks |
@@ -164,15 +169,19 @@ need that Linux installer command. See [Cloud agents](cloud-agent.md).
 
 `.github/workflows/validate.yml` runs on PRs, pushes to main, and manual dispatch:
 
-- **Linux:** installer/dependency setup, Python tooling tests, download Worker
-  tests, and Wrangler dry-run.
-- **Native (`xcode-27`):** core tests and isolated Sparkle update fixtures. It checks
+- **Linux:** installer/dependency setup, Python tooling tests, download and feedback
+  Worker tests, and download Wrangler dry-run.
+- **Native (`xcode-27`):** core tests, isolated Sparkle update fixtures, simulated
+  permission checks, web/app/storage/feedback controller fixtures, configured CLI
+  fixtures, and report lifecycle fixtures. It checks
   out the PR branch head and retains test logs/results for 14 days.
 - **Preview:** same-repository `cursor/*` PR branches or manual dispatch build
   signed Dev/Demo ZIPs and a manifest; artifacts last 14 days. Ordinary fork PRs
   do not automatically get preview ZIPs.
 
-The workflow does not run native UI tests or capture PR interaction video.
+Ordinary PR validation does not run native UI tests. Manual dispatch can enable
+`run_ui` to run them on the GitHub Mac; see [Remote Mac testing](remote-mac-testing.md).
+The workflow does not capture PR interaction video.
 `pr-evidence.yml` separately checks remote media structure and Evidence-SHA.
 It cannot judge what the media actually shows. Fork CI can require approval or
 the maintainers' configured runner; pending/unavailable checks are not passes.

@@ -30,6 +30,7 @@ import msgblastCore
     }
     @MainActor static func runChecks() async throws {
         _ = NSApplication.shared
+        try await StorageFeedbackChecks.run()
         let migrationStore = LocalStore(demo: true, isolated: true)
         let migrationDirectory = migrationStore.url.deletingLastPathComponent()
         defer { try? FileManager.default.removeItem(at: migrationDirectory) }
