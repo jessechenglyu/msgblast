@@ -47,7 +47,9 @@ def seed(store):
     staged = store / "Attachments/fixture/retained.txt"
     staged.parent.mkdir(parents=True, exist_ok=True)
     staged.write_text("Retain this synthetic attachment through an update.\n")
-    state = {"version": 1, "agents": [{"id": "11111111-1111-1111-1111-111111111111", "name": "Cedar", "handles": ["cedar@example.com"], "colorIndex": 0, "contactID": "fixture-0"}], "comparisons": [], "selection": [], "draft": "Retained update-fixture draft", "frames": {},
+    # This fixture checks that an explicit recipient choice survives an update.
+    # An empty choice must remain empty; app launch no longer auto-selects agents.
+    state = {"version": 1, "agents": [{"id": "11111111-1111-1111-1111-111111111111", "name": "Cedar", "handles": ["cedar@example.com"], "colorIndex": 0, "contactID": "fixture-0"}], "comparisons": [], "selection": ["11111111-1111-1111-1111-111111111111"], "draft": "Retained update-fixture draft", "frames": {},
              "attachmentsDraft": [{"id": "fixture", "filename": "retained.txt", "path": str(staged), "byteCount": staged.stat().st_size}]}
     (store / "state.json").write_text(json.dumps(state))
     return staged
@@ -169,7 +171,7 @@ def main():
                 while (version(installed) != expected_build or not (case_store / "relaunch.json").exists()) and time.monotonic() < deadline: time.sleep(0.2)
             actual = version(installed)
             state = json.loads((store / "state.json").read_text())
-            preserved = state.get("version") == 1 and len(state["selection"]) == 1 and state["draft"] == "Retained update-fixture draft" and state["attachmentsDraft"][0]["path"] == str(staged) and staged.read_text().startswith("Retain this synthetic")
+            preserved = state.get("version") == 1 and state["selection"] == ["11111111-1111-1111-1111-111111111111"] and state["draft"] == "Retained update-fixture draft" and state["attachmentsDraft"][0]["path"] == str(staged) and staged.read_text().startswith("Retain this synthetic")
             if recovery:
                 snapshots = list((case_store / "Recovery").glob("*/drafts-state.json"))
                 originals = list((case_store / "Recovery").glob("*/original-state.json"))
