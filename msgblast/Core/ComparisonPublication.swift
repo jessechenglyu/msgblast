@@ -38,10 +38,12 @@ public struct ComparisonPublication: Codable, Equatable, Sendable {
         public var outcome: String
         public var timingLabel: String
         public var feedback: PerformanceFeedback?
+        public var businessChoices: BusinessMessageCard? = nil
         public var revisions: [Revision]? = nil
         public struct Revision: Codable, Equatable, Sendable {
             public var text: String
             public var timingLabel: String
+            public var businessChoices: BusinessMessageCard? = nil
         }
     }
     public struct Artifact: Codable, Equatable, Sendable {
@@ -76,8 +78,13 @@ public struct ComparisonPublication: Codable, Equatable, Sendable {
             for j in turns[i].replies.indices {
                 for k in turns[i].replies[j].messages.indices {
                     turns[i].replies[j].messages[k].text = transform(turns[i].replies[j].messages[k].text)
+                    turns[i].replies[j].messages[k].businessChoices?.redactText(transform)
                     if let revisions = turns[i].replies[j].messages[k].revisions {
-                        turns[i].replies[j].messages[k].revisions = revisions.map { .init(text: transform($0.text), timingLabel: $0.timingLabel) }
+                        turns[i].replies[j].messages[k].revisions = revisions.map { revision in
+                            var result = revision; result.text = transform(result.text)
+                            result.businessChoices?.redactText(transform)
+                            return result
+                        }
                     }
                 }
             }
@@ -170,10 +177,13 @@ public enum ComparisonPublicationBuilder {
                     let elapsed = endpoint.flatMap { PerformanceMetrics.elapsedMS(from: $0, to: initial, events: events) }
                     let timing = elapsed.map { (index == 0 ? "Dispatch to observed reply: " : "Previous reply to observed reply: ") + PerformanceMetrics.label($0) } ?? "Timing unavailable (missing endpoint, clock continuity or observation gap)."
                     var message = ComparisonPublication.Message(messageID: "message-\(index + 1)", text: redact(latest.text!), outcome: "observedReply", timingLabel: timing, feedback: options.includeFeedback ? (feedback ?? .unmarked) : nil)
+                    message.businessChoices = latest.businessChoices
+                    message.businessChoices?.redactText(redact)
                     if options.includesStreamingRevisions && versions.count > 1 {
                         message.revisions = versions.dropLast().map { revision in
                             let interval = endpoint.flatMap { PerformanceMetrics.elapsedMS(from: $0, to: revision, events: events) }
-                            return .init(text: redact(revision.text!), timingLabel: interval.map { "Observed update: " + PerformanceMetrics.label($0) } ?? "Timing unavailable.")
+                            var card = revision.businessChoices; card?.redactText(redact)
+                            return .init(text: redact(revision.text!), timingLabel: interval.map { "Observed update: " + PerformanceMetrics.label($0) } ?? "Timing unavailable.", businessChoices: card)
                         }
                     }
                     messages.append(message)

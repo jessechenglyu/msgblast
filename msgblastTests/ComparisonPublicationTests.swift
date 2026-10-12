@@ -15,6 +15,37 @@ final class ComparisonPublicationTests: XCTestCase {
               requestGroupID: kind == .turnStarted ? group : nil, targetAgentIDs: kind == .turnStarted ? targets : nil,
               scope: scope, messageID: message, text: text)
     }
+    func testBusinessSelectionUpdatesUnchangedTextAndRedactsEveryLabel() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let recorder = try PerformanceRecorder(directory: directory, fixture: true)
+        recorder.enabled = true
+        let businessAgent = PerformanceAgent(id: "business", name: "Alice", connection: .messages)
+        let turn = try recorder.beginTurn(comparisonID: "c", agent: businessAgent, text: "Help", scope: .shared)
+        let card = BusinessMessageCard(kind: .quickReply, title: "Alice choose", options: [
+            .init(title: "Find Alice", selected: false, subtitle: "Alice later", section: "Alice options"),
+            .init(title: "Not Now", selected: false)])
+        try recorder.reply(comparisonID: "c", agent: businessAgent, messageID: "m", text: "Choose", turnID: turn, businessChoices: card)
+        var selected = card; selected.options[0].selected = true
+        try recorder.reply(comparisonID: "c", agent: businessAgent, messageID: "m", text: "Choose", turnID: turn, businessChoices: selected)
+        try recorder.reply(comparisonID: "c", agent: businessAgent, messageID: "m", text: "Choose", turnID: turn, businessChoices: selected)
+        XCTAssertEqual(recorder.events.filter { $0.kind == .replyObserved }.count, 2)
+        var options = ComparisonPublicationOptions(); options.includesStreamingRevisions = true
+        var p = try ComparisonPublicationBuilder.build(events: recorder.events, comparisonID: "c", options: options)
+        let message = p.turns[0].replies[0].messages[0]
+        XCTAssertEqual(message.businessChoices?.options[0].selected, true)
+        XCTAssertEqual(message.revisions?.first?.businessChoices?.options[0].selected, false)
+        XCTAssertEqual(message.businessChoices?.title, "[redacted] choose")
+        XCTAssertEqual(message.businessChoices?.options[0].title, "Find [redacted]")
+        XCTAssertEqual(message.businessChoices?.options[0].subtitle, "[redacted] later")
+        XCTAssertEqual(message.businessChoices?.options[0].section, "[redacted] options")
+        p.redactLiteral("Find")
+        XCTAssertEqual(p.turns[0].replies[0].messages[0].businessChoices?.options[0].title, "[redacted] [redacted]")
+        XCTAssertEqual(p.turns[0].replies[0].messages[0].revisions?.first?.businessChoices?.options[0].title, "[redacted] [redacted]")
+        XCTAssertEqual(recorder.events.last?.businessChoices?.options[0].title, "Find Alice")
+        let persisted = try PerformanceRecorder(directory: directory, fixture: true)
+        XCTAssertEqual(persisted.events.last?.businessChoices, selected)
+    }
     func testManualRedactionOnlyMasksLiteralCapturedText() throws {
         let source = [event(.turnStarted, 1, text: "Keep secret\n  indentation."), event(.replyObserved, 2, message: "reply", text: "Literal .* secret\n\nUnchanged answer.")]
         let originalBytes = try PerformanceCanonical.bytes(source)

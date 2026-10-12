@@ -21,9 +21,10 @@ public final class PerformanceRecorder {
             if event.kind == .replyObserved, let text = event.text {
                 if let i = replyIndexes[key] {
                     projectedReplies[i].text = text
+                    projectedReplies[i].businessChoices = event.businessChoices
                 } else {
                     replyIndexes[key] = projectedReplies.count
-                    projectedReplies.append(.init(comparisonID: event.comparisonID, segmentID: event.segmentID, agent: agent, messageID: message, text: text, turnID: event.turnID, scope: event.scope ?? .unknown))
+                    projectedReplies.append(.init(comparisonID: event.comparisonID, segmentID: event.segmentID, agent: agent, messageID: message, text: text, turnID: event.turnID, scope: event.scope ?? .unknown, businessChoices: event.businessChoices))
                 }
             } else if event.kind == .feedback, let selection = event.selection,
                       let i = replyIndexes[key] {
@@ -34,7 +35,7 @@ public final class PerformanceRecorder {
         return projectedReplies
     }
     @discardableResult
-    public func record(_ kind: PerformanceEventKind, comparisonID: String, agent: PerformanceAgent? = nil, turnID: String? = nil, scope: PerformanceScope? = nil, messageID: String? = nil, text: String? = nil, sourceMS: Int64? = nil, method: String? = nil, reason: String? = nil, requestGroup: PerformanceRequestGroup? = nil, at stamp: PerformanceStamp = .now) throws -> PerformanceEvent? {
+    public func record(_ kind: PerformanceEventKind, comparisonID: String, agent: PerformanceAgent? = nil, turnID: String? = nil, scope: PerformanceScope? = nil, messageID: String? = nil, text: String? = nil, businessChoices: BusinessMessageCard? = nil, sourceMS: Int64? = nil, method: String? = nil, reason: String? = nil, requestGroup: PerformanceRequestGroup? = nil, at stamp: PerformanceStamp = .now) throws -> PerformanceEvent? {
         guard enabled else { return nil }
         if segments[comparisonID] == nil {
             let segment = UUID().uuidString; segments[comparisonID] = segment
@@ -42,7 +43,7 @@ public final class PerformanceRecorder {
             _ = try store.append(.init(sequence: 0, comparisonID: comparisonID, segmentID: segment, kind: .segmentStarted, stamp: stamp, fixture: fixture, reason: partial ? "resumed-partial" : "recording-started"))
         }
         let position = kind == .turnStarted ? events.filter { $0.comparisonID == comparisonID && $0.agent?.id == agent?.id && $0.kind == .turnStarted }.count : nil
-        return try store.append(.init(sequence: 0, comparisonID: comparisonID, segmentID: segments[comparisonID]!, kind: kind, stamp: stamp, fixture: fixture, agent: agent, turnID: turnID, turnPosition: position, requestGroupID: requestGroup?.id, targetAgentIDs: requestGroup?.targetAgentIDs, scope: scope, messageID: messageID, text: text, sourceMS: sourceMS, method: method, reason: reason))
+        return try store.append(.init(sequence: 0, comparisonID: comparisonID, segmentID: segments[comparisonID]!, kind: kind, stamp: stamp, fixture: fixture, agent: agent, turnID: turnID, turnPosition: position, requestGroupID: requestGroup?.id, targetAgentIDs: requestGroup?.targetAgentIDs, scope: scope, messageID: messageID, text: text, businessChoices: businessChoices, sourceMS: sourceMS, method: method, reason: reason))
     }
     @discardableResult
     public func beginTurn(comparisonID: String, agent: PerformanceAgent, text: String, scope: PerformanceScope, requestGroup: PerformanceRequestGroup? = nil, at stamp: PerformanceStamp = .now) throws -> String? {
@@ -51,11 +52,11 @@ public final class PerformanceRecorder {
         _ = try record(.turnStarted, comparisonID: comparisonID, agent: agent, turnID: turn, scope: scope, text: text, requestGroup: requestGroup, at: stamp)
         return turn
     }
-    public func reply(comparisonID: String, agent: PerformanceAgent, messageID: String, text: String, turnID: String?, sourceMS: Int64? = nil, method: String = "native-observation", at stamp: PerformanceStamp = .now) throws {
+    public func reply(comparisonID: String, agent: PerformanceAgent, messageID: String, text: String, turnID: String?, businessChoices: BusinessMessageCard? = nil, sourceMS: Int64? = nil, method: String = "native-observation", at stamp: PerformanceStamp = .now) throws {
         guard enabled, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let scope = events.last { $0.kind == .turnStarted && $0.turnID == turnID && turnID != nil }?.scope ?? .unknown
-        if let existing = replies.last(where: { $0.comparisonID == comparisonID && $0.segmentID == segments[comparisonID] && $0.agent.id == agent.id && $0.messageID == messageID }), existing.text == text { return }
-        _ = try record(.replyObserved, comparisonID: comparisonID, agent: agent, turnID: turnID, scope: scope, messageID: messageID, text: text, sourceMS: sourceMS, method: method, reason: turnID == nil ? "ambiguous-turn" : nil, at: stamp)
+        if let existing = replies.last(where: { $0.comparisonID == comparisonID && $0.segmentID == segments[comparisonID] && $0.agent.id == agent.id && $0.messageID == messageID }), existing.text == text && existing.businessChoices == businessChoices { return }
+        _ = try record(.replyObserved, comparisonID: comparisonID, agent: agent, turnID: turnID, scope: scope, messageID: messageID, text: text, businessChoices: businessChoices, sourceMS: sourceMS, method: method, reason: turnID == nil ? "ambiguous-turn" : nil, at: stamp)
     }
     public func setFeedback(comparisonID: String, agentID: String, messageID: String, selection: PerformanceFeedback, segmentID: String? = nil) throws {
         guard enabled, let reply = replies.last(where: { $0.comparisonID == comparisonID && $0.agent.id == agentID && $0.messageID == messageID && (segmentID == nil || $0.segmentID == segmentID) }) else { return }

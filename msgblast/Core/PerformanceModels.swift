@@ -54,6 +54,7 @@ public struct PerformanceEvent: Codable, Equatable, Identifiable, Sendable {
     public var scope: PerformanceScope?
     public var messageID: String?
     public var text: String?
+    public var businessChoices: BusinessMessageCard? = nil
     public var sourceMS: Int64?
     public var method: String?
     public var reason: String?
@@ -92,4 +93,5 @@ public struct PerformanceReply: Identifiable, Equatable, Sendable {
     public var turnID: String?
     public var scope: PerformanceScope
     public var feedback: PerformanceFeedback = .unmarked
+    public var businessChoices: BusinessMessageCard? = nil
 }

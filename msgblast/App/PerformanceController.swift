@@ -31,7 +31,8 @@ final class PerformanceController: ObservableObject {
     private var messagesTurns: [String: [TrackedMessagesTurn]] = [:]
     private var ambiguousMessagesTurns: Set<String> = []
     private var messagesRows: [String: Int64] = [:]
-    private var observedMessagesText: [String: String] = [:]
+    private struct ObservedMessage: Equatable { let text: String; let businessChoices: BusinessMessageCard? }
+    private var observedMessages: [String: ObservedMessage] = [:]
     private var pendingActions: [String: PerformanceStamp] = [:]
     private var subscriptions: Set<AnyCancellable> = []
     private var attachedSessions: [WebAgentSession] = []
@@ -54,7 +55,7 @@ final class PerformanceController: ObservableObject {
             capture { try $0.stop(reason: unfinished ? "disabled-in-flight" : "disabled") }
         }
         recorder?.enabled = enabled && error == nil
-        turns = [:]; attempts = [:]; baseline = [:]; documents = [:]; generating = [:]; messageTurns = [:]; messagesTurns = [:]; ambiguousMessagesTurns = []; observedMessagesText = [:]; messagesRows = [:]; pendingActions = [:]
+        turns = [:]; attempts = [:]; baseline = [:]; documents = [:]; generating = [:]; messageTurns = [:]; messagesTurns = [:]; ambiguousMessagesTurns = []; observedMessages = [:]; messagesRows = [:]; pendingActions = [:]
         attach(web)
     }
     func attach(_ web: WebAgents) { for session in web.sessions { attachSession(session) } }
@@ -206,7 +207,7 @@ final class PerformanceController: ObservableObject {
         guard enabled, let turn = turns[requestID] else { return }
         capture { _ = try $0.record(kind, comparisonID: comparisonID.uuidString, agent: .init(id: member.id.uuidString, name: member.name, connection: .messages), turnID: turn, method: "messages-native-observation; 2 s refresh; completion unsupported", reason: reason) }
     }
-    func observeMessages(comparison: Comparison, member: Member, transcript: [Message]) {
+    func observeMessages(comparison: Comparison, member: Member, transcript: [Message], businessAttempts: [String: BusinessChoiceAttempt] = [:]) {
         guard enabled else { return }
         let key = member.id.uuidString + ":" + comparison.id.uuidString
         if baseline[key] == nil { baseline[key] = Set(transcript.map(\.guid)); return }
@@ -241,7 +242,11 @@ final class PerformanceController: ObservableObject {
             }
             for message in transcript where !message.outgoing && baseline[key]?.contains(message.guid) != true {
                 let identity = key + ":" + message.guid
-                guard observedMessagesText[identity] != message.text else { continue }
+                let attempt = businessAttempts[message.guid]
+                let selected = attempt?.status == .submitted && attempt?.chatID == message.chatID && attempt?.messageGUID == message.guid ? attempt?.optionID : nil
+                let card = message.businessPayload.map { BusinessMessageCard(payload: $0, selectedOptionID: selected) }
+                let observed = ObservedMessage(text: message.text, businessChoices: card)
+                guard observedMessages[identity] != observed else { continue }
                 let candidates: [TrackedMessagesTurn]
                 if let replyTo = message.replyTo {
                     candidates = owners[replyTo] ?? []
@@ -249,10 +254,10 @@ final class PerformanceController: ObservableObject {
                     candidates = (owners[outgoing.guid] ?? []).filter { !ambiguousMessagesTurns.contains($0.turnID) }
                 } else { candidates = [] }
                 let turn = candidates.count == 1 ? candidates[0].turnID : nil
-                try recorder.reply(comparisonID: comparison.id.uuidString, agent: agent, messageID: message.guid, text: message.text, turnID: turn,
+                try recorder.reply(comparisonID: comparison.id.uuidString, agent: agent, messageID: message.guid, text: message.text, turnID: turn, businessChoices: card,
                     sourceMS: Int64(message.date.timeIntervalSince1970 * 1000),
                     method: "messages-poll; owned outgoing range or explicit reply; source timestamp separate; 2 s cadence; completion unsupported")
-                observedMessagesText[identity] = message.text
+                observedMessages[identity] = observed
             }
             messagesRows[key] = transcript.map(\.id).max() ?? messagesRows[key] ?? 0
         }

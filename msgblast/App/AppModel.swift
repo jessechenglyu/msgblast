@@ -20,10 +20,10 @@ final class AppModel: ObservableObject {
             for member in comparison.members { performance.seedMessages(comparison: comparison, member: member, transcript: transcript(comparison, member: member)) }
         }
     }
-    private func captureMessages() {
+    func captureMessages() {
         guard state.performanceTrackingEnabled else { return }
         for comparison in state.comparisons {
-            for member in comparison.members { performance.observeMessages(comparison: comparison, member: member, transcript: transcript(comparison, member: member)) }
+            for member in comparison.members { performance.observeMessages(comparison: comparison, member: member, transcript: transcript(comparison, member: member), businessAttempts: state.businessChoiceAttempts ?? [:]) }
         }
     }
     @Published var databaseStatus = "Checking Messages history…"

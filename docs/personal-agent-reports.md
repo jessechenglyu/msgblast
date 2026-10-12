@@ -153,3 +153,12 @@ then explicitly approve publication. Private sync and benchmark contribution are
 separate choices. Live links require the benchmark service and managed sign-in to
 be configured; local Demo fixtures do not establish a live service. Anyone with a
 published link can read and forward it. Existing publication controls revoke links.
+
+Shared business messages include display-only choice labels and selected
+checkmarks in the owner preview and URL reader. Card titles, options, sections,
+and subtitles use the same automatic and manual redaction as conversation text.
+Native submitted choices update the recording even when its message text is
+unchanged; failed or uncertain attempts are not shown as confirmed selections.
+Existing recordings without captured cards stay text-only. Later choices do not
+modify an already published immutable link; prepare and approve a new share.
+Deploy the matching service contract before publishing cards from a new build.

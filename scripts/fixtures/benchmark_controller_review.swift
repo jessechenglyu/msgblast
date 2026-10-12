@@ -8,6 +8,29 @@ import msgblastCore
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("benchmark-controller-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         func report(_ value: String) { print(value); fflush(nil) }
+        let capture = PerformanceController(directory: root.appendingPathComponent("business-capture"), fixture: true)
+        capture.recorder!.enabled = true
+        let chat = Chat(id: "fixture-chat", handle: "fixture@example.com", lastActivity: 0, businessConversation: true)
+        var member = Member(agentID: UUID(), name: "Fixture", chat: chat)
+        member.anchor = Anchor(rowID: 1, guid: "owned-prompt")
+        let comparison = Comparison(prompt: "Find repair options", members: [member])
+        capture.seedMessages(comparison: comparison, member: member, transcript: [])
+        capture.beginMessages(comparisonID: comparison.id, member: member, text: comparison.prompt, scope: .shared, requestID: UUID())
+        let archive = try NSKeyedArchiver.archivedData(withRootObject: ["data": try JSONSerialization.data(withJSONObject: ["quick-reply": ["summaryText": "Choose", "items": [["title": "Find Plumbers"], ["title": "Not Now"]]]])] as NSDictionary, requiringSecureCoding: true)
+        let payload = BusinessMessagePayload.decode(archive, bundleID: "com.apple.icloud.apps.messages.business.extension")!
+        let outgoing = Message(id: 1, guid: "owned-prompt", chatID: chat.id, text: comparison.prompt, outgoing: true)
+        let card = Message(id: 2, guid: "choices", chatID: chat.id, text: payload.title, outgoing: false, businessPayload: payload)
+        capture.observeMessages(comparison: comparison, member: member, transcript: [outgoing, card])
+        let beforeChoice = capture.events.count
+        var attempt = BusinessChoiceAttempt(messageGUID: card.guid, chatID: chat.id, optionID: 0, status: .uncertain)
+        capture.observeMessages(comparison: comparison, member: member, transcript: [outgoing, card], businessAttempts: [card.guid: attempt])
+        precondition(capture.events.count == beforeChoice, "Uncertain selection is not confirmed")
+        attempt.status = .submitted
+        capture.observeMessages(comparison: comparison, member: member, transcript: [outgoing, card], businessAttempts: [card.guid: attempt])
+        precondition(capture.events.count == beforeChoice + 1, "Selection with unchanged text must update the recording")
+        let published = try ComparisonPublicationBuilder.build(events: capture.events, comparisonID: comparison.id.uuidString)
+        precondition(published.turns[0].replies[0].messages[0].businessChoices?.options.map(\.selected) == [true, false])
+        report("PASS: real Messages controller retains labels, records confirmed selection without text changes, and ignores uncertain attempts")
         let config = try BenchmarkAccountConfiguration(serviceURL: URL(string: "http://127.0.0.1:8787")!, issuer: URL(string: "https://fixture.invalid/")!, clientID: "fixture", audience: "fixture", callbackURL: URL(string: "com.msgblast.test:/benchmark")!, bundleIdentifier: "com.msgblast.test", profile: UUID().uuidString, demoFixture: true)
         let damagedRoot = root.appendingPathComponent("damaged-startup")
         let damagedPerformance = PerformanceController(directory: damagedRoot, fixture: true)
