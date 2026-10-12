@@ -158,16 +158,16 @@ struct BenchmarkSettingsView: View {
                 }
                 ForEach(p.turns.indices, id: \.self) { i in
                     Text("\(turnLabel(p.turns[i].kind)) · \(p.turns[i].scope.rawValue)").font(.headline)
-                    Text(p.turns[i].prompt).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+                    Text(p.turns[i].prompt).textSelection(.enabled).fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                     ForEach(p.turns[i].replies.indices, id: \.self) { j in
                         Text("\(p.participants.first(where: { $0.id == p.turns[i].replies[j].agentID })?.label ?? "Agent"): \(outcomeLabel(p.turns[i].replies[j].outcome))")
                         ForEach(p.turns[i].replies[j].messages.indices, id: \.self) { k in
-                            Text(p.turns[i].replies[j].messages[k].text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+                            Text(p.turns[i].replies[j].messages[k].text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                             Text(p.turns[i].replies[j].messages[k].timingLabel).font(.caption)
                             if let revisions = p.turns[i].replies[j].messages[k].revisions {
                                 ForEach(revisions.indices, id: \.self) { r in
                                     Text("Earlier observed revision \(r + 1)").font(.caption)
-                                    Text(revisions[r].text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+                                    Text(revisions[r].text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                                 }
                             }
 
