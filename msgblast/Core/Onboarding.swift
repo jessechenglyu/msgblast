@@ -170,7 +170,10 @@ public struct OnboardingState: Codable, Equatable, Sendable {
         if stage == .connecting && currentStep == nil { finishIfResolved() }
         else if stage == .connecting { stage = .choosing }
     }
-    public mutating func chooseAgain() { stage = .choosing }
+    public mutating func chooseAgain() {
+        stage = .choosing
+        if connector == .messages { messagesDiscoveryReviewed = false }
+    }
     public mutating func complete(_ choice: OnboardingChoice) {
         guard selected.contains(choice) else { return }
         completed.insert(choice)

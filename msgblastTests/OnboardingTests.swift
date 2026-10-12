@@ -15,6 +15,10 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(restored.messagesDiscoveryReviewed, false)
         XCTAssertEqual(restored.prerequisitesCompleted, true)
         XCTAssertEqual(restored.completed, [.fo])
+        setup.messagesDiscoveryReviewed = true
+        setup.stage = .feedback
+        setup.chooseAgain()
+        XCTAssertEqual(setup.messagesDiscoveryReviewed, false, "Failed final readiness must return to contacts, never an empty chooser")
         setup.resume()
         XCTAssertEqual(setup.connectorStartCompleted, false, "General resume must never open the empty Messages chooser")
         XCTAssertEqual(setup.completed, [.fo])
