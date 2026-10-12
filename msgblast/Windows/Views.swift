@@ -630,6 +630,7 @@ struct ComparisonWorkspace: View {
                     }
                 }
             }.background(Color(nsColor: .textBackgroundColor))
+            .toolbar { ToolbarItem(placement: .primaryAction) { ChatShareButton(model: model, comparisonID: comparisonID) } }
         }
     }
 }

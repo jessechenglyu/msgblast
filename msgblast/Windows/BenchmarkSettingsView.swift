@@ -259,9 +259,10 @@ struct BenchmarkSettingsView: View {
 struct ComparisonShareButton: View {
     @ObservedObject var model: AppModel
     let comparisonID: UUID
+    var title = "Review and share"
     @State private var showingShare = false
     var body: some View {
-        Button("Review and share") { showingShare = true }
+        Button(title) { showingShare = true }
             .disabled(!model.performance.events.contains { $0.comparisonID == comparisonID.uuidString })
             .help("Prepare a separate redacted publication; private sync and contribution are separate choices")
             .sheet(isPresented: $showingShare) {
