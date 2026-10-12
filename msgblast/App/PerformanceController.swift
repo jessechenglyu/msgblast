@@ -240,11 +240,18 @@ final class PerformanceController: ObservableObject {
                 _ = try recorder.record(.submitted, comparisonID: comparison.id.uuidString, agent: agent, turnID: owner.turnID, messageID: outgoing.guid,
                     sourceMS: Int64(outgoing.date.timeIntervalSince1970 * 1000), method: "messages-source-outgoing; observed history receipt; source clock separate")
             }
-            for message in transcript where !message.outgoing && baseline[key]?.contains(message.guid) != true {
+            for message in transcript where !message.outgoing {
                 let identity = key + ":" + message.guid
                 let attempt = businessAttempts[message.guid]
                 let selected = attempt?.status == .submitted && attempt?.chatID == message.chatID && attempt?.messageGUID == message.guid ? attempt?.optionID : nil
                 let card = message.businessPayload.map { BusinessMessageCard(payload: $0, selectedOptionID: selected) }
+                if baseline[key]?.contains(message.guid) == true {
+                    if let card {
+                        try recorder.updateRecordedBusinessChoices(comparisonID: comparison.id.uuidString, agentID: agent.id,
+                            messageID: message.guid, text: message.text, businessChoices: card)
+                    }
+                    continue
+                }
                 let observed = ObservedMessage(text: message.text, businessChoices: card)
                 guard observedMessages[identity] != observed else { continue }
                 let candidates: [TrackedMessagesTurn]

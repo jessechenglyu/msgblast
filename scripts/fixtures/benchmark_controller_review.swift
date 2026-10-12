@@ -30,6 +30,21 @@ import msgblastCore
         precondition(capture.events.count == beforeChoice + 1, "Selection with unchanged text must update the recording")
         let published = try ComparisonPublicationBuilder.build(events: capture.events, comparisonID: comparison.id.uuidString)
         precondition(published.turns[0].replies[0].messages[0].businessChoices?.options.map(\.selected) == [true, false])
+        let originalReply = capture.events.last!
+        try capture.recorder!.stop(reason: "fixture-relaunch")
+        let resumed = PerformanceController(directory: root.appendingPathComponent("business-capture"), fixture: true)
+        resumed.recorder!.enabled = true
+        resumed.seedMessages(comparison: comparison, member: member, transcript: [outgoing, card])
+        attempt.optionID = 1
+        resumed.observeMessages(comparison: comparison, member: member, transcript: [outgoing, card], businessAttempts: [card.guid: attempt])
+        let afterRestart = try ComparisonPublicationBuilder.build(events: resumed.events, comparisonID: comparison.id.uuidString)
+        precondition(afterRestart.turns[0].replies[0].messages[0].businessChoices?.options.map(\.selected) == [false, true], "A recorded baseline card must retain later selections after relaunch")
+        precondition(resumed.events.last?.segmentID == originalReply.segmentID && resumed.events.last?.turnID == originalReply.turnID, "Selection revision must retain the original recorded ownership")
+        let unrecorded = PerformanceController(directory: root.appendingPathComponent("unrecorded-business-history"), fixture: true)
+        unrecorded.recorder!.enabled = true
+        unrecorded.seedMessages(comparison: comparison, member: member, transcript: [outgoing, card])
+        unrecorded.observeMessages(comparison: comparison, member: member, transcript: [outgoing, card], businessAttempts: [card.guid: attempt])
+        precondition(unrecorded.events.isEmpty, "Never import unrecorded baseline business history")
         report("PASS: real Messages controller retains labels, records confirmed selection without text changes, and ignores uncertain attempts")
         let config = try BenchmarkAccountConfiguration(serviceURL: URL(string: "http://127.0.0.1:8787")!, issuer: URL(string: "https://fixture.invalid/")!, clientID: "fixture", audience: "fixture", callbackURL: URL(string: "com.msgblast.test:/benchmark")!, bundleIdentifier: "com.msgblast.test", profile: UUID().uuidString, demoFixture: true)
         let damagedRoot = root.appendingPathComponent("damaged-startup")

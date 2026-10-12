@@ -58,6 +58,19 @@ public final class PerformanceRecorder {
         if let existing = replies.last(where: { $0.comparisonID == comparisonID && $0.segmentID == segments[comparisonID] && $0.agent.id == agent.id && $0.messageID == messageID }), existing.text == text && existing.businessChoices == businessChoices { return }
         _ = try record(.replyObserved, comparisonID: comparisonID, agent: agent, turnID: turnID, scope: scope, messageID: messageID, text: text, businessChoices: businessChoices, sourceMS: sourceMS, method: method, reason: turnID == nil ? "ambiguous-turn" : nil, at: stamp)
     }
+    /// A baseline card can change after relaunch. Revise only an already recorded
+    /// business reply, retaining its original turn/scope rather than importing history.
+    public func updateRecordedBusinessChoices(comparisonID: String, agentID: String, messageID: String, text: String, businessChoices: BusinessMessageCard) throws {
+        guard enabled, let original = events.last(where: {
+            $0.kind == .replyObserved && $0.comparisonID == comparisonID && $0.agent?.id == agentID && $0.messageID == messageID
+        }), original.businessChoices != nil,
+        original.text != text || original.businessChoices != businessChoices else { return }
+        var revision = original
+        revision.id = UUID().uuidString; revision.sequence = 0; revision.previousHash = nil
+        revision.stamp = .now; revision.text = text; revision.businessChoices = businessChoices
+        revision.method = "messages-business-card-state; original recorded association retained"
+        _ = try store.append(revision)
+    }
     public func setFeedback(comparisonID: String, agentID: String, messageID: String, selection: PerformanceFeedback, segmentID: String? = nil) throws {
         guard enabled, let reply = replies.last(where: { $0.comparisonID == comparisonID && $0.agent.id == agentID && $0.messageID == messageID && (segmentID == nil || $0.segmentID == segmentID) }) else { return }
         guard reply.feedback != selection else { return }
