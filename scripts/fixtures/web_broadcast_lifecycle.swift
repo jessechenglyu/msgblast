@@ -7,10 +7,14 @@ import msgblastCore
 @MainActor final class AppModel: ObservableObject {
     @Published var busy = false
     @Published var webBroadcastBusy = false
+    var onboardingRestartRequested = false
+    var failSave = false
     var error: String?
     let personalAgent = FakePersonalAgent()
     let webAgents = FakeWebAgents()
-    func saveForTermination() throws {}
+    func saveForTermination() throws {
+        if failSave { throw NSError(domain: "IsolatedStateStorage", code: 1) }
+    }
 }
 @MainActor final class FakeWebAgents {
     let hasNativeRequests = false
@@ -55,17 +59,31 @@ import msgblastCore
         do {
             let model = AppModel(), lifecycle = AppLifecycle()
             lifecycle.configure(model: model)
+            model.onboardingRestartRequested = true
+            model.failSave = true
+            var displayedError = false
+            lifecycle.saveErrorHandler = { _ in displayedError = true }
+            precondition(lifecycle.applicationShouldTerminate(application) == .terminateCancel)
+            precondition(displayedError && !model.onboardingRestartRequested)
+            precondition(!model.webAgents.shutdownStarted)
+        }
+        do {
+            let model = AppModel(), lifecycle = AppLifecycle()
+            lifecycle.configure(model: model)
             model.webAgents.hasConnectedWebSessions = true
             model.webAgents.failFlush = true
+            model.onboardingRestartRequested = true
             var reply: Bool?, displayedError = false
             lifecycle.terminationReplyHandler = { reply = $0 }
             lifecycle.saveErrorHandler = { _ in displayedError = true }
             precondition(lifecycle.applicationShouldTerminate(application) == .terminateLater)
             for _ in 0..<50 where reply == nil { try await Task.sleep(for: .milliseconds(10)) }
             precondition(reply == false && displayedError)
+            precondition(!model.onboardingRestartRequested, "Canceled quit must not leave a pending permission restart")
             precondition(!model.webAgents.shutdownStarted, "A failed save must leave the app usable")
         }
         print("PASS: ordinary idle web Quit waits for the draft flush; a failed flush cancels Quit before shutdown. Controlled replies; no actual app termination.")
+        print("PASS: failed state saves and browser draft flushes clear the permission-restart request and keep the app usable. No actual restart or permission change.")
         let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
         let item = SUAppcastItem(dictionary: ["title":"Local fixture", "enclosure":["url":"https://example.invalid/fixture.zip","sparkle:version":"2"]])!
         let model = AppModel(), lifecycle = AppLifecycle()

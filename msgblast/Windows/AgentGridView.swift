@@ -73,16 +73,6 @@ struct AgentGridView: View {
                             } else {
                                 grid(available, available: true, size: tileSize(geometry), scroll: scroll)
                             }
-                            Button(model.state.onboarding?.isFinished == true ? "Restore setup agents" : "Restore featured") {
-                                withAnimation(motion) {
-                                    _ = model.setAgentGrid(model.defaultAgentGrid)
-                                    query = ""
-                                }
-                                scrollToTop(scroll)
-                            }.buttonStyle(.plain).foregroundStyle(.secondary).disabled(busy)
-                                .help(model.state.onboarding?.isFinished == true
-                                      ? "Restore the agents connected during onboarding in their setup order"
-                                      : "Restore the featured agents and your connected agents in their default order")
                         }
                     }.padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 24)
                         .id("agent-grid-top")
@@ -277,13 +267,6 @@ struct AgentGridView: View {
             return model.state.onboarding?.completed.contains { $0.runtime == runtime } != true
         }
         return false
-    }
-
-    private func scrollToTop(_ scroll: ScrollViewProxy) {
-        Task { @MainActor in
-            await Task.yield()
-            withAnimation(motion) { scroll.scrollTo("agent-grid-top", anchor: .top) }
-        }
     }
 
     private func hide(_ id: AgentGridID) {

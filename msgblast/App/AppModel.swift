@@ -80,10 +80,6 @@ final class AppModel: ObservableObject {
         if state.onboarding?.stage == .choosing, state.onboarding?.completed.isEmpty == true {
             state.selection = []
             webAgents.sessions.forEach { $0.updateState { $0.selected = false } }
-        } else if state.onboarding == nil && state.agentGrid == nil {
-            let ids = messageGridIDs
-            let shown = Set(agentGridLayout.visibleIDs)
-            state.selection = Set(state.agents.filter { shown.contains(ids[$0.id] ?? .messages($0.id)) }.map(\.id))
         }
         persist()
         accessGuide.checkHistory = { [weak self] in
@@ -326,12 +322,9 @@ final class AppModel: ObservableObject {
             if saved.destination == nil, let chat = conversation(saved), chat.businessConversation == true {
                 saved.destination = MessagesDestination(chat: chat)
             }
-            if let existing = state.agents.first(where: { $0.contactID == saved.contactID }) {
-                if route(existing) != nil { state.selection.insert(existing.id) }
-            } else {
+            if !state.agents.contains(where: { $0.contactID == saved.contactID }) {
                 state.agents.append(saved)
                 if state.agentGrid != nil { state.agentGrid?.add(gridID(for: saved)) }
-                if route(saved) != nil { state.selection.insert(saved.id) }
             }
             try save()
             if let i = contactResults.firstIndex(where: { $0.id == agent.id }) { contactResults[i] = saved }

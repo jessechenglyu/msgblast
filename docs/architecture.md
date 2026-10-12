@@ -200,6 +200,13 @@ the permission checklist and contact discovery. The first screen has no Back
 action. The connector choice is saved across relaunch, and older onboarding
 states retain their current step. The contribution screen stays before chatting.
 
+Setup choices determine agent-grid membership, not shared-send recipients. New
+web sessions and newly added Messages contacts start unchecked; finishing setup
+keeps those agents visible without selecting recipients. Explicit saved recipient
+choices and existing comparison membership are retained. New Blast appears in
+the active conversation view, while the initial agent grid offers Edit without
+an onboarding shortcut or a bulk restore action.
+
 Messages setup uses a uniform permission checklist (history access,
 Contacts, and sending), using the same native permission checks as Settings.
 Each checklist row opens its permission request or Settings recovery action.

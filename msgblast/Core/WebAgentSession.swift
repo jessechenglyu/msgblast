@@ -119,8 +119,7 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
         self.storageURL = storageURL
         self.fixture = fixture
         var loaded = WebWorkspaceState()
-        loaded.selected = WebProvider.webDefaults.contains(provider)
-        if agentID?.instance != nil { loaded.selected = false }
+        loaded.selected = false
         if let accountID { loaded.sessionID = accountID }
         loaded.displayName = name
         var failure: String? = migrationError
@@ -202,7 +201,10 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
 
     public func setEnabled(_ enabled: Bool) {
         guard provider.usesNativeConversation else { return }
-        updateState { $0.enabled = enabled; $0.selected = enabled }
+        updateState {
+            $0.enabled = enabled
+            if !enabled { $0.selected = false }
+        }
         if !enabled { cancelNativeRequest() }
         if provider == .grokbot {
             if enabled, grokBotReplyURL == nil { grokBotConnectionReady = nil }

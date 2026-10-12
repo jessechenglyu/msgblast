@@ -251,7 +251,7 @@ final class GrokBotTests: XCTestCase {
         let session = try XCTUnwrap(agents.sessions.first { $0.provider == provider })
         XCTAssertFalse(session.isEnabled)
         XCTAssertFalse(session.state.selected)
-        XCTAssertEqual(agents.selected.map(\.provider), WebProvider.webDefaults)
+        XCTAssertTrue(agents.selected.isEmpty)
     }
     func testGrokBotDoesNotInspectWebsiteSignInOrReceiptRecovery() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

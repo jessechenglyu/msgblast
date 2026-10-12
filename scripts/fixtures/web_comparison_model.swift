@@ -66,7 +66,10 @@ import msgblastCore
         print("PASS: first-use grid preserves featured order, enabled optional providers, and every saved Messages agent.")
         let onboardingModel = AppModel()
         let connectedContact = Agent(contactID: "fixture-connected-fo", name: "Fo", handles: ["fo@example.com"])
-        onboardingModel.state.agents.append(connectedContact)
+        onboardingModel.state.selection = []
+        onboardingModel.chats.append(Chat(id: "fixture-connected-fo", handle: "fo@example.com", lastActivity: 1))
+        await onboardingModel.addAgent(connectedContact)
+        precondition(onboardingModel.state.selection.isEmpty, "Adding a contact must not select a send recipient")
         var setup = OnboardingState()
         setup.selected = [.chatgpt, .fo, .claude]
         setup.completed = [.chatgpt, .fo]
@@ -75,20 +78,31 @@ import msgblastCore
         setup.stage = .feedback
         onboardingModel.state.onboarding = setup
         onboardingModel.onboarding.edit { $0.finish() }
-        let connectedIDs: [AgentGridID] = [.web(.chatgpt), .featuredMessages(.fo)]
+        let setupIDs: [AgentGridID] = [.web(.chatgpt), .web(.claude), .featuredMessages(.fo)]
         precondition(onboardingModel.state.onboarding?.isFinished == true)
-        precondition(onboardingModel.state.agentGrid?.visibleIDs == connectedIDs)
+        precondition(onboardingModel.state.agentGrid?.visibleIDs == setupIDs)
+        precondition(onboardingModel.state.selection.isEmpty, "Setup choices control grid membership, not recipient selection")
+        precondition(onboardingModel.webAgents.selected.isEmpty, "Connected apps stay unchecked until the user selects them")
         let savedConnectedSetup = try onboardingModel.local.load()
-        precondition(savedConnectedSetup.agentGrid?.visibleIDs == connectedIDs)
+        precondition(savedConnectedSetup.selection.isEmpty)
+        precondition(savedConnectedSetup.agentGrid?.visibleIDs == setupIDs)
         onboardingModel.state.agentGrid = nil
-        precondition(onboardingModel.agentGridLayout.visibleIDs == connectedIDs)
+        precondition(onboardingModel.agentGridLayout.visibleIDs == setupIDs)
         let customGrid = AgentGridLayout(visibleIDs: [.web(.claude), .web(.chatgpt)])
         onboardingModel.state.agentGrid = customGrid
         precondition(onboardingModel.agentGridLayout == customGrid)
         onboardingModel.state.onboarding = setup
         onboardingModel.onboarding.edit { $0.finish() }
-        precondition(onboardingModel.state.agentGrid == customGrid)
-        print("PASS: completing setup persists only connected agents, finished legacy setup uses the same fallback, and explicit customized grids remain intact.")
+        precondition(onboardingModel.state.agentGrid?.visibleIDs == [.featuredMessages(.fo), .web(.claude), .web(.chatgpt)])
+        onboardingModel.state.selection = [connectedContact.id]
+        let optedIn = onboardingModel.webAgents.session(for: .chatgpt)!
+        optedIn.updateState { $0.selected = true }
+        onboardingModel.onboarding.edit { _ in }
+        precondition(onboardingModel.state.selection == [connectedContact.id], "Later edits must retain explicit recipient choices")
+        precondition(onboardingModel.webAgents.selected.map(\.id) == [.chatgpt])
+        let savedOptIn = try onboardingModel.local.load()
+        precondition(savedOptIn.selection == [connectedContact.id])
+        print("PASS: chosen setup agents stay visible but unchecked; added contacts are not recipients; saved explicit selections and custom grid order are preserved.")
         let photoModel = AppModel()
         let fixtureRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let oldPhoto = try Data(contentsOf: fixtureRoot.appendingPathComponent("instinct-legacy-placeholder.jpg"))

@@ -23,7 +23,6 @@ final class OnboardingController: ObservableObject {
         let previousGrid = model.state.agentGrid
         change(&next)
         if next.isFinished {
-            restoreRecipients(from: next)
             if !previous.isFinished {
                 let setupGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
                 if var grid = model.state.agentGrid {
@@ -71,7 +70,6 @@ final class OnboardingController: ObservableObject {
         error = nil
         browserImportNotice = nil
         invalidateCheck()
-        restoreRecipients(from: state)
         edit { $0.begin() }
     }
 
@@ -295,7 +293,6 @@ final class OnboardingController: ObservableObject {
     func complete(_ session: WebAgentSession) {
         guard state.stage == .connecting, !checking, state.currentStep == .agent(session.provider), isReady(session),
               let choice = state.pendingChoices.first(where: { $0.provider == session.provider }) else { return }
-        session.updateState { $0.selected = true }
         edit { $0.complete(choice) }
     }
 
@@ -403,13 +400,4 @@ final class OnboardingController: ObservableObject {
         cancelBrowserProfileSelection()
     }
 
-    private func restoreRecipients(from state: OnboardingState) {
-        let connected = state.completed.intersection(state.selected)
-        for session in model.webAgents.sessions {
-            let selected = session.id.instance == nil && connected.contains { $0.provider == session.provider }
-            if session.state.selected != selected { session.updateState { $0.selected = selected } }
-        }
-        let selectedIDs = state.selectedMessageAgentIDs
-        model.state.selection = Set(model.state.agents.filter { selectedIDs.contains($0.id) && model.route($0) != nil }.map(\.id))
-    }
 }

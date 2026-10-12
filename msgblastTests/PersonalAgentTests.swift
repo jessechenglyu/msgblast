@@ -20,7 +20,7 @@ final class PersonalAgentTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
         XCTAssertEqual(web.availableSessions.map(\.provider), WebProvider.webDefaults + [.dots, .os3, .hark])
-        XCTAssertEqual(web.selected.map(\.provider), WebProvider.webDefaults)
+        XCTAssertTrue(web.selected.isEmpty)
         for provider in WebProvider.optionalProviders {
             let session = try XCTUnwrap(web.sessions.first { $0.provider == provider })
             XCTAssertFalse(session.isEnabled)
@@ -28,6 +28,8 @@ final class PersonalAgentTests: XCTestCase {
             let blocked = await session.send("No implicit opt-in")
             XCTAssertNil(blocked)
             web.setEnabled(true, for: provider)
+            XCTAssertFalse(session.state.selected, "Enabling an account must not choose it as a recipient")
+            web.toggle(session)
         }
         let id = UUID()
         let native = web.selected.filter { $0.provider.personalAgentProvider != nil }
@@ -36,7 +38,7 @@ final class PersonalAgentTests: XCTestCase {
         XCTAssertEqual(sent.count, 2)
         XCTAssertTrue(sent.values.allSatisfy { $0.status == .observed })
         let reopened = WebAgents(directory: directory, fixture: true)
-        XCTAssertEqual(reopened.selected.map(\.provider), WebProvider.webDefaults + WebProvider.optionalProviders)
+        XCTAssertEqual(reopened.selected.map(\.provider), WebProvider.optionalProviders)
         reopened.setEnabled(false, for: .codexCLI)
         reopened.setComparison(id)
         reopened.restoreSelection(for: [.chatgpt, .codexCLI])
@@ -59,6 +61,7 @@ final class PersonalAgentTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
         WebProvider.optionalProviders.forEach { web.setEnabled(true, for: $0) }
+        web.restoreSelection(for: WebProvider.webDefaults + WebProvider.optionalProviders)
         web.connectSelected()
         for _ in 0..<100 {
             if web.selected.allSatisfy({ $0.snapshot.ready }) { break }

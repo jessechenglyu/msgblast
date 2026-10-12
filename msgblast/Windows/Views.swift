@@ -265,14 +265,6 @@ struct MainView: View {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
         .toolbar {
-            if selection == .agents {
-                ToolbarItem {
-                    Button("Add Messages agents", systemImage: "plus") {
-                        if model.state.onboarding != nil { model.onboarding.reviewMessagesAgents() }
-                        else { selection = .discover }
-                    }.disabled(model.busy || model.webBroadcastBusy)
-                }
-            }
             if selection == .discover {
                 ToolbarItem(placement: .navigation) {
                     Button {
