@@ -38,15 +38,28 @@ import msgblastCore
         guard let target = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
             throw CaptureError.unavailable
         }
-        let configuration = SCStreamConfiguration()
-        configuration.width = Int(target.frame.width * window.backingScaleFactor)
-        configuration.height = Int(target.frame.height * window.backingScaleFactor)
-        configuration.showsCursor = false
-        configuration.ignoreShadowsSingleWindow = true
-        configuration.captureResolution = .best
-        let captured = try await SCScreenshotManager.captureImage(
-            contentFilter: SCContentFilter(desktopIndependentWindow: target), configuration: configuration)
-        return NSImage(cgImage: captured, size: target.frame.size)
+        let filter = SCContentFilter(desktopIndependentWindow: target)
+        let captured: CGImage
+        if #available(macOS 26.0, *) {
+            let configuration = SCScreenshotConfiguration()
+            configuration.showsCursor = false
+            configuration.ignoreShadows = false
+            configuration.includeChildWindows = false
+            configuration.dynamicRange = .sdr
+            let output = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration)
+            guard let image = output.sdrImage else { throw CaptureError.unavailable }
+            captured = image
+        } else {
+            let configuration = SCStreamConfiguration()
+            configuration.width = Int(target.frame.width * window.backingScaleFactor)
+            configuration.height = Int(target.frame.height * window.backingScaleFactor)
+            configuration.showsCursor = false
+            configuration.ignoreShadowsSingleWindow = false
+            configuration.captureResolution = .best
+            captured = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+        }
+        return NSImage(cgImage: captured, size: NSSize(width: CGFloat(captured.width) / window.backingScaleFactor,
+                                                     height: CGFloat(captured.height) / window.backingScaleFactor))
     }
     enum CaptureError: LocalizedError {
         case unavailable
@@ -101,7 +114,7 @@ private struct ChatSharePreview: View {
     let comparisonID: UUID?
     let image: NSImage
     @Environment(\.dismiss) private var dismiss
-        @State private var error: String?
+    @State private var error: String?
     @State private var copied = false
     private var hasRecording: Bool {
         guard let comparisonID else { return false }
