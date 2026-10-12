@@ -16,6 +16,11 @@ import msgblastCore
         for child in view.subviews { if let editor = privateEditor(in: child) { return editor } }
         return nil
     }
+    @MainActor static func transcriptText(_ text: String, in view: NSView) -> NSTextView? {
+        if let value = view as? NSTextView, !(value is AttachmentTextView), value.string == text { return value }
+        for child in view.subviews { if let value = transcriptText(text, in: child) { return value } }
+        return nil
+    }
     @MainActor static func main() {
         let application = NSApplication.shared
         application.setActivationPolicy(.regular)
@@ -30,6 +35,42 @@ import msgblastCore
     }
     @MainActor static func runChecks() async throws {
         _ = NSApplication.shared
+        let scrollModel = AppModel()
+        let scrollAgent = scrollModel.state.agents[0]
+        let scrollID = await scrollModel.prepareWebComparison("Scroll fixture original", recipientIDs: Set(scrollModel.state.agents.prefix(3).map(\.id)), agents: [])!
+        await scrollModel.submit(scrollID, retry: false)
+        let scrollMember = scrollModel.comparison(scrollID)!.members.first { $0.id == scrollAgent.id }!
+        try await waitUntil { (scrollModel.messages[scrollMember.chat.id]?.count ?? 0) >= 2 }
+        for index in 0..<25 {
+            scrollModel.appendDemo("History \(index): " + String(repeating: "Earlier context fills the transcript. ", count: 8), chat: scrollMember.chat, outgoing: false)
+        }
+        let scrollWindow = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 960, height: 430), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        scrollWindow.title = "Private send scroll fixture"
+        scrollWindow.contentView = NSHostingView(rootView: ComparisonWorkspace(model: scrollModel, comparisonID: scrollID))
+        scrollWindow.orderBack(nil)
+        defer { scrollWindow.orderOut(nil); scrollWindow.contentView = nil }
+        try await waitUntil { scrollWindow.contentView.flatMap { privateEditor(in: $0) } != nil }
+        scrollWindow.contentView?.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(300))
+        let sentText = (1...40).map { "Private reply line \($0): sample wrapped content." }.joined(separator: "\n") + "\nEND OF PRIVATE MESSAGE"
+        scrollModel.state.comparisons[scrollModel.index(scrollID)!].privateDrafts[scrollAgent.id.uuidString] = sentText
+        try await Task.sleep(for: .milliseconds(300))
+        let scrollEditor = privateEditor(in: scrollWindow.contentView!)!
+        scrollWindow.makeFirstResponder(scrollEditor)
+        let previousFollowUps = scrollModel.comparison(scrollID)!.followUps.count
+        scrollEditor.sendMessage?()
+        try await waitUntil { scrollModel.comparison(scrollID)!.followUps.count > previousFollowUps }
+        try await Task.sleep(for: .milliseconds(500))
+        scrollWindow.contentView?.layoutSubtreeIfNeeded()
+        let sentIndex = scrollModel.messages[scrollMember.chat.id]!.firstIndex(where: { $0.outgoing && $0.text == sentText })!
+        scrollModel.messages[scrollMember.chat.id]![sentIndex].reactions = [.init(id: "late-fixture-tapback", emoji: "✅", outgoing: false)]
+        try await Task.sleep(for: .milliseconds(300))
+        scrollWindow.contentView?.layoutSubtreeIfNeeded()
+        let sentView = scrollWindow.contentView.flatMap { transcriptText(sentText, in: $0) }
+        precondition(sentView != nil && sentView!.visibleRect.height >= min(17, sentView!.bounds.height) && sentView!.visibleRect.maxY >= sentView!.bounds.maxY - 1, "Private send is offscreen after submission; the user must not have to scroll")
+        print("PASS: actual joined ComparisonWorkspace displays the bottom of a private send after a late tapback changes its height, without manual scrolling or waiting for a reply.")
+        scrollModel.webAgents.beginShutdown()
+        await scrollModel.webAgents.cancelAndWait()
         let migrationStore = LocalStore(demo: true, isolated: true)
         let migrationDirectory = migrationStore.url.deletingLastPathComponent()
         defer { try? FileManager.default.removeItem(at: migrationDirectory) }

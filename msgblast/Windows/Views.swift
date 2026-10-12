@@ -365,10 +365,10 @@ struct TranscriptView: View {
     @ObservedObject var model: AppModel
     let comparison: Comparison
     let member: Member
+    @State private var position = ScrollPosition(edge: .bottom)
     var body: some View {
         let transcript = model.transcript(comparison, member: member)
         GeometryReader { geometry in
-        ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 3) {
                     if transcript.isEmpty {
@@ -412,11 +412,13 @@ struct TranscriptView: View {
                     }
                 }.padding(.horizontal, 20).padding(.bottom, 10)
             }
-            .onChange(of: transcript.last?.id) { _, id in
-                if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
+            // Keep the bottom visible while a sent row and the cleared composer finish sizing.
+            .scrollPosition($position)
+            .defaultScrollAnchor(position.isPositionedByUser ? nil : .bottom, for: .sizeChanges)
+            .onChange(of: transcript.last?.id) { _, _ in
+                withAnimation { position.scrollTo(edge: .bottom) }
             }
-            .onAppear { if let id = transcript.last?.id { proxy.scrollTo(id, anchor: .bottom) } }
-        }
+            .onAppear { position.scrollTo(edge: .bottom) }
         }
     }
     private func textBubble(_ message: Message, text: String, tail: Bool) -> some View {

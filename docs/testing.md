@@ -200,3 +200,5 @@ no live routine, provider request, or tunnel is started.
 checks the actual Duplicate/Rename sheets and independently selected tiles in
 an isolated Demo session. Change reasoning in the embedded website manually;
 this feature does not automate or verify provider model settings.
+
+For private-send scrolling evidence, launch the blue Demo with `--isolated-demo --no-demo-replies`. This keeps automatic simulated replies from moving the transcript after submission. The native UI regression sends a long reply through Cedar's own composer and checks that its end is visible without manual scrolling. The AppKit controller fixture covers overflowing joined panes and a late tapback; it does not reproduce the real composer timing failure by itself.
