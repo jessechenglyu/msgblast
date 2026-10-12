@@ -6,9 +6,9 @@ or paid provider request was performed. Native account integration belongs to th
 separate cloud stream.
 
 - Full Xcode native core suite: 343 tests, zero failures.
-- Focused performance suite: nine tests, zero failures. Covers old state off,
+- Focused performance suite: ten tests, zero failures. Covers old state off,
   selected turn cohorts, separate initial/follow-up samples, unavailable Messages
-  completion, clock/gap boundaries, feedback revisions, corruption preservation,
+  completion, clock/gap boundaries and per-agent versus global gaps, feedback revisions, corruption preservation,
   permissions, distinct providers/copies, and stale-writer rejection.
 - Actual AppModel/WebKit/controller fixture: passed all four connector paths,
   manual website follow-up capture, hidden DOM exclusion, ordinary nil-replyTo and
@@ -59,3 +59,13 @@ Native-produced additive provider/generation/multi-reply fixture SHA-256 is
 `96c6cb1d78c41f5da36363a64e055d3291207a940c1096734ded2850d13e39b3`.
 Both native canonical round-trips are tested. Backend acceptance of current
 native-produced bytes is a separate cross-stream integration check.
+
+
+Post-review fidelity checks use actual WebKit paragraphs/line breaks and indented
+pre/code DOM. The performance serializer preserves visible formatting and code
+content while the existing receipt normalization stays unchanged. Hidden content
+remains absent. Demo follow-up replies reference their own outgoing GUID so
+initial and follow-up timing are demonstrated against the correct synthetic
+source membership. The agent-local navigation-gap regression reproduced an
+unavailable Beta measurement before the fix and preserves its 60 ms afterward;
+nil-agent global gaps still invalidate both agents.

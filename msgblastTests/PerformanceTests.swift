@@ -2,6 +2,33 @@ import XCTest
 @testable import msgblastCore
 
 final class PerformanceTests: XCTestCase {
+    func testAgentNavigationGapDoesNotInvalidateAnotherAgentButGlobalGapDoes() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let recorder = try PerformanceRecorder(directory: root, fixture: true); recorder.enabled = true
+        let alpha = PerformanceAgent(id: "alpha", name: "Alpha", connection: .website)
+        let beta = PerformanceAgent(id: "beta", name: "Beta", connection: .website)
+        func stamp(_ ms: Int64) -> PerformanceStamp { .init(clockID: "clock", monotonicMS: ms, wallMS: 1000 + ms) }
+        let a = try recorder.beginTurn(comparisonID: "c", agent: alpha, text: "A", scope: .shared, at: stamp(0))
+        _ = try recorder.record(.dispatched, comparisonID: "c", agent: alpha, turnID: a, at: stamp(10))
+        let b = try recorder.beginTurn(comparisonID: "c", agent: beta, text: "B", scope: .shared, at: stamp(15))
+        _ = try recorder.record(.dispatched, comparisonID: "c", agent: beta, turnID: b, at: stamp(20))
+        _ = try recorder.record(.gap, comparisonID: "c", agent: alpha, reason: "navigation", at: stamp(40))
+        try recorder.reply(comparisonID: "c", agent: beta, messageID: "beta", text: "Continuous Beta", turnID: b, at: stamp(80))
+        try recorder.reply(comparisonID: "c", agent: alpha, messageID: "alpha", text: "After Alpha navigation", turnID: a, at: stamp(90))
+        XCTAssertEqual(PerformanceMetrics.firstReplyMS(events: recorder.events, turnID: b), 60)
+        XCTAssertNil(PerformanceMetrics.firstReplyMS(events: recorder.events, turnID: a))
+        let nextA = try recorder.beginTurn(comparisonID: "c", agent: alpha, text: "A2", scope: .shared, at: stamp(100))
+        _ = try recorder.record(.dispatched, comparisonID: "c", agent: alpha, turnID: nextA, at: stamp(110))
+        let nextB = try recorder.beginTurn(comparisonID: "c", agent: beta, text: "B2", scope: .shared, at: stamp(115))
+        _ = try recorder.record(.dispatched, comparisonID: "c", agent: beta, turnID: nextB, at: stamp(120))
+        _ = try recorder.record(.gap, comparisonID: "c", reason: "sleep", at: stamp(130))
+        try recorder.reply(comparisonID: "c", agent: alpha, messageID: "alpha2", text: "After sleep", turnID: nextA, at: stamp(190))
+        try recorder.reply(comparisonID: "c", agent: beta, messageID: "beta2", text: "After sleep", turnID: nextB, at: stamp(200))
+        XCTAssertNil(PerformanceMetrics.firstReplyMS(events: recorder.events, turnID: nextA))
+        XCTAssertNil(PerformanceMetrics.firstReplyMS(events: recorder.events, turnID: nextB))
+    }
+
     func testTimingPartitionsMissingCompletionAndGapBoundaries() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

@@ -2,9 +2,11 @@ import Foundation
 
 public enum PerformanceMetrics {
     public static func elapsedMS(from start: PerformanceEvent, to end: PerformanceEvent, events: [PerformanceEvent]) -> Int64? {
-        guard start.segmentID == end.segmentID, start.stamp.clockID == end.stamp.clockID,
+        guard start.comparisonID == end.comparisonID, start.agent?.id == end.agent?.id,
+              start.segmentID == end.segmentID, start.stamp.clockID == end.stamp.clockID,
               end.stamp.monotonicMS >= start.stamp.monotonicMS,
-              !events.contains(where: { $0.comparisonID == start.comparisonID && $0.sequence > start.sequence && $0.sequence < end.sequence && ($0.kind == .gap || $0.kind == .segmentEnded) }) else { return nil }
+              !events.contains(where: { $0.comparisonID == start.comparisonID && $0.sequence > start.sequence && $0.sequence < end.sequence &&
+                  ($0.kind == .segmentEnded || ($0.kind == .gap && ($0.agent == nil || $0.agent?.id == start.agent?.id))) }) else { return nil }
         return end.stamp.monotonicMS - start.stamp.monotonicMS
     }
     public static func firstReplyMS(events: [PerformanceEvent], turnID: String?) -> Int64? {

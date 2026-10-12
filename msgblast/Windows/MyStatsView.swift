@@ -44,8 +44,8 @@ struct MyStatsView: View {
             Section("Usage by configured agent") {
                 ForEach(stats.agents) { usage in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(usage.agent.name) · \(providerName(usage.agent))").font(.headline)
-                        Text("\(PersonalUsageStats.count(usage.turns, "attempt")) · \(usage.initialSamples) initial · \(usage.followUpSamples) follow-ups")
+                        Text(usage.agent.name == providerName(usage.agent) ? usage.agent.name : "\(usage.agent.name) · \(providerName(usage.agent))").font(.headline)
+                        Text("\(PersonalUsageStats.count(usage.turns, "attempt")) · \(usage.initialSamples) initial · \(PersonalUsageStats.count(usage.followUpSamples, "follow-up"))")
                         timingRow("Initial \(timingName(usage.agent))", median: usage.medianInitialReplyMS, samples: usage.initialTimingSamples)
                         timingRow("Follow-up \(timingName(usage.agent))", median: usage.medianFollowUpReplyMS, samples: usage.followUpTimingSamples)
                         Text("Observed reply rate: \(PersonalUsageStats.rate(usage.replied, of: usage.turns)) attempts")

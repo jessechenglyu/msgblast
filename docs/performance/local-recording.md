@@ -29,7 +29,9 @@ wake, navigation, web-process loss, and disabled segments invalidate crossing
 metrics. Wall dates and Messages source timestamps are retained separately.
 Website observations use normalized conversation messages, a scoped mutation
 notification, and existing one-second polling as fallback. DOM updates are not
-model tokens. Known running-to-idle transitions in one document can establish
+model tokens. Performance-only extraction preserves paragraph line breaks and
+preformatted code whitespace; receipt/send matching retains its existing
+normalization. Known running-to-idle transitions in one document can establish
 observed answer completion; unknown generation markup cannot. A website reply
 is attributed only after the existing outgoing receipt path identifies its user
 message. This may delay its first attributed observation. Manual sends are

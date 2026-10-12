@@ -2,7 +2,7 @@ import Foundation
 
 // DOM contract observed in Muse's shipped frontend. No private RPCs or session tokens.
 enum MusePageScript {
-    static let helpers = #"""
+    static let helpers = WebPerformanceText.script + #"""
     const visible = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
     const unique = selector => { const es = [...document.querySelectorAll(selector)].filter(visible); return es.length === 1 ? es[0] : null; };
     const editor = () => unique('textarea[aria-label="Message"]');
@@ -13,10 +13,12 @@ enum MusePageScript {
         const copy = e.cloneNode(true);
         if (visibleOnly) {
             const original=[...e.querySelectorAll('*')],cloned=[...copy.querySelectorAll('*')];
-            original.forEach((node,i)=>{if(!performanceVisible(node) || node.matches('script,style,template,noscript'))cloned[i]?.remove();});
+            copy.__msgblastPreformatted=/^(pre|pre-wrap|pre-line|break-spaces)$/.test(getComputedStyle(e).whiteSpace);
+                original.forEach((node,i)=>{cloned[i].__msgblastPreformatted=/^(pre|pre-wrap|pre-line|break-spaces)$/.test(getComputedStyle(node).whiteSpace);if(!performanceVisible(node) || node.matches('script,style,template,noscript'))cloned[i]?.remove();});
         }
         copy.querySelectorAll('button,[role="button"],time').forEach(n => n.remove());
-        return {id:e.getAttribute('data-message-id'),role:e.getAttribute('data-message-role'),text:normalized(copy.textContent || '').replace(/^You:\s*/, '')};
+        const role=e.getAttribute('data-message-role');const text=visibleOnly?performanceText(copy):normalized(copy.textContent||'');
+        return {id:e.getAttribute('data-message-id'),role,text:visibleOnly?(role==='user'?text.replace(/^You: ?/,''):text):text.replace(/^You:\s*/,'')};
     });
     const observation = globalThis.__msgblastMuseObservation ??= {interrupted:false};
     if (!observation.listening) {

@@ -423,6 +423,12 @@ import msgblastCore
             let captured = model.performance.replies.last { $0.messageID == firstReply.guid }!
             precondition(captured.turnID != nil, "Unambiguous ordinary incoming replies use the owned outgoing receipt")
         }
+        let comparisonIndex = model.index(id)!
+        model.state.comparisons[comparisonIndex].allDraft = "Synthetic actual Messages follow-up"
+        await model.followUp(id, recipients: [recipient.id], recordingScope: .private)
+        try await waitUntil { model.performance.replies.contains { $0.agent.connection == .messages && $0.scope == .private } }
+        let messageFollowUp = model.performance.replies.last { $0.agent.connection == .messages && $0.scope == .private }!
+        precondition(PerformanceMetrics.firstReplyMS(events: model.performance.events, turnID: messageFollowUp.turnID) != nil)
         let other = model.webAgents.session(for: .claude)!
         let copy = try model.webAgents.duplicate(web, name: "Renamed helper")
         model.performance.attach(model.webAgents)
@@ -441,6 +447,13 @@ import msgblastCore
         precondition(!model.performance.events.contains { $0.kind == .dispatched && $0.turnID == manual?.turnID })
         _ = try await web.webView.callAsyncJavaScript("const reply=[...document.querySelectorAll('[data-message-author-role=assistant]')].at(-1);const hidden=document.createElement('span');hidden.style.display='none';hidden.textContent='MSGBLAST_PRIVATE_DOM_PAYLOAD';reply.append(hidden);const script=document.createElement('script');script.textContent='/* MSGBLAST_PRIVATE_DOM_PAYLOAD */';reply.append(script);const top=reply.cloneNode(true);top.hidden=true;top.dataset.messageId='hidden-fixture-id';top.textContent='MSGBLAST_PRIVATE_DOM_PAYLOAD';reply.after(top)", arguments: [:], in: nil, contentWorld: .page)
         await web.refresh()
+        _ = try await web.webView.callAsyncJavaScript("const formatted=document.createElement('article');formatted.dataset.messageAuthorRole='assistant';formatted.dataset.messageId='formatting-fixture';formatted.innerHTML=markup;document.getElementById('transcript').append(formatted)", arguments: ["markup": "<p>First paragraph.<br>Second line.</p><p>Another paragraph.</p><pre><code>def example():\n    value = 1\n    return value\n</code></pre><span style='display:none'>MSGBLAST_PRIVATE_DOM_PAYLOAD</span>"], in: nil, contentWorld: .page)
+        await web.refresh()
+        let formatted = model.performance.replies.last { $0.messageID.hasSuffix(":formatting-fixture") }!
+        precondition(formatted.text.contains("First paragraph.\nSecond line.\n\nAnother paragraph."))
+        precondition(formatted.text == "First paragraph.\nSecond line.\n\nAnother paragraph.\n\ndef example():\n    value = 1\n    return value\n")
+        let diskProjection = try PerformanceRecorder(directory: model.local.url.deletingLastPathComponent(), fixture: true)
+        precondition(diskProjection.replies.last { $0.messageID.hasSuffix(":formatting-fixture") }?.text == formatted.text)
         let journal = try String(contentsOf: model.local.url.deletingLastPathComponent().appendingPathComponent("Performance/events.jsonl"), encoding: .utf8)
         precondition(!journal.contains("MSGBLAST_PRIVATE_DOM_PAYLOAD") && !model.performance.replies.contains { $0.text.contains("MSGBLAST_PRIVATE_DOM_PAYLOAD") })
         print("PASS: actual WebKit capture preserves canonical providers/copy identity and manual follow-up membership; hidden DOM elements, descendants, and scripts never enter the journal.")

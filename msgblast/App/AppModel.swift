@@ -729,9 +729,9 @@ final class AppModel: ObservableObject {
             if let index = messages[member.chat.id]?.firstIndex(where: { $0.guid == sent.guid }) {
                 messages[member.chat.id]?[index].reactions = [MessageReaction(id: "fixture-recipient", emoji: "✅", outgoing: false)]
                 let answer = sent.linkPreview?.url.absoluteString ?? answers[offset % answers.count]
-                appendDemo(answer, chat: member.chat, outgoing: false, replyTo: anchor.guid)
+                appendDemo(answer, chat: member.chat, outgoing: false, replyTo: sent.guid)
             } else {
-                appendDemo(answers[offset % answers.count], chat: member.chat, outgoing: false, replyTo: anchor.guid)
+                appendDemo(answers[offset % answers.count], chat: member.chat, outgoing: false, replyTo: sent.guid)
             }
         }
     }

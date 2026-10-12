@@ -53,7 +53,7 @@ struct WebPageScript {
         }
         let config: [String: String] = ["name":provider.name,"provider":provider.rawValue,"host":provider.homeURL.host!,"editor":selectors.editor,"send":selectors.send,"messages":selectors.messages,"account":selectors.account]
         let json = String(data: try! JSONSerialization.data(withJSONObject: config, options: [.sortedKeys]), encoding: .utf8)!
-        return "const config = \(json);\n" + #"""
+        return "const config = \(json);\n" + WebPerformanceText.script + #"""
         const visible = e => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
         const all = selector => [...document.querySelectorAll(selector)].filter(visible);
         const unique = selector => { const es=all(selector); return es.length===1 ? es[0] : null; };
@@ -87,14 +87,15 @@ struct WebPageScript {
             const copy=source.cloneNode(true);
             if (visibleOnly) {
                 const original=[...source.querySelectorAll('*')],cloned=[...copy.querySelectorAll('*')];
-                original.forEach((node,i)=>{if(!performanceVisible(node) || node.matches('script,style,template,noscript'))cloned[i]?.remove();});
+                copy.__msgblastPreformatted=/^(pre|pre-wrap|pre-line|break-spaces)$/.test(getComputedStyle(source).whiteSpace);
+                original.forEach((node,i)=>{cloned[i].__msgblastPreformatted=/^(pre|pre-wrap|pre-line|break-spaces)$/.test(getComputedStyle(node).whiteSpace);if(!performanceVisible(node) || node.matches('script,style,template,noscript'))cloned[i]?.remove();});
             }
             copy.querySelectorAll('button,[role="button"],time').forEach(n=>n.remove());
             if (config.provider==='chatgpt') copy.querySelectorAll('h4[data-conversation-role]').forEach(n=>n.remove());
             if (config.provider==='os3') copy.querySelectorAll('.dial-meta,.dial-reaction').forEach(n=>n.remove());
-            copy.querySelectorAll('br,p,div,li,pre,blockquote').forEach(n=>n.append(document.createTextNode(' ')));
+            if (!visibleOnly) copy.querySelectorAll('br,p,div,li,pre,blockquote').forEach(n=>n.append(document.createTextNode(' ')));
             if (!observation.ids.has(e)) observation.ids.set(e,`node-${++observation.nextID}`);
-            return {id:id||observation.ids.get(e),role:role||'unknown',text:normalized(copy.textContent||'')};
+            return {id:id||observation.ids.get(e),role:role||'unknown',text:visibleOnly?performanceText(copy):normalized(copy.textContent||'')};
         });
         const conversationLocation = () => {
             const url=new URL(location.href),params=[...url.searchParams];
