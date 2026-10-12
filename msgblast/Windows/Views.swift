@@ -384,7 +384,9 @@ struct TranscriptView: View {
                                 if message.outgoing { Spacer(minLength: geometry.size.width * 0.25) }
                                 VStack(alignment: .leading, spacing: 6) {
                                     ForEach(message.attachments) { file in AttachmentView(attachment: file) }
-                                    if let preview = message.linkPreview {
+                                    if let payload = message.businessPayload {
+                                        BusinessChoicesView(model: model, message: message, member: member, payload: payload)
+                                    } else if let preview = message.linkPreview {
                                         if !preview.remainingText.isEmpty {
                                             textBubble(message, text: preview.remainingText, tail: false)
                                         }
