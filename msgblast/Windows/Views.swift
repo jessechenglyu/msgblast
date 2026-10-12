@@ -436,7 +436,7 @@ struct TranscriptView: View {
                 followingBottom = true
                 Task { @MainActor in
                     await Task.yield()
-                    proxy.scrollTo(bottomID, anchor: .bottom)
+                    if followingBottom { proxy.scrollTo(bottomID, anchor: .bottom) }
                 }
             }
             .onChange(of: geometry.size.height) { _, _ in
