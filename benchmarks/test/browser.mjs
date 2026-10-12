@@ -43,6 +43,7 @@ try {
     true,
   );
   assert.equal(await page.locator(".message").count(), 6);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), true);
   assert.equal(await page.getByText("Included context and limits").count(), 0);
   assert.equal(await page.getByText(/Dispatch to observed reply/).count(), 0);
   assert.equal(await page.locator(".transcript").first().evaluate((el) => el.scrollHeight > el.clientHeight), true);

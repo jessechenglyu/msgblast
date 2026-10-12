@@ -46,6 +46,7 @@ h1 { font-size: 16px; line-height: 1.4; margin: 0; font-weight: 650; overflow: h
 .transcript { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 20px 32px; scrollbar-width: thin; }
 .transcript:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .exchange + .exchange { margin-top: 28px; }
+.message { position: relative; }
 .bubble { width: fit-content; max-width: 92%; border-radius: 18px; padding: 11px 14px; font-size: 16px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .prompt { background: var(--blue); color: white; margin: 0 0 12px auto; border-bottom-right-radius: 5px; }
 .reply { background: var(--reply); margin: 0 auto 8px 0; border-bottom-left-radius: 5px; }
