@@ -1,0 +1,16 @@
+{
+  "nativeSourceSHA": "9e66025c8b3fd35f38da34659b0eee9acfeb9f59",
+  "backendSourceSHA": "9013295a4b27aa2895f25bbc512f4d6c0ac2d41a",
+  "projectionHash": "fc7d100a3ea45c4351e28bf4485d1cc14ae94bf26c06c436c355e6f33c2b0dca",
+  "title": "Synthetic native comparison",
+  "privateExcluded": true,
+  "sharedTurnCount": 1,
+  "participantCount": 2,
+  "messageCount": 4,
+  "fixture": true,
+  "limits": [
+    "Published through actual native UI to actual loopback Worker",
+    "Synthetic instantaneous recorder input; no live agents or identity provider",
+    "Screenshots start at verified scroll origin; mobile second agent selected through reader button"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "sourceSHA": "9e66025c8b3fd35f38da34659b0eee9acfeb9f59",
+  "bundleID": "com.msgblast.benchmark-final-demo",
+  "fixture": true,
+  "icon": "AppIconDemo.icns",
+  "iconColor": "blue",
+  "iconSHA256": "3e233b2177364f165add299fa575edd050c02a43ec24d65dd0ebd65da6b0e4f7",
+  "iconRepresentation": "ic13",
+  "limits": [
+    "Synthetic OAuth/browser and token storage; actual loopback API",
+    "No live providers, Messages or Contacts",
+    "Source bytes from isolated all-unit Xcode build; preview identity stamped and ad-hoc resigned"
+  ]
+}

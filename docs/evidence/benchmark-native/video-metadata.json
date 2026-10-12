@@ -1,0 +1,108 @@
+{
+  "nativeSourceSHA": "9e66025c8b3fd35f38da34659b0eee9acfeb9f59",
+  "backendSourceSHA": "9013295a4b27aa2895f25bbc512f4d6c0ac2d41a",
+  "method": "Rendered from actual inspected Cua window snapshots after UI actions; not continuous screen capture",
+  "timing": "Edited pauses; chronological action/result order preserved",
+  "fixture": true,
+  "captions": "Embedded default MP4 subtitle track and companion SRT; no screenshot pixels edited",
+  "phases": [
+    {
+      "file": "benchmark-final-account-before.png",
+      "sha256": "84e2184beaed5251d06281c81263c3b3bec6167b4fee1201efdae0a4cbd1d5e0",
+      "caption": "Optional benchmark account",
+      "duration": 2,
+      "publishedFile": "native-account-before.png"
+    },
+    {
+      "file": "benchmark-final-selected.png",
+      "sha256": "6ea9d14199d9e4e0f442ee3a1cae1d1b18100b66a7b7adf11aa059867dd20bdc",
+      "caption": "Sign-in complete; recorded comparison selected",
+      "duration": 2,
+      "publishedFile": "native-selected.png"
+    },
+    {
+      "file": "benchmark-final-share-options.png",
+      "sha256": "46f2cb01d1aee817e23112e778ee502845b5f6251cb4757821c303a95965b1f2",
+      "caption": "Publication choices; private sync remains paused",
+      "duration": 2,
+      "publishedFile": "native-share-options.png"
+    },
+    {
+      "file": "benchmark-final-read-only.png",
+      "sha256": "95654e29fcb64c4bbe36348f0e02572539d3875b7de36b9bdf303b71c5a74e3a",
+      "caption": "Read-only captured prompts and separate replies",
+      "duration": 3,
+      "publishedFile": "native-read-only.png"
+    },
+    {
+      "file": "benchmark-final-redaction-term.png",
+      "sha256": "51fef8d6243edfe96cf70137701df73a538b541eeae76bf578ff6b15e81789cc",
+      "caption": "Exact literal selected for redaction",
+      "duration": 2,
+      "publishedFile": "native-redaction-term.png"
+    },
+    {
+      "file": "benchmark-final-preview-redacted.png",
+      "sha256": "557f8b99dcaf4bdf264178f808e8f681f2b7cc8ebeac009099425a41310c27f1",
+      "caption": "Redaction masks preview; source bytes remain unchanged",
+      "duration": 3,
+      "publishedFile": "native-preview-redacted.png"
+    },
+    {
+      "file": "benchmark-final-publish-approved.png",
+      "sha256": "fe0f4fa897ebedc1796a803cb09abc19a432c9ef3c680167ce524bbeac5bf144",
+      "caption": "Separate approval for the exact publication bytes",
+      "duration": 2,
+      "publishedFile": "native-publish-approved.png"
+    },
+    {
+      "file": "benchmark-final-published.png",
+      "sha256": "d71904434639dddcc78cf65b4a9c4b64a2639e6d081c79b5488aba555c5b5b6e",
+      "caption": "Actual loopback publication creates a saved link",
+      "duration": 3,
+      "publishedFile": "native-published.png"
+    },
+    {
+      "file": "benchmark-final-revoked.png",
+      "sha256": "273c36796cbdee4afaca7b292cb0de05cf0816c992d014de942152ac18914e42",
+      "caption": "Revoke removes link; anonymous endpoint verified 404",
+      "duration": 2,
+      "publishedFile": "native-revoked.png"
+    },
+    {
+      "file": "benchmark-final-contribution-before.png",
+      "sha256": "9f4207d5d7d81bc220cf0fc96765841aa6ab536249d0fd99793bdb8c5fa965ac",
+      "caption": "Private contribution evidence requires its own choice",
+      "duration": 2,
+      "publishedFile": "native-contribution-before.png"
+    },
+    {
+      "file": "benchmark-final-contribution-ready.png",
+      "sha256": "76579e49bf0479104755d3650835dd3e6c9b168590dd1cb447bcb3445d6c624f",
+      "caption": "Finalized evidence still requires contribution approval",
+      "duration": 2,
+      "publishedFile": "native-contribution-ready.png"
+    },
+    {
+      "file": "benchmark-final-contribution-approved.png",
+      "sha256": "3c8f6561fe1666bb6a58c6b3ac32322f3dc6206cffc1694300296d68215810f9",
+      "caption": "Fresh approval belongs to this owner and snapshot",
+      "duration": 2,
+      "publishedFile": "native-contribution-approved.png"
+    },
+    {
+      "file": "benchmark-final-contribution-result.png",
+      "sha256": "d726e8103c4bf1ed531e8d6b2ef3a64849c69194ed8d8134bca266affc13d2e9",
+      "caption": "Fixture ineligible; accepted comparisons remain zero",
+      "duration": 3,
+      "publishedFile": "native-contribution-result.png"
+    },
+    {
+      "file": "benchmark-final-withdrawn.png",
+      "sha256": "9de14a4e0701d2db129caf7b5da5b08e5a6d3256d9256f8084c25b899e0f3713",
+      "caption": "Actual contribution withdrawal recorded",
+      "duration": 2,
+      "publishedFile": "native-withdrawn.png"
+    }
+  ]
+}

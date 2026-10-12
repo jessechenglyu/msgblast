@@ -1,0 +1,13 @@
+# Native benchmark integration evidence
+
+Native source: 9e66025c8b3fd35f38da34659b0eee9acfeb9f59, base: b224679f9dd224b8642a8bbab5541229eca4b760. Backend: 9013295a4b27aa2895f25bbc512f4d6c0ac2d41a.
+
+Actual isolated blue Demo native window, original PNGs captured through Cua after verified UI actions. Dedicated com.msgblast.benchmark-final-demo identity, source-stamped and strictly ad-hoc signed. No production/development app replacement. The native journal was seeded by scripts/fixtures/benchmark_seed.swift: 16 synthetic events, 5 separate replies. Near-zero displayed timing reflects instantaneous fixture calls, not agent latency. OAuth browser/code-exchange and credential store are simulated; native account verifies the bearer against an actual loopback Worker. Real native recorder, controller, client and local Worker/D1/private R2/Queue execute. No live IdP/provider, Messages or Contacts calls.
+
+The 32-second MP4 is assembled from actual inspected native window snapshots in chronological action/result order. It is NOT continuous screen recording. Pauses and transitions are edited. An embedded default subtitle track and companion SRT label synthetic input and edited timing. Original screenshot pixels are retained separately. Current Cua 0.22 recorder produced no compatible trajectory; no successful continuous/trajectory capture is claimed.
+
+Actual UI sign-in uploaded no recording. Literal rainbow redaction masks only the preview; title was entered through actual text input. Native publication remained independent of sync (paused, zero private lineages). Actual anonymous reader bytes match the approved native hash fc7d100a3ea45c4351e28bf4485d1cc14ae94bf26c06c436c355e6f33c2b0dca; both agents' 4 shared replies retained, private follow-up excluded. Desktop/mobile captures use that same native-created publication, with mobile Agent 2 selected through the actual reader button and verified scroll origin. Native Revoke returned 404.
+
+Separate native contribution evidence preparation uploaded the original prefix while ongoing sync remained off/paused. Fresh snapshot approval requested fixture contribution; actual status ineligible / accepted comparisons 0. Native withdrawal returned withdrawn for the exact selected snapshot. Original journal bytes remained unchanged. ui-verification.json contains sanitized assertions, no tokens or capability URLs.
+
+389 native unit tests, 6 controlled actual-controller checks and 11 actual native/local Worker workflow stages pass independently on exact source.40 backend tests/typecheck/dryrun/browser checks pass. Live IdP provisioning and installed-update Keychain retention remain operational prerequisites; this evidence does not establish them or publish an app.

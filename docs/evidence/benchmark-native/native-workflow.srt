@@ -1,0 +1,69 @@
+1
+00:00:00,000 --> 00:00:02,000
+Synthetic Demo: actual window snapshots; edited pauses
+Optional benchmark account
+
+2
+00:00:02,000 --> 00:00:04,000
+Synthetic Demo: actual window snapshots; edited pauses
+Sign-in complete; recorded comparison selected
+
+3
+00:00:04,000 --> 00:00:06,000
+Synthetic Demo: actual window snapshots; edited pauses
+Publication choices; private sync remains paused
+
+4
+00:00:06,000 --> 00:00:09,000
+Synthetic Demo: actual window snapshots; edited pauses
+Read-only captured prompts and separate replies
+
+5
+00:00:09,000 --> 00:00:11,000
+Synthetic Demo: actual window snapshots; edited pauses
+Exact literal selected for redaction
+
+6
+00:00:11,000 --> 00:00:14,000
+Synthetic Demo: actual window snapshots; edited pauses
+Redaction masks preview; source bytes remain unchanged
+
+7
+00:00:14,000 --> 00:00:16,000
+Synthetic Demo: actual window snapshots; edited pauses
+Separate approval for the exact publication bytes
+
+8
+00:00:16,000 --> 00:00:19,000
+Synthetic Demo: actual window snapshots; edited pauses
+Actual loopback publication creates a saved link
+
+9
+00:00:19,000 --> 00:00:21,000
+Synthetic Demo: actual window snapshots; edited pauses
+Revoke removes link; anonymous endpoint verified 404
+
+10
+00:00:21,000 --> 00:00:23,000
+Synthetic Demo: actual window snapshots; edited pauses
+Private contribution evidence requires its own choice
+
+11
+00:00:23,000 --> 00:00:25,000
+Synthetic Demo: actual window snapshots; edited pauses
+Finalized evidence still requires contribution approval
+
+12
+00:00:25,000 --> 00:00:27,000
+Synthetic Demo: actual window snapshots; edited pauses
+Fresh approval belongs to this owner and snapshot
+
+13
+00:00:27,000 --> 00:00:30,000
+Synthetic Demo: actual window snapshots; edited pauses
+Fixture ineligible; accepted comparisons remain zero
+
+14
+00:00:30,000 --> 00:00:32,000
+Synthetic Demo: actual window snapshots; edited pauses
+Actual contribution withdrawal recorded

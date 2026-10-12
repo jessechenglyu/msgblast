@@ -1,0 +1,20 @@
+{
+  "nativeSourceSHA": "9e66025c8b3fd35f38da34659b0eee9acfeb9f59",
+  "backendSourceSHA": "9013295a4b27aa2895f25bbc512f4d6c0ac2d41a",
+  "fixture": true,
+  "privateSyncPaused": true,
+  "futureSyncEnabled": false,
+  "privateSessionCreatedOnlyAfterSeparateEvidenceChoice": true,
+  "contributionUsesSelectedSnapshot": true,
+  "contributionStatus": "withdrawn",
+  "acceptedComparisons": 0,
+  "sourceBytesUnchanged": true,
+  "sourceJournalSHA256": "581c8544c94384ab97106ee9ca16fe812b4e41eb1b84729491d78a89797b6d12",
+  "publicationRevoked": true,
+  "limits": [
+    "OAuth/browser/credential store simulated",
+    "Actual native recorder/client/controller and local Worker execute",
+    "Instantaneous synthetic capture timings do not measure agents",
+    "No live identity/provider, Messages or Contacts actions"
+  ]
+}
