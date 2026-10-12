@@ -368,58 +368,23 @@ const escape = (s: string) =>
         c
       ]!,
   );
-function renderScope(p: Projection) {
-  return `<aside aria-label="Scope and evidence"><h2>Included context and limits</h2><p>${p.includesPrivate ? "Owner explicitly included private follow-ups." : "Private follow-ups excluded."} ${p.includesEarlierHistory ? "Owner explicitly included earlier history." : "Earlier provider history excluded."}</p><ul>${[...p.omissions, ...p.limitations, "Server receipts preserve received bytes; they do not prove local DOM authenticity."].map((x) => `<li>${escape(x)}</li>`).join("")}</ul></aside>`;
-}
 function renderPicker(p: Projection) {
-  return `<nav class="agent-picker" aria-label="Select agent">${p.participants.map((a, i) => `<button data-agent="${escape(a.id)}" aria-pressed="${i === 0}">${escape(a.label)}</button>`).join("")}</nav>`;
+  return `<nav class="agent-picker" aria-label="Select conversation">${p.participants.map((a, i) => `<button data-agent="${escape(a.id)}" aria-pressed="${i === 0}">${escape(a.label)}</button>`).join("")}</nav>`;
 }
-const outcomeLabels: Record<string, string> = {
-  observedReply: "Reply observed",
-  observedCompletion: "Answer completion observed",
-  failed: "Failed",
-  canceled: "Canceled",
-  timeout: "No reply observed before timeout",
-  uncertain: "Outcome uncertain",
-  unsupported: "Observation unsupported",
-  unobserved: "No reply observed",
-};
-const connectionLabels: Record<string, string> = {
-  website: "Website",
-  messages: "Messages",
-  cli: "Local CLI",
-  grokBot: "Grok Bot",
-};
 function renderMessage(m: PublishedMessage, index: number) {
-  return `<section class="message" data-message="${escape(m.messageID)}"><h4>Reply ${index + 1}</h4><p class="outcome">${escape(outcomeLabels[m.outcome] ?? "Outcome unknown")} · ${escape(m.timingLabel)}</p><div class="reply">${escape(m.text)}</div>${m.revisions?.length ? `<details><summary>${m.revisions.length} earlier observed streaming revisions</summary>${m.revisions.map((r) => `<p>${escape(r.timingLabel)}</p><div class="reply">${escape(r.text)}</div>`).join("")}</details>` : ""}${m.feedback ? `<p>Owner preference: ${escape(m.feedback)} (not task accuracy)</p>` : ""}</section>`;
+  return `<section class="message" data-message="${escape(m.messageID)}"><h4 class="sr-only">Reply ${index + 1}</h4><div class="bubble reply">${escape(m.text)}</div>${m.revisions?.length ? `<details class="versions"><summary>Earlier versions</summary>${m.revisions.map((r) => `<div class="bubble reply">${escape(r.text)}</div>`).join("")}</details>` : ""}</section>`;
 }
-function renderAgent(
-  a: Projection["participants"][number],
-  reply: Reply | undefined,
-  index: number,
-  targeted: boolean | null = true,
-) {
-  if (targeted === false)
-    return `<article data-agent="${escape(a.id)}" class="agent ${index === 0 ? "selected" : ""}"><h3>${escape(a.label)}</h3><p>Not asked in this turn.</p></article>`;
-  if (targeted === null)
-    return `<article data-agent="${escape(a.id)}" class="agent ${index === 0 ? "selected" : ""}"><h3>${escape(a.label)}</h3><p>Turn membership was not declared. No captured reply is available for this agent.</p></article>`;
-  return `<article data-agent="${escape(a.id)}" class="agent ${index === 0 ? "selected" : ""}"><h3>${escape(a.label)}</h3><p class="connection">${escape(connectionLabels[a.connectionType] ?? "Connection unknown")}</p><p class="outcome">Turn outcome: ${escape(outcomeLabels[reply?.outcome ?? "unobserved"] ?? "Outcome unknown")}</p>${reply?.messages.length ? reply.messages.map(renderMessage).join("") : '<p class="reply">No reply captured. This missing response is retained.</p>'}</article>`;
-}
-function renderTurn(p: Projection, t: Turn, index: number) {
-  return `<section class="turn"><h2>Turn ${index + 1} · ${t.kind === "initial" ? "Initial request" : t.kind === "followUp" ? "Follow-up" : "Recorded request (position unknown)"} · ${escape(t.scope === "unknown" ? "Scope unknown" : t.scope === "private" ? "Private" : "Shared")}</h2>${t.alignmentLabel ? `<p>${escape(t.alignmentLabel)}</p>` : ""}<div class="prompt">${escape(t.prompt)}</div><div class="agents">${p.participants
-    .map((a, j) =>
-      renderAgent(
-        a,
-        t.replies.find((r) => r.agentID === a.id),
-        j,
-        t.targetedAgentIDs === undefined
-          ? t.replies.some((r) => r.agentID === a.id)
-            ? true
-            : null
-          : t.targetedAgentIDs.includes(a.id),
-      ),
-    )
-    .join("")}</div></section>`;
+function renderConversation(p: Projection, agent: Projection["participants"][number], index: number) {
+  const turns = p.turns.map((turn) => {
+    const reply = turn.replies.find((r) => r.agentID === agent.id);
+    const targeted = turn.targetedAgentIDs?.includes(agent.id);
+    if (targeted === false) return '<p class="chat-status">Not asked in this turn.</p>';
+    if (targeted === undefined && !reply) return '<p class="chat-status">No conversation captured for this request.</p>';
+    // Only repeat a request in columns with declared membership or a captured
+    // response. Preserve unknown alignment without implying a shared send.
+    return `<div class="exchange"><div class="bubble prompt">${escape(turn.prompt)}</div>${reply?.messages.length ? reply.messages.map(renderMessage).join("") : '<p class="chat-status">No reply captured.</p>'}</div>`;
+  }).join("");
+  return `<article data-agent="${escape(agent.id)}" class="agent agent-color-${index % 6} ${index === 0 ? "selected" : ""}"><header class="agent-header"><span class="avatar" aria-hidden="true">${escape(Array.from(agent.label)[0] ?? "?")}</span><h2>${escape(agent.label)}</h2></header><div class="transcript" tabindex="0" role="region" aria-label="${escape(agent.label)} conversation">${turns}</div></article>`;
 }
 function renderArtifacts(p: Projection, base: string) {
   return p.artifacts.length
@@ -427,5 +392,8 @@ function renderArtifacts(p: Projection, base: string) {
     : "";
 }
 function render(p: Projection, base: string) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${escape(p.title)} | msgblast</title><link rel="stylesheet" href="/reader.css"><script defer src="/reader.js"></script></head><body><main><header><p class="brand">msgblast · shared comparison</p><h1>${escape(p.title)}</h1><p>Unlisted link. Anyone who receives it can forward it.</p>${p.fixture ? '<p class="fixture">Synthetic Demo fixture · no live agent requests</p>' : ""}</header>${renderScope(p)}${renderPicker(p)}${p.turns.map((t, i) => renderTurn(p, t, i)).join("")}${renderArtifacts(p, base)}<footer>Measured observations and optional preferences are separate. No overall assistant score.</footer></main></body></html>`;
+  const title = p.title === "Shared comparison" ? (p.turns.find((t) => t.kind === "initial")?.prompt ?? p.turns[0]?.prompt ?? p.title) : p.title;
+  const unassigned = p.turns.filter((t) => t.targetedAgentIDs === undefined && !t.replies.length);
+  const requests = unassigned.length ? `<section aria-label="Requests without a captured conversation"><h2>Requests</h2>${unassigned.map((t) => `<div class="bubble prompt">${escape(t.prompt)}</div>`).join("")}</section>` : "";
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>${escape(title)} | msgblast</title><link rel="stylesheet" href="/reader.css"><script defer src="/reader.js"></script></head><body><main class="chat-window"><header class="window-chrome"><span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span><h1 title="${escape(title)}">${escape(title)}</h1><span class="brand">msgblast</span></header>${renderPicker(p)}<div class="agents">${p.participants.map((a, i) => renderConversation(p, a, i)).join("")}</div>${requests}${renderArtifacts(p, base)}</main></body></html>`;
 }

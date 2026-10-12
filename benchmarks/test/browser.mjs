@@ -8,7 +8,17 @@ const h = await harness();
 let browser;
 try {
   const auth = await h.token();
-  const result = await publication(h, auth);
+  const longChat = structuredClone(projection);
+  const followUp = structuredClone(longChat.turns[0]);
+  followUp.id = "fixture-follow-up";
+  followUp.kind = "followUp";
+  followUp.prompt = "How would you explain this to a beginner?";
+  for (const reply of followUp.replies) for (const message of reply.messages) {
+    message.messageID += "-follow-up";
+    message.text = (message.text + "\n\n").repeat(12) + "End of complete conversation.";
+  }
+  longChat.turns.push(followUp);
+  const result = await publication(h, auth, longChat);
   assert.equal(result.status, 201);
   const link = await result.json();
   const base = (await h.mf.ready).origin;
@@ -32,9 +42,12 @@ try {
     ),
     true,
   );
-  assert.equal(await page.locator(".message").count(), 3);
+  assert.equal(await page.locator(".message").count(), 6);
+  assert.equal(await page.getByText("Included context and limits").count(), 0);
+  assert.equal(await page.getByText(/Dispatch to observed reply/).count(), 0);
+  assert.equal(await page.locator(".transcript").first().evaluate((el) => el.scrollHeight > el.clientHeight), true);
   await page.screenshot({ path: dir + "/reader-desktop.png", fullPage: true });
-  await page.locator('[data-message="extra-1"]').scrollIntoViewIfNeeded();
+  await page.locator('[data-message="extra-1-follow-up"]').scrollIntoViewIfNeeded();
   await page.waitForTimeout(800);
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -48,9 +61,13 @@ try {
     path: dir + "/reader-mobile-messages.png",
     fullPage: true,
   });
-  assert.equal(await phone.locator('[data-message="extra-1"]').count(), 1);
-  await phone.locator('[data-message="extra-1"]').scrollIntoViewIfNeeded();
+  assert.equal(await phone.locator('[data-message="extra-1-follow-up"]').count(), 1);
+  await phone.locator('[data-message="extra-1-follow-up"]').scrollIntoViewIfNeeded();
   await phone.waitForTimeout(700);
+  await phone.mouse.move(195, 420);
+  await phone.mouse.wheel(0, 100000);
+  await phone.waitForTimeout(400);
+  assert.equal(await phone.locator(".transcript").first().evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight < 2), true);
   await phone.getByRole("button", { name: "Agent B", exact: true }).click();
   await phone.waitForTimeout(700);
   assert.equal(
