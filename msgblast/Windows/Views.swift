@@ -629,16 +629,14 @@ struct RecipientPills: View {
                 ForEach(model.recipientWebSessions(for: comparison), id: \.id) { session in
                     let joined = comparison.resolvedWebAgentIDs.contains(session.id)
                     Button {
-                        if joined { model.openWebComparison(comparison.id); return }
+                        model.openWebComparison(comparison.id)
+                        if joined { return }
                         model.webBroadcastBusy = true
                         session.updateState { $0.selected = true }
                         session.connect()
                         Task { @MainActor in
                             _ = await model.joinWebAgent(session, comparisonID: comparison.id)
                             model.webBroadcastBusy = false
-                            if model.comparison(comparison.id)?.resolvedWebAgentIDs.contains(session.id) == true {
-                                model.openWebComparison(comparison.id)
-                            }
                         }
                     } label: {
                         Label(session.name, systemImage: joined ? "bubble.left" : "plus.circle").font(.system(size: 13, weight: .medium))
