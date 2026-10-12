@@ -147,6 +147,10 @@ test("business cards preserve selected choices as escaped read-only controls", a
         { title: "Not Now", selected: false, subtitle: "Later & safely", section: "Other" },
       ],
     };
+    p.turns[0].replies[0].messages[0].revisions = [{
+      text: "Earlier card", timingLabel: "Earlier observation",
+      businessChoices: { kind: "quickReply", title: "Earlier <choice>", options: [{title: "Old option", selected: false}] },
+    }];
     const created = await publication(h, await h.token(), p);
     assert.equal(created.status, 201);
     const link = await created.json();
@@ -154,6 +158,7 @@ test("business cards preserve selected choices as escaped read-only controls", a
     assert.deepEqual(data.turns[0].replies[0].messages[0].businessChoices, p.turns[0].replies[0].messages[0].businessChoices);
     const html = await h.request(link.path).then(r => r.text());
     assert.match(html, /Read-only business choices/);
+    assert.match(html, /Earlier versions<\/summary>[\s\S]*?Earlier &lt;choice&gt;[\s\S]*?disabled><span>Old option/);
     assert.match(html, /Choose &lt;script&gt;window.compromised=true&lt;\/script&gt;/);
     assert.match(html, /disabled[^>]*>[\s\S]*?Find Plumbers[\s\S]*?Selected/);
     assert.doesNotMatch(html, /onclick|href="[^"]*Find Plumbers/);

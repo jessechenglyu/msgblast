@@ -208,6 +208,13 @@ test("business display snapshots survive exact private upload without accepting 
     reply.businessChoices.actionURL = "https://example.com";
     assert.equal((await upload(h, auth, session.id, bytes())).status, 400);
     delete reply.businessChoices.actionURL;
+    const card = reply.businessChoices;
+    delete reply.businessChoices;
+    const start = chunk.events.find(e => e.kind === "turnStarted");
+    start.businessChoices = card;
+    assert.equal((await upload(h, auth, session.id, bytes())).status, 400);
+    delete start.businessChoices;
+    reply.businessChoices = card;
     const raw = bytes(), accepted = await upload(h, auth, session.id, raw);
     assert.equal(accepted.status, 201, await accepted.clone().text());
     assert.equal((await accepted.json()).hash, digest(raw));
