@@ -8,10 +8,11 @@ public struct BenchmarkCloudSnapshot: Codable, Equatable, Sendable {
     public var hash: String
     public var status: String
 }
-public struct BenchmarkPublishedLink: Codable, Equatable, Sendable {
-    public var id: String
-    public var url: String
-    public var projectionHash: String?
+public enum BenchmarkCloudRetry {
+    public static func isRetryable(_ error: Error) -> Bool {
+        if case BenchmarkAccountError.http(let status) = error { return [429, 500, 502, 503, 504].contains(status) }
+        return (error as? URLError).map { $0.code != .cancelled } ?? false
+    }
 }
 @MainActor public final class BenchmarkCloudClient {
     public let account: BenchmarkAccountSession
@@ -23,8 +24,7 @@ public struct BenchmarkPublishedLink: Codable, Equatable, Sendable {
     public func cancel() { generation &+= 1 }
     private func send(_ path: String, method: String = "GET", value: [String: Any]? = nil, bytes: Data? = nil, owner: String) async throws -> Data {
         let body = try bytes ?? value.map { try JSONSerialization.data(withJSONObject: $0, options: [.sortedKeys, .withoutEscapingSlashes]) }
-        let (data, response) = try await account.request(path: "/api/v1/" + path, method: method, body: body, accountID: owner)
-        guard (200..<300).contains(response.statusCode) else { throw BenchmarkAccountError.http(response.statusCode) }
+        let (data, _) = try await account.request(path: "/api/v1/" + path, method: method, body: body, accountID: owner)
         return data
     }
     private func uploadRequest(_ path: String, value: [String: Any]? = nil, bytes: Data? = nil, owner: String, operation: UInt64, allowPaused: Bool) async throws -> Data {
@@ -32,10 +32,7 @@ public struct BenchmarkPublishedLink: Codable, Equatable, Sendable {
             try check(operation, owner: owner, allowPaused: allowPaused)
             do { return try await send(path, method: "POST", value: value, bytes: bytes, owner: owner) }
             catch {
-                let retryable: Bool
-                if case BenchmarkAccountError.http(let status) = error { retryable = [429, 500, 502, 503, 504].contains(status) }
-                else { retryable = (error as? URLError).map { $0.code != .cancelled } ?? false }
-                guard retryable, attempt < 2 else { throw error }
+                guard BenchmarkCloudRetry.isRetryable(error), attempt < 2 else { throw error }
                 try await Task.sleep(for: .milliseconds(500 * (1 << attempt)))
             }
         }

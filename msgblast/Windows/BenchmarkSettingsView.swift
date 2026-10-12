@@ -178,8 +178,9 @@ struct BenchmarkSettingsView: View {
                 ForEach(p.omissions, id: \.self) { Text($0).foregroundStyle(.secondary) }
                 ForEach(p.limitations, id: \.self) { Text($0).foregroundStyle(.secondary) }
                 DisclosureGroup("Exact publication JSON") {
-                    Text(String(decoding: (try? p.previewBytes()) ?? Data(), as: UTF8.self)).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
-                    Text("SHA-256: \((try? p.previewHash()) ?? "unavailable")").font(.caption).textSelection(.enabled)
+                    let bytes = try? p.previewBytes()
+                    Text(String(decoding: bytes ?? Data(), as: UTF8.self)).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                    Text("SHA-256: \(bytes.map(PerformanceCanonical.hash) ?? "unavailable")").font(.caption).textSelection(.enabled)
                 }
             }
         }

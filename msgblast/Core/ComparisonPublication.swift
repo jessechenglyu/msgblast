@@ -96,6 +96,15 @@ public struct ComparisonPublicationOptions: Sendable {
     public init() {}
 }
 public enum ComparisonPublicationBuilder {
+    private struct TurnKey: Hashable {
+        let segment: String; let agent: String?; let turn: String?
+        init(_ event: PerformanceEvent) { segment = event.segmentID; agent = event.agent?.id; turn = event.turnID }
+    }
+    private struct MessageKey: Hashable {
+        let segment: String; let agent: String?; let message: String?
+        init(_ event: PerformanceEvent) { segment = event.segmentID; agent = event.agent?.id; message = event.messageID }
+        init(segment: String, agent: String, message: String) { self.segment = segment; self.agent = agent; self.message = message }
+    }
     public static func build(events source: [PerformanceEvent], comparisonID: String,
                              options: ComparisonPublicationOptions = .init()) throws -> ComparisonPublication {
         if options.includeEarlierHistory { throw ComparisonPublicationError.contractAdditionNeeded("Earlier provider history was not collected; explicit inclusion requires independently supplied, scoped source history.") }
@@ -110,6 +119,10 @@ public enum ComparisonPublicationBuilder {
             limitations: ["Locally recorded, owner-reviewed; not independently witnessed. Automatic redaction is incomplete; inspect and edit every text before publication.", "Owner feedback expresses preference, not accuracy or completion. Timing measures native observation, not model token generation."], includesPrivate: options.includePrivate)
         p.includesUnknown = options.includeUnknownScope ? true : nil
         let starts = events.filter { $0.kind == .turnStarted }
+        let startsByTurn = Dictionary(grouping: starts, by: TurnKey.init)
+        let eventsByTurn = Dictionary(grouping: events, by: TurnKey.init)
+        let eventsByMessage = Dictionary(grouping: events, by: MessageKey.init)
+
         var groups: [[PerformanceEvent]] = []
         for start in starts {
             if let group = start.requestGroupID, !group.isEmpty,
@@ -127,7 +140,7 @@ public enum ComparisonPublicationBuilder {
             let declared = first.targetAgentIDs
             let valid = group.allSatisfy { e in
                 guard let aid = e.agent?.id, let tid = e.turnID, !tid.isEmpty, e.text != nil else { return false }
-                let sameTurn = starts.filter { $0.segmentID == e.segmentID && $0.agent?.id == aid && $0.turnID == tid }
+                let sameTurn = startsByTurn[TurnKey(e)] ?? []
                 return sameTurn.count == 1 && e.text == first.text && e.targetAgentIDs == declared &&
                     (declared == nil || (Set(declared!).count == declared!.count && declared!.contains(aid) && !declared!.isEmpty))
             } && Set(group.compactMap { $0.agent?.id }).count == group.count
@@ -136,7 +149,7 @@ public enum ComparisonPublicationBuilder {
             var replies: [ComparisonPublication.Reply] = []
             for start in group {
                 let aid = start.agent!.id
-                let local = events.filter { $0.segmentID == start.segmentID && $0.agent?.id == aid && $0.turnID == start.turnID }
+                let local = eventsByTurn[TurnKey(start)] ?? []
                 let observed = local.filter { $0.kind == .replyObserved && $0.scope == scope && $0.messageID != nil && $0.text != nil }
                 var messages: [ComparisonPublication.Message] = []
                 var messageIDs: [String] = []
@@ -145,8 +158,9 @@ public enum ComparisonPublicationBuilder {
                     let versions = observed.filter { $0.messageID == mid }
                     let initial = versions.first!, latest = versions.last!
                     if !options.includesStreamingRevisions { revisions += versions.count - 1 }
-                    let matchingTurns = Set(events.filter { $0.kind == .replyObserved && $0.segmentID == start.segmentID && $0.agent?.id == aid && $0.messageID == mid }.compactMap(\.turnID))
-                    let feedback = events.last { $0.kind == .feedback && $0.segmentID == start.segmentID && $0.agent?.id == aid && $0.messageID == mid && ($0.turnID == start.turnID || ($0.turnID == nil && matchingTurns.count == 1)) }?.selection
+                    let messageEvents = eventsByMessage[MessageKey(segment: start.segmentID, agent: aid, message: mid)] ?? []
+                    let matchingTurns = Set(messageEvents.filter { $0.kind == .replyObserved }.compactMap(\.turnID))
+                    let feedback = messageEvents.last { $0.kind == .feedback && ($0.turnID == start.turnID || ($0.turnID == nil && matchingTurns.count == 1)) }?.selection
                     let endpoint: PerformanceEvent? = index == 0 ? local.first { $0.kind == .dispatched } : observed.first { $0.messageID == messageIDs[index - 1] }
                     let elapsed = endpoint.flatMap { PerformanceMetrics.elapsedMS(from: $0, to: initial, events: events) }
                     let timing = elapsed.map { (index == 0 ? "Dispatch to observed reply: " : "Previous reply to observed reply: ") + PerformanceMetrics.label($0) } ?? "Timing unavailable (missing endpoint, clock continuity or observation gap)."
@@ -178,7 +192,7 @@ public enum ComparisonPublicationBuilder {
         if unassigned > 0 { p.omissions.append("\(unassigned) excluded or unassigned reply observations are not included.") }
         let ambiguousFeedback = events.filter { feedback in
             guard feedback.kind == .feedback, feedback.turnID == nil, let mid = feedback.messageID, let aid = feedback.agent?.id else { return false }
-            return Set(events.filter { $0.kind == .replyObserved && $0.segmentID == feedback.segmentID && $0.agent?.id == aid && $0.messageID == mid }.compactMap(\.turnID)).count > 1
+            return Set((eventsByMessage[MessageKey(segment: feedback.segmentID, agent: aid, message: mid)] ?? []).filter { $0.kind == .replyObserved }.compactMap(\.turnID)).count > 1
         }.count
         if ambiguousFeedback > 0 { p.omissions.append("\(ambiguousFeedback) feedback selections with ambiguous message-to-turn association excluded.") }
         if revisions > 0 { p.omissions.append("\(revisions) earlier streaming text revisions omitted; enable observed revisions to include them in the preview.") }

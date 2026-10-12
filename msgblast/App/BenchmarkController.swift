@@ -84,9 +84,11 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
     }
     private func scheduleFuture() {
         guard !stopped, autoTask == nil, !working, futureSync, !paused, let performance, let client, let owner = account.account?.accountID else { return }
+        let counts = Dictionary(grouping: performance.events, by: \.comparisonID).mapValues(\.count)
+        let lineages = Dictionary(uniqueKeysWithValues: client.store.lineages.map { ($0.comparisonID, $0) })
         let candidates = client.store.futureComparisons(events: performance.events, owner: owner).filter { id in
-            let count = performance.events.filter { $0.comparisonID == id }.count
-            let lineage = client.store.lineages.first { $0.comparisonID == id }
+            let count = counts[id] ?? 0
+            let lineage = lineages[id]
             return count > (lineage?.selectedSequenceEnd ?? 0) || (lineage != nil && lineage?.finalized == false)
         }
         guard !candidates.isEmpty else { return }
@@ -98,7 +100,7 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
             do {
                 for id in client.store.futureComparisons(events: performance.events, owner: owner) {
                     let events = performance.events
-                    let count = events.filter { $0.comparisonID == id }.count
+                    let count = events.lazy.filter { $0.comparisonID == id }.count
                     let lineage = client.store.lineages.first { $0.comparisonID == id }
                     guard count > (lineage?.selectedSequenceEnd ?? 0) || (lineage != nil && lineage?.finalized == false) else { continue }
                     if count > (lineage?.selectedSequenceEnd ?? 0) {
@@ -109,10 +111,7 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
                 self.status = "Future selected recordings synced privately. Publications and contribution selections are unchanged."
             } catch {
                 failed = true; self.error = error.localizedDescription
-                let retryable = (error as? URLError).map { $0.code != .cancelled } ?? false
-                let temporaryHTTP: Bool
-                if case BenchmarkAccountError.http(let code) = error { temporaryHTTP = [429, 500, 502, 503, 504].contains(code) } else { temporaryHTTP = false }
-                if !retryable && !temporaryHTTP { try? client.pause() }
+                if !BenchmarkCloudRetry.isRetryable(error) { try? client.pause() }
             }
             self.working = false; self.revision += 1; self.autoTask = nil
             // Failed exact retries remain saved. The explicit Resume action or a
@@ -157,12 +156,13 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
     func publish(_ publication: ComparisonPublication) async {
         await action {
             guard let client, let owner = account.account?.accountID, let config = account.configuration else { throw BenchmarkAccountError.signedOut }
+            let approvedHash = try publication.previewHash()
             let data = try await client.publish(publication, owner: owner)
             let result = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             guard let id = result?["id"] as? String, let path = result?["path"] as? String,
-                  result?["projectionHash"] as? String == (try publication.previewHash()),
+                  result?["projectionHash"] as? String == approvedHash,
                   path.hasPrefix("/s/"), let url = URL(string: path, relativeTo: config.serviceURL)?.absoluteURL else { throw BenchmarkAccountError.invalidResponse }
-            try client.store.savePublication(.init(id: id, owner: owner, url: url, projectionHash: try publication.previewHash()))
+            try client.store.savePublication(.init(id: id, owner: owner, url: url, projectionHash: approvedHash))
             publicationLinks.append((id, url)); status = "Reviewed comparison published. Anyone with the link can read and forward it."
         }
     }

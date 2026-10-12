@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 
 public enum BenchmarkAccountError: Error, LocalizedError, Equatable {
     case unconfigured, invalidConfiguration, invalidCallback, cancelled, authenticationFailed, invalidResponse, signedOut, accountMismatch, secureStorage(Int32), http(Int), quota
@@ -35,7 +34,7 @@ public struct BenchmarkAccountConfiguration: Sendable {
     public var tokenEndpoint: URL { issuer.appendingPathComponent("oauth/token") }
     public var tokenScope: String {
         let realm = [bundleIdentifier, profile, serviceURL.absoluteString, issuer.absoluteString, clientID, audience, callbackURL.absoluteString]
-        let digest = SHA256.hash(data: try! JSONEncoder().encode(realm)).map { String(format: "%02x", $0) }.joined()
+        let digest = PerformanceCanonical.hash(try! JSONEncoder().encode(realm))
         return "com.msgblast.benchmark-session.\(digest)"
     }
     public init(serviceURL: URL, issuer: URL, clientID: String, audience: String, callbackURL: URL, bundleIdentifier: String, profile: String, demoFixture: Bool = false) throws {
