@@ -62,6 +62,8 @@ try {
   assert.equal(await page.locator(".transcript").first().evaluate((el) => el.scrollHeight > el.clientHeight), true);
   const choices = page.locator(".business-choice");
   assert.equal(await choices.count(), 4);
+  assert.equal(await page.getByText("Between 9 AM and noon", { exact: true }).isVisible(), true);
+  assert.equal(await page.getByText("Tomorrow", { exact: true }).isVisible(), true);
   assert.equal(await choices.first().isDisabled(), true);
   assert.equal(await choices.first().getByText("Selected", { exact: true }).count(), 1);
   assert.equal(await choices.nth(1).getByText("Selected", { exact: true }).count(), 0);

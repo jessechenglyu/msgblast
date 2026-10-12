@@ -157,6 +157,8 @@ test("business cards preserve selected choices as escaped read-only controls", a
     assert.match(html, /Choose &lt;script&gt;window.compromised=true&lt;\/script&gt;/);
     assert.match(html, /disabled[^>]*>[\s\S]*?Find Plumbers[\s\S]*?Selected/);
     assert.doesNotMatch(html, /onclick|href="[^"]*Find Plumbers/);
+    assert.match(html, /Other<\/div>/);
+    assert.match(html, /Later &amp; safely<\/div>/);
     for (const invalid of [
       { ...p.turns[0].replies[0].messages[0].businessChoices, actionURL: "https://example.com" },
       { kind: "quickReply", title: "Choose", options: [{ title: "Option", selected: "yes" }] },
