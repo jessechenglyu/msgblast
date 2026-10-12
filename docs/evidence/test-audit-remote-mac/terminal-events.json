@@ -1,0 +1,290 @@
+{
+  "source_revision": "cfa552100066f345cecdc7b0126fe4e6a1c83832",
+  "limits": "Actual subprocess output rendered as terminal frames. SSH transport fixtures; signer subprocess intercepted; local signed feed fixtures. No remote Mac test success or real signing claimed. Playback pauses added for readability.",
+  "events": [
+    {
+      "seconds": 1.558393705636263e-05,
+      "line": "$ python3 scripts/run_mac_checks.py --host test-mac --suite core --revision HEAD --output build/recorded-remote-dry-run --dry-run"
+    },
+    {
+      "seconds": 0.06876987498253584,
+      "line": "Revision: cfa552100066f345cecdc7b0126fe4e6a1c83832"
+    },
+    {
+      "seconds": 0.06877712497953326,
+      "line": "SSH target: test-mac"
+    },
+    {
+      "seconds": 0.06877808400895447,
+      "line": "Suite: core"
+    },
+    {
+      "seconds": 0.06881304190028459,
+      "line": "Dry run: no SSH connection, build, test, or workspace creation"
+    },
+    {
+      "seconds": 0.07450945896562189,
+      "line": "Exit status: 0"
+    },
+    {
+      "seconds": 0.07451704191043973,
+      "line": "$ python3 -m unittest discover -s scripts/tests -p test_remote_checks.py -v"
+    },
+    {
+      "seconds": 0.15386645891703665,
+      "line": "test_direct_worker_refuses_an_unrequested_local_run (test_remote_checks.MacWorkerTests.test_direct_worker_refuses_an_unrequested_local_run) ... ok"
+    },
+    {
+      "seconds": 0.611387874931097,
+      "line": "test_suite_routing_failures_and_locks_without_native_tools (test_remote_checks.MacWorkerTests.test_suite_routing_failures_and_locks_without_native_tools) ... ok"
+    },
+    {
+      "seconds": 1.2738073749933392,
+      "line": "test_committed_snapshot_runs_and_results_survive_success_or_failure (test_remote_checks.RemoteChecksTests.test_committed_snapshot_runs_and_results_survive_success_or_failure) ... Remote test connection timed out. Inspect the remote worker/lock before retrying."
+    },
+    {
+      "seconds": 1.2894849589793012,
+      "line": "ok"
+    },
+    {
+      "seconds": 1.290140291908756,
+      "line": "test_dry_run_creates_no_workspace_or_connection (test_remote_checks.RemoteChecksTests.test_dry_run_creates_no_workspace_or_connection) ... ok"
+    },
+    {
+      "seconds": 1.2906690839445218,
+      "line": "test_host_cannot_inject_options_or_shell_commands (test_remote_checks.RemoteChecksTests.test_host_cannot_inject_options_or_shell_commands) ... ok"
+    },
+    {
+      "seconds": 1.2910996249411255,
+      "line": "test_non_mac_target_is_rejected_without_local_fallback (test_remote_checks.RemoteChecksTests.test_non_mac_target_is_rejected_without_local_fallback) ... ok"
+    },
+    {
+      "seconds": 1.2914059999166057,
+      "line": "test_same_machine_is_rejected_before_workspace_or_test_creation (test_remote_checks.RemoteChecksTests.test_same_machine_is_rejected_before_workspace_or_test_creation) ... ok"
+    },
+    {
+      "seconds": 1.2915691249072552,
+      "line": "test_ssh_errors_stop_without_starting_tests (test_remote_checks.RemoteChecksTests.test_ssh_errors_stop_without_starting_tests) ... ok"
+    },
+    {
+      "seconds": 1.291763833956793,
+      "line": "test_ui_needs_explicit_remote_desktop_authorization (test_remote_checks.RemoteChecksTests.test_ui_needs_explicit_remote_desktop_authorization) ... ok"
+    },
+    {
+      "seconds": 1.29179916693829,
+      "line": ""
+    },
+    {
+      "seconds": 1.291809624992311,
+      "line": "----------------------------------------------------------------------"
+    },
+    {
+      "seconds": 1.2918127089506015,
+      "line": "Ran 9 tests in 1.144s"
+    },
+    {
+      "seconds": 1.2918129169847816,
+      "line": ""
+    },
+    {
+      "seconds": 1.2918332089902833,
+      "line": "OK"
+    },
+    {
+      "seconds": 1.3017933749360964,
+      "line": "Exit status: 0"
+    },
+    {
+      "seconds": 1.3018019999144599,
+      "line": "$ python3 -m unittest discover -s scripts/tests -p test_preview_apps.py -q"
+    },
+    {
+      "seconds": 1.4134266669861972,
+      "line": "+ codesign --force --sign - --options runtime /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/MacOS/__preview.dylib"
+    },
+    {
+      "seconds": 1.413461499963887,
+      "line": "+ codesign --force --sign - --options runtime /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/MacOS/msgblast.debug.dylib"
+    },
+    {
+      "seconds": 1.4134927919367328,
+      "line": "+ codesign --force --sign - --options runtime --preserve-metadata=entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader"
+    },
+    {
+      "seconds": 1.4135195419657975,
+      "line": "+ codesign --force --sign - --options runtime --preserve-metadata=entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
+    },
+    {
+      "seconds": 1.413522999966517,
+      "line": "+ codesign --force --sign - --options runtime --preserve-metadata=entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle"
+    },
+    {
+      "seconds": 1.413544874987565,
+      "line": "+ codesign --force --sign - --options runtime --preserve-metadata=entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc"
+    },
+    {
+      "seconds": 1.4135585419135168,
+      "line": "+ codesign --force --sign - --options runtime --preserve-metadata=entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app/Contents/Frameworks/Sparkle.framework"
+    },
+    {
+      "seconds": 1.413568833959289,
+      "line": "+ codesign --force --sign - --options runtime --entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/debug.entitlements /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app"
+    },
+    {
+      "seconds": 1.4135757089825347,
+      "line": "+ codesign --verify --deep --strict --verbose=2 /var/folders/y4/26hmq9ds25q21k_7rnkp4fgw0000gn/T/tmpbmuf7zos/msgblast Demo.app"
+    },
+    {
+      "seconds": 1.4151351669570431,
+      "line": "----------------------------------------------------------------------"
+    },
+    {
+      "seconds": 1.4151369999162853,
+      "line": "Ran 21 tests in 0.037s"
+    },
+    {
+      "seconds": 1.4151374999200925,
+      "line": ""
+    },
+    {
+      "seconds": 1.415191249921918,
+      "line": "OK"
+    },
+    {
+      "seconds": 1.4269279999425635,
+      "line": "Exit status: 0"
+    },
+    {
+      "seconds": 1.426934374962002,
+      "line": "$ node --test --test-reporter spec download/test/worker.test.mjs"
+    },
+    {
+      "seconds": 1.5112302500056103,
+      "line": "\u2714 chooses the highest build, independent of version and item order (4.569041ms)"
+    },
+    {
+      "seconds": 1.5118177089607343,
+      "line": "\u2714 rejects tampering with a valid signed feed (0.721834ms)"
+    },
+    {
+      "seconds": 1.5126341249560937,
+      "line": "\u2714 rejects missing signatures and wrong signing keys (0.945625ms)"
+    },
+    {
+      "seconds": 1.5135397500125691,
+      "line": "\u2714 rejects redirect destinations outside the immutable archive convention (1.088625ms)"
+    },
+    {
+      "seconds": 1.5140816669445485,
+      "line": "\u2714 release notes and comments cannot supply fake items (0.444625ms)"
+    },
+    {
+      "seconds": 1.5174175839638337,
+      "line": "\u2714 rejects malformed or absent release metadata and oversized feeds (2.615458ms)"
+    },
+    {
+      "seconds": 1.5181077499873936,
+      "line": "\u2714 signed length counts UTF-8 bytes and must end at the signature trailer (1.283458ms)"
+    },
+    {
+      "seconds": 1.528199291904457,
+      "line": "{\"event\":\"download_redirect\",\"version\":\"0.1.1\",\"build\":\"10\"}"
+    },
+    {
+      "seconds": 1.5299690419342369,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Feed unavailable\"}"
+    },
+    {
+      "seconds": 1.530166083946824,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Feed unavailable\"}"
+    },
+    {
+      "seconds": 1.530288124922663,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Network unavailable\"}"
+    },
+    {
+      "seconds": 1.5304542089579627,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Network unavailable\"}"
+    },
+    {
+      "seconds": 1.5309394999640062,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Missing signed feed\"}"
+    },
+    {
+      "seconds": 1.5318856249796227,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Missing signed feed\"}"
+    },
+    {
+      "seconds": 1.5324884589063004,
+      "line": "\u2714 GET and HEAD redirect to the authenticated highest build without caching (10.977667ms)"
+    },
+    {
+      "seconds": 1.5326837919419631,
+      "line": "\u2714 unrecognized routes and methods reject before fetching the feed (0.53975ms)"
+    },
+    {
+      "seconds": 1.5327604999765754,
+      "line": "\u2714 upstream HTTP, transport, and signature failures return retryable uncached responses (2.327708ms)"
+    },
+    {
+      "seconds": 1.5333582089515403,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Feed signature failed\"}"
+    },
+    {
+      "seconds": 1.5337004999164492,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Timed out\"}"
+    },
+    {
+      "seconds": 1.534097999916412,
+      "line": "{\"event\":\"download_unavailable\",\"reason\":\"Feed too large\"}"
+    },
+    {
+      "seconds": 1.5343044999754056,
+      "line": "\u2714 the deployed entry point rejects a fixture signing key (1.6255ms)"
+    },
+    {
+      "seconds": 1.5343974999850616,
+      "line": "\u2714 a feed timeout aborts its transport and returns a retryable response (0.281541ms)"
+    },
+    {
+      "seconds": 1.5348934169160202,
+      "line": "\u2714 an oversized streamed feed stops reading and cancels the source (0.378708ms)"
+    },
+    {
+      "seconds": 1.5411104999948293,
+      "line": "\u2139 tests 13"
+    },
+    {
+      "seconds": 1.5411128340056166,
+      "line": "\u2139 suites 0"
+    },
+    {
+      "seconds": 1.5411131249275059,
+      "line": "\u2139 pass 13"
+    },
+    {
+      "seconds": 1.5411181249655783,
+      "line": "\u2139 fail 0"
+    },
+    {
+      "seconds": 1.5411183749092743,
+      "line": "\u2139 cancelled 0"
+    },
+    {
+      "seconds": 1.541118541965261,
+      "line": "\u2139 skipped 0"
+    },
+    {
+      "seconds": 1.5411187089048326,
+      "line": "\u2139 todo 0"
+    },
+    {
+      "seconds": 1.5411189999431372,
+      "line": "\u2139 duration_ms 81.556333"
+    },
+    {
+      "seconds": 1.543253208976239,
+      "line": "Exit status: 0"
+    }
+  ]
+}
