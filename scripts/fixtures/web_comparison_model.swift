@@ -64,6 +64,33 @@ import msgblastCore
         precondition(gridModel.state.agentGrid == nil)
         precondition(gridModel.agentGridLayout.visibleIDs == AgentGridLayout.featured + [.web(.claudeCode), .web(.hark)] + savedAgentIDs)
         print("PASS: first-use grid preserves featured order, enabled optional providers, and every saved Messages agent.")
+        let showcase = AppModel()
+        let shown = showcase.state.agents[0]
+        let hidden = showcase.state.agents[1]
+        let original = showcase.webAgents.session(for: WebAgentID.chatgpt)!
+        let copy = try showcase.webAgents.duplicate(original, name: "Hidden website copy")
+        showcase.state.agentGrid = AgentGridLayout(visibleIDs: [.web(.muse), showcase.gridID(for: shown)])
+        var showcaseComparison = Comparison(prompt: "Showcase recipients", members: [Member(agentID: shown.id, name: shown.name, chat: showcase.chats[0])])
+        precondition(showcase.recipientMessageAgents(for: showcaseComparison).map(\.id) == [shown.id], "Connected hidden Messages agents must not appear in Send to")
+        precondition(showcase.recipientWebSessions(for: showcaseComparison).map(\.id) == [.muse], "Unselected visible Muse must appear; connected hidden websites and copies must not")
+        showcaseComparison.members.append(Member(agentID: hidden.id, name: hidden.name, chat: showcase.chats[1]))
+        showcaseComparison.setWebAgents([copy.id])
+        precondition(Set(showcase.recipientMessageAgents(for: showcaseComparison).map(\.id)) == Set([shown.id, hidden.id]), "Existing hidden members remain available")
+        precondition(Set(showcase.recipientWebSessions(for: showcaseComparison).map(\.id)) == Set([.muse, copy.id]))
+        showcase.state.comparisons.insert(showcaseComparison, at: 0)
+        let showcaseMuse = showcase.webAgents.session(for: WebAgentID.muse)!
+        showcaseMuse.updateState { $0.selected = true }; showcaseMuse.connect()
+        try await waitUntil { showcaseMuse.snapshot.ready }
+        let museJoined = await showcase.joinWebAgent(showcaseMuse, comparisonID: showcaseComparison.id)
+        precondition(museJoined)
+        let joinedAttemptCount = showcaseMuse.state.attempts.count
+        let alreadyJoined = await showcase.joinWebAgent(showcaseMuse, comparisonID: showcaseComparison.id)
+        precondition(alreadyJoined && showcaseMuse.state.attempts.count == joinedAttemptCount, "Opening an existing website member must not resend shared context")
+        precondition(showcase.comparison(showcaseComparison.id)!.resolvedWebAgentIDs.contains(.muse))
+        precondition(!showcase.comparison(showcaseComparison.id)!.members.contains { $0.id == showcase.state.agents[2].id })
+        print("PASS: Send to offers only showcase agents plus saved members; unselected Muse can join a Messages comparison with simulated shared context, without adding hidden contacts.")
+        showcase.webAgents.beginShutdown()
+        await showcase.webAgents.cancelAndWait()
         let onboardingModel = AppModel()
         let connectedContact = Agent(contactID: "fixture-connected-fo", name: "Fo", handles: ["fo@example.com"])
         onboardingModel.state.selection = []
