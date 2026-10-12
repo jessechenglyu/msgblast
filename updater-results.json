@@ -1,0 +1,42 @@
+{
+  "source_revision": "34bc81ece5be1ed2c297e39db27f7bd179311ecc",
+  "result": "Passed",
+  "limitations": "Local signed, ad-hoc Debug fixtures; no production notarization, real sends or Contacts writes.",
+  "cases": [
+    {
+      "name": "install-and-preserve",
+      "passed": true,
+      "exit_code": 0,
+      "build": "2",
+      "draft_and_attachment_preserved": true
+    },
+    {
+      "name": "unreadable-state-recovery",
+      "passed": true,
+      "exit_code": 0,
+      "build": "2",
+      "draft_and_attachment_preserved": true
+    },
+    {
+      "name": "no-update",
+      "passed": true,
+      "exit_code": 3,
+      "build": "2",
+      "draft_and_attachment_preserved": true
+    },
+    {
+      "name": "invalid-signature",
+      "passed": true,
+      "exit_code": 1,
+      "build": "1",
+      "draft_and_attachment_preserved": true
+    },
+    {
+      "name": "failed-download",
+      "passed": true,
+      "exit_code": 1,
+      "build": "1",
+      "draft_and_attachment_preserved": true
+    }
+  ]
+}

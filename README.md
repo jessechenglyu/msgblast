@@ -1,3 +1,5 @@
-PR #52 evidence from source de052a541194ee3bd4801dbc43b69993da75274b.
+PR #52 source34bc81ece5be1ed2c297e39db27f7bd179311ecc.
 
-Native msgblast Demo fixtures: synthetic contacts, Business destination, permissions and send; no live user data. Continuous onboarding recording trimmed to first38seconds and resized at original speed; no audio. Screenshots separately show the completed workspace before recipients are chosen, then saved-comparison history after a simulated request. No mobile layout applies.
+UIcaptured fromde052a541194ee3bd4801dbc43b69993da75274b; msgblast appsourceandresourcesarebyte-identical atfinalsource. Finaldeltaonlystrengthensscripts/test_updates.py toseedexplicitrecipientandverifyexactUUIDpreservation. ActualfiveSparklefixturecheckresultsatfinalrevisionareinupdater-results.json.
+
+NativeDemo:syntheticcontacts,Businessdestination,permissionsandsend;noliveuserdata. Continuousonboardingrecordingtrimmedtofirst38secondsandresizedatoriginalspeed;noaudio. Workspacescreenshotsseparatelyshowuncheckedconfiguredagentsandhistoryafterasimulatedrequest. No mobilelayout.
