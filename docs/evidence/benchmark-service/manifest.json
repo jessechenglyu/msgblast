@@ -1,0 +1,33 @@
+{
+  "sourceSHA": "b2b9a250b58f9306b46a2cf019ae3b27e36a34b7",
+  "baseSHA": "1d8d4763fbc388cd3c6244057d3c97b00ddf1dd5",
+  "nativeGroupingSourceSHA": "b224679f9dd224b8642a8bbab5541229eca4b760",
+  "fixture": true,
+  "limits": [
+    "Synthetic signed fixture identity; no live OIDC sign-in",
+    "Synthetic prompts/timing; no real agents, Messages or Contacts",
+    "Actual local Worker/D1/R2/Queue/Static Assets; no remote services",
+    "API evidence viewer is test-only, not native account/preview UI",
+    "Scripted pauses; video transcode preserves playback timing",
+    "No app distribution or service deployment"
+  ],
+  "sha256": {
+    "reader-mobile.png": "fd06e8593b2b6ec9cbe79ea4730b22d49abb4128c617a0d9a870f83339106f2d",
+    "api-workflow.png": "2e522a01905ff95785534c9103da3f3e5a5ac584e281100c33d225cdafc31ff5",
+    "reader-mobile.webm": "02e232324cfedb78aab949de1dee48d62b58097e477892b1f31aa6e8ad36612f",
+    "api-workflow.json": "e93cd5ce3de0a3a8ae7f5bdc1fce08575c9436f89d49fe1b4b51832b0e905740",
+    "reader.webm": "182db4fe9efbf1e2efb44f9320c559fe575ee19c5adc8693b59669fc11356059",
+    "README.md": "65ae9e4b6170f6025814c9ef550467cdf1299243770c97616c18fd04bc3ae3a1",
+    "reader-desktop.png": "e77520e6f447a38aa7a79b22b65244841c6865a55b25b5eac2030a9514b43b51",
+    "api-workflow.webm": "7203f1f2e58f61c6cb08c1f0818998a9f99ae4c94722a3fffd841463c754c595",
+    "native-request-groups-result.json": "9f70c988b9240f6e92933d615b136fcb64f5db611f41369673cd17a1f33680f4",
+    "reader-revoked.png": "6b5875d4a4069e3f0d433173d46a4701aa3211262bace56c7868d33e1a4cae45",
+    "reader.mp4": "a42d323f509b6367377da43742272e1522eda18595798c1574191c4adc9e50fd",
+    "reader-mobile-messages.png": "e70c28dc262e97f9a62481fbd5a5b391f0a8ee76c78b6f2a656d89fc422a3705",
+    "api-workflow.mp4": "ee187d35bc193d0ddaf47a764ad489c2be72185a9445fffe51fc900b8c479aab",
+    "native-request-groups-v1.sha256": "3c44ce5b12040ff37eecd95a1b7e41e7671782db826c7b2faf1630602d78a50e",
+    "reader-mobile.mp4": "50817b66c60a346ba43a8ea2d21fa251605b446784ea869d331c32bd9fc16b92",
+    "native-request-groups-v1.json": "763c82750d6e5a083bcb48c93c8db70c11597fab7f9464503c3a7db9bea356b3",
+    "reader-private-target.png": "775ff9ac80c168e212fba758fb0834546a87a960f287f31e794766b70f146e23"
+  }
+}

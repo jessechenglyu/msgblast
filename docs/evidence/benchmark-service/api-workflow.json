@@ -1,0 +1,38 @@
+{
+  "fixture": true,
+  "limits": "Synthetic account/inputs; no native UI or live services; scripted pauses",
+  "steps": [
+    {
+      "action": "GET /api/v1/account",
+      "status": 200,
+      "identity": "Verified fixture bearer; no live OIDC login"
+    },
+    {
+      "action": "POST publication without consent",
+      "status": 400,
+      "error": "publication_consent_required"
+    },
+    {
+      "action": "POST exact preview with explicit publication consent",
+      "status": 201,
+      "projectionHash": "1fdb304fbb47d384e853a12b372963bf7db613f5b140d3cd4982c908aa2955d3",
+      "privateSessions": 0,
+      "contributions": 0
+    },
+    {
+      "action": "GET unlisted page without account",
+      "status": 200,
+      "visibility": "Direct link; no-store, noindex; recipients may forward"
+    },
+    {
+      "action": "DELETE owner publication",
+      "status": 200,
+      "result": "revoked"
+    },
+    {
+      "action": "GET revoked page / JSON",
+      "page": 404,
+      "data": 404
+    }
+  ]
+}

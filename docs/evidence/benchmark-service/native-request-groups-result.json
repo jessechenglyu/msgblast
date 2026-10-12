@@ -1,0 +1,129 @@
+{
+  "fixture": true,
+  "nativeSourceSHA": "b224679f9dd224b8642a8bbab5541229eca4b760",
+  "backendSourceSHA": "b2b9a250b58f9306b46a2cf019ae3b27e36a34b7",
+  "fixtureSHA": "763c82750d6e5a083bcb48c93c8db70c11597fab7f9464503c3a7db9bea356b3",
+  "registration": 201,
+  "upload": 201,
+  "receiptSHA": "763c82750d6e5a083bcb48c93c8db70c11597fab7f9464503c3a7db9bea356b3",
+  "turnMembership": [
+    {
+      "agent": "web-a",
+      "group": "synthetic-group-comparison",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 0
+    },
+    {
+      "agent": "cli-b",
+      "group": "synthetic-group-comparison",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 0
+    },
+    {
+      "agent": "messages-c",
+      "group": "synthetic-group-comparison",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 0
+    },
+    {
+      "agent": "bot-d",
+      "group": "synthetic-group-comparison",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 0
+    },
+    {
+      "agent": "cli-b",
+      "group": "synthetic-private-action",
+      "targets": [
+        "cli-b"
+      ],
+      "position": 1
+    },
+    {
+      "agent": "web-a",
+      "group": "synthetic-shared-follow-up",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 1
+    },
+    {
+      "agent": "cli-b",
+      "group": "synthetic-shared-follow-up",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 2
+    },
+    {
+      "agent": "messages-c",
+      "group": "synthetic-shared-follow-up",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 1
+    },
+    {
+      "agent": "bot-d",
+      "group": "synthetic-shared-follow-up",
+      "targets": [
+        "bot-d",
+        "cli-b",
+        "messages-c",
+        "web-a"
+      ],
+      "position": 1
+    },
+    {
+      "agent": "web-a",
+      "group": "synthetic-targeted-follow-up",
+      "targets": [
+        "messages-c",
+        "web-a"
+      ],
+      "position": 2
+    },
+    {
+      "agent": "messages-c",
+      "group": "synthetic-targeted-follow-up",
+      "targets": [
+        "messages-c",
+        "web-a"
+      ],
+      "position": 2
+    },
+    {
+      "agent": "web-a",
+      "position": 3
+    }
+  ]
+}
