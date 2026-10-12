@@ -8,22 +8,23 @@ final class WorkflowTests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         app.typeKey(",", modifierFlags: .command)
-        let history = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Messages access")).firstMatch
+        let history = app.staticTexts["permission-status-history"]
         guard history.waitForExistence(timeout: 5) else { return XCTFail("Settings must show the permissions table") }
-        XCTAssertTrue(history.label.contains("Not connected"))
-        let contacts = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Contacts")).firstMatch
-        XCTAssertTrue(contacts.label.contains("Not requested"))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Sending Messages")).firstMatch.label.contains("Allowed"))
+        XCTAssertEqual(history.value as? String ?? history.label, "Not connected")
+        let contacts = app.staticTexts["permission-status-contacts"]
+        XCTAssertEqual(contacts.value as? String ?? contacts.label, "Not requested")
+        let sending = app.staticTexts["permission-status-sending"]
+        XCTAssertEqual(sending.value as? String ?? sending.label, "Allowed")
         XCTAssertTrue(app.staticTexts["Demo permissions are simulated. No system access is changed."].exists)
         let before = XCTAttachment(screenshot: app.windows["com_apple_SwiftUI_Settings_window"].screenshot())
         before.name = "Permissions — simulated Contacts not requested"
         before.lifetime = .keepAlways
         add(before)
         app.buttons["enable-contacts-permission"].click()
-        let allowed = NSPredicate(format: "label CONTAINS %@", "Allowed")
+        let allowed = NSPredicate(format: "label == %@ OR value == %@", "Allowed", "Allowed")
         expectation(for: allowed, evaluatedWith: contacts)
         waitForExpectations(timeout: 5)
-        XCTAssertTrue(history.label.contains("Not connected"), "Contacts must be manageable independently of Messages access")
+        XCTAssertEqual(history.value as? String ?? history.label, "Not connected", "Contacts must be manageable independently of Messages access")
         XCTAssertEqual(app.sheets.count, 0, "The fixture must never ask for real system access")
         let screenshot = XCTAttachment(screenshot: app.windows["com_apple_SwiftUI_Settings_window"].screenshot())
         screenshot.name = "Permissions — simulated Contacts enabled independently"
@@ -176,7 +177,7 @@ final class WorkflowTests: XCTestCase {
         app.launch()
         defer { app.terminate() }
         app.menuBars.menuBarItems["msgblast"].click()
-        let command = app.menuItems["Build a New Feature…"]
+        let command = app.menuBars.menuBarItems["msgblast"].menuItems["Build a New Feature…"]
         XCTAssertTrue(command.waitForExistence(timeout: 5))
         guard command.exists else { return }
         command.click()
@@ -210,12 +211,12 @@ final class WorkflowTests: XCTestCase {
         idea.typeKey("a", modifierFlags: .command)
         idea.typeText("Pin my favorite comparisons")
         app.menuBars.menuBarItems["Help"].click()
-        app.menuItems["Build a New Feature…"].click()
+        app.menuBars.menuBarItems["Help"].menuItems["Build a New Feature…"].click()
         XCTAssertEqual(app.windows.matching(identifier: "Build a New Feature").count, 1)
         XCTAssertEqual(idea.value as? String, "Pin my favorite comparisons")
         window.buttons[XCUIIdentifierCloseWindow].click()
         app.menuBars.menuBarItems["msgblast"].click()
-        app.menuItems["Build a New Feature…"].click()
+        app.menuBars.menuBarItems["msgblast"].menuItems["Build a New Feature…"].click()
         XCTAssertTrue(window.waitForExistence(timeout: 3))
         XCTAssertEqual(window.textFields["Feature idea, optional"].value as? String, "")
     }
@@ -333,21 +334,28 @@ final class WorkflowTests: XCTestCase {
     @MainActor
     func testManualAccountWithoutChatIsSavedButCannotReceiveTheSharedPrompt() {
         let app = launchFixture(separateWindows: false)
-        app.buttons["Add agent"].click()
-        let search = app.textFields["Name, email or phone number"]
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
-        search.click(); search.typeText("pending@example.com")
-        app.buttons["Search"].click()
-        let add = app.buttons["Add pending@example.com"]
+        defer { app.terminate() }
+        app.typeKey("2", modifierFlags: .command)
+        app.buttons["Add by phone or email"].click()
+        let entry = app.sheets.firstMatch
+        let handle = entry.textFields["Phone number or email"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 5))
+        handle.click(); handle.typeText("pending@example.com")
+        let add = entry.buttons["Add"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         XCTAssertTrue(add.isEnabled)
         add.click()
-        XCTAssertTrue(app.staticTexts["Saved"].exists)
-        app.buttons["Done"].click()
+        let closed = NSPredicate(format: "exists == false")
+        expectation(for: closed, evaluatedWith: entry)
+        waitForExpectations(timeout: 5)
+        app.typeKey("1", modifierFlags: .command)
         let pending = app.buttons["pending@example.com"]
         XCTAssertTrue(pending.waitForExistence(timeout: 5))
-        XCTAssertFalse(pending.isEnabled)
         XCTAssertEqual(pending.value as? String, "Not selected")
+        pending.click()
+        XCTAssertTrue(app.staticTexts["Open an existing Messages conversation with this agent, then return to msgblast."].waitForExistence(timeout: 5))
+        app.buttons["Done setting up pending@example.com"].click()
+        XCTAssertEqual(pending.value as? String, "Not selected", "Opening setup cannot select an unbound account")
         let prompt = app.textViews["Shared prompt"]
         prompt.click(); prompt.typeKey("a", modifierFlags: .command); prompt.typeText("Pending contact regression fixture")
         app.buttons["Send & compare"].click()
@@ -373,9 +381,21 @@ final class WorkflowTests: XCTestCase {
         let reset = app.buttons["Reset sample data"]
         XCTAssertTrue(reset.waitForExistence(timeout: 10))
         reset.click()
-        for name in ["Muse", "ChatGPT", "Claude", "Grok"] { app.buttons[name].click() }
-        if threeAgentsOnly {
-            for name in ["Maple", "Echo", "Flint"] { app.buttons[name].click() }
+        // Web setup does not select recipients. Establish the native-only
+        // comparison explicitly rather than toggling an assumed reset state.
+        for name in ["Muse", "ChatGPT", "Claude", "Grok"] {
+            let recipient = app.buttons[name]
+            XCTAssertTrue(recipient.waitForExistence(timeout: 5))
+            if recipient.value as? String == "Selected" { recipient.click() }
+            XCTAssertEqual(recipient.value as? String, "Not selected", "Native fixture must exclude \(name)")
+        }
+        for name in ["Cedar", "Lumen", "Orbit", "Maple", "Echo", "Flint"] {
+            let recipient = app.buttons[name]
+            let selected = !threeAgentsOnly || ["Cedar", "Lumen", "Orbit"].contains(name)
+            let expected = selected ? "Selected" : "Not selected"
+            XCTAssertTrue(recipient.waitForExistence(timeout: 5))
+            if recipient.value as? String != expected { recipient.click() }
+            XCTAssertEqual(recipient.value as? String, expected, "Fixture recipient state must be explicit")
         }
         return app
     }

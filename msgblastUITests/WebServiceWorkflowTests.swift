@@ -2,6 +2,15 @@ import XCTest
 
 final class WebServiceWorkflowTests: XCTestCase {
     @MainActor
+    private func switchIsOn(_ toggle: XCUIElement, file: StaticString = #filePath, line: UInt = #line) -> Bool? {
+        let raw = toggle.value
+        if let number = raw as? NSNumber, [0.0, 1.0].contains(number.doubleValue) { return number.boolValue }
+        if let text = raw as? String, text == "0" || text == "1" { return text == "1" }
+        XCTFail("Expected a Boolean switch value, got \(String(describing: raw))", file: file, line: line)
+        return nil
+    }
+
+    @MainActor
     private func selectWebFixtureRecipients(_ app: XCUIApplication) {
         for name in ["Muse", "ChatGPT", "Claude", "Grok"] {
             let button = app.buttons[name]
@@ -21,23 +30,41 @@ final class WebServiceWorkflowTests: XCTestCase {
         XCTAssertTrue(app.buttons["Maple"].waitForExistence(timeout: 5))
         for name in ["Maple", "Echo", "Flint"] { app.buttons[name].click() }
         app.buttons["Send & compare"].click()
-        XCTAssertTrue(app.staticTexts["Chats (7)"].waitForExistence(timeout: 15))
+        let cedar = app.textViews["Private reply to Cedar"]
+        XCTAssertTrue(cedar.waitForExistence(timeout: 15))
+        XCTAssertEqual(app.webViews.count, 4)
         let wideWidth = app.windows.firstMatch.frame.width
-        for name in ["Muse", "ChatGPT", "Claude", "Grok", "Cedar", "Lumen", "Orbit"] {
-            let tab = app.buttons["Show \(name) chat"]
-            XCTAssertTrue(tab.exists)
-            tab.click()
+        for name in ["Muse", "ChatGPT", "Claude", "Grok"] {
+            let reload = app.buttons["Reload \(name)"]
+            XCTAssertTrue(reload.waitForExistence(timeout: 5))
+            reload.click() // XCTest scrolls the real horizontal column into view.
+            XCTAssertTrue(reload.isHittable, "The \(name) column must remain reachable")
+        }
+        for name in ["Cedar", "Lumen", "Orbit"] {
+            let editor = app.textViews["Private reply to \(name)"]
+            XCTAssertTrue(editor.exists)
+            editor.click()
+            XCTAssertTrue(editor.isHittable, "The \(name) column must remain reachable")
+            editor.typeText("Reachable \(name) fixture draft")
+            XCTAssertEqual(editor.value as? String, "Reachable \(name) fixture draft")
         }
         for name in ["Muse", "ChatGPT", "Claude", "Grok"] { app.buttons["Recipient \(name)"].click() }
-        XCTAssertTrue(app.staticTexts["Chats (3)"].waitForExistence(timeout: 5))
+        let threeChats = NSPredicate { _, _ in app.webViews.count == 0 }
+        expectation(for: threeChats, evaluatedWith: app)
+        waitForExpectations(timeout: 5)
         let narrowed = NSPredicate { _, _ in app.windows.firstMatch.frame.width <= min(wideWidth, 1500) }
         expectation(for: narrowed, evaluatedWith: app.windows.firstMatch)
         waitForExpectations(timeout: 5)
         for name in ["Muse", "ChatGPT", "Claude", "Grok"] { app.buttons["Recipient \(name)"].click() }
-        XCTAssertTrue(app.staticTexts["Chats (7)"].waitForExistence(timeout: 5))
+        let sevenChats = NSPredicate { _, _ in app.webViews.count == 4 }
+        expectation(for: sevenChats, evaluatedWith: app)
+        waitForExpectations(timeout: 5)
         let expanded = NSPredicate { _, _ in app.windows.firstMatch.frame.width >= wideWidth - 1 }
         expectation(for: expanded, evaluatedWith: app.windows.firstMatch)
         waitForExpectations(timeout: 5)
+        for name in ["Cedar", "Lumen", "Orbit"] {
+            XCTAssertEqual(app.textViews["Private reply to \(name)"].value as? String, "Reachable \(name) fixture draft")
+        }
         capture(app, name: "Seven reachable chats — isolated fixture")
     }
 
@@ -107,9 +134,8 @@ final class WebServiceWorkflowTests: XCTestCase {
             // macOS exposes these two switch controls without the adjacent label.
             let toggle = settings.switches.element(boundBy: index)
             XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-            toggle.click()
-            if String(describing: toggle.value ?? "") == "0" { toggle.click() }
-            XCTAssertEqual(String(describing: toggle.value ?? ""), "1")
+            if switchIsOn(toggle) == false { toggle.click() }
+            XCTAssertEqual(switchIsOn(toggle), true)
         }
         settings.buttons[XCUIIdentifierCloseWindow].click()
         let excluded = ["Cedar", "Lumen", "Orbit", "Maple", "Echo", "Flint", "Muse", "ChatGPT", "Claude", "Grok", "Claude Code"]
@@ -117,8 +143,14 @@ final class WebServiceWorkflowTests: XCTestCase {
             for name in excluded where app.buttons[name].value as? String == "Selected" { app.buttons[name].click() }
         }
         for name in excluded { XCTAssertEqual(app.buttons[name].value as? String, "Not selected") }
-        app.buttons["Codex CLI"].rightClick()
-        app.menuItems["Open chat"].click()
+        let codex = app.buttons["Codex CLI"]
+        XCTAssertEqual(codex.value as? String, "Not selected", "Enabling a CLI must not select a recipient")
+        codex.click()
+        XCTAssertEqual(codex.value as? String, "Selected")
+        codex.rightClick()
+        let openChat = app.menuItems["Open chat"]
+        XCTAssertTrue(openChat.isEnabled, "The sole selected CLI must be available for a private chat")
+        openChat.click()
         let direct = app.textViews["Message Codex CLI"]
         XCTAssertTrue(direct.waitForExistence(timeout: 10))
         func sendDirect(_ text: String) {
@@ -172,8 +204,9 @@ final class WebServiceWorkflowTests: XCTestCase {
         for name in ["Codex CLI", "Claude Code"] {
             let toggle = settings.switches["Enable \(name)"]
             XCTAssertTrue(toggle.waitForExistence(timeout: 5))
-            XCTAssertEqual(toggle.value as? String, "0")
+            XCTAssertEqual(switchIsOn(toggle), false)
             toggle.click()
+            XCTAssertEqual(switchIsOn(toggle), true)
         }
         capture(app, name: "Optional CLI toggles in Settings — simulated accounts")
         settings.buttons[XCUIIdentifierCloseWindow].click()
