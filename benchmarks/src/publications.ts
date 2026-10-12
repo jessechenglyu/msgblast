@@ -25,6 +25,7 @@ export interface PublishedMessage {
   outcome: string;
   timingLabel: string;
   feedback?: string;
+  revisions?: { text: string; timingLabel: string }[];
 }
 export interface Reply {
   agentID: string;
@@ -49,6 +50,7 @@ export interface Projection {
   omissions: string[];
   limitations: string[];
   includesPrivate: boolean;
+  includesUnknown?: boolean;
   includesEarlierHistory: boolean;
   artifacts: Artifact[];
 }
@@ -63,6 +65,7 @@ export function validateProjection(value: unknown): Projection {
     "omissions",
     "limitations",
     "includesPrivate",
+    "includesUnknown",
     "includesEarlierHistory",
     "artifacts",
   ]);
@@ -71,6 +74,9 @@ export function validateProjection(value: unknown): Projection {
       typeof p.fixture === "boolean" &&
       typeof p.includesPrivate === "boolean" &&
       typeof p.includesEarlierHistory === "boolean",
+  );
+  requireValue(
+    p.includesUnknown === undefined || typeof p.includesUnknown === "boolean",
   );
   text(p.title, 200);
   requireValue(
@@ -129,7 +135,10 @@ export function validateProjection(value: unknown): Projection {
     requireValue(["initial", "followUp", "unknown"].includes(String(t.kind)));
     requireValue(
       t.scope === "shared" ||
-        (t.scope === "private" && p.includesPrivate === true),
+        (t.scope === "private" && p.includesPrivate === true) ||
+        (t.scope === "unknown" &&
+          p.includesUnknown === true &&
+          t.kind === "unknown"),
       "scope_not_previewed",
     );
     requireValue(Array.isArray(t.replies) && t.replies.length <= 12);
@@ -145,13 +154,29 @@ export function validateProjection(value: unknown): Projection {
       const messageIDs = new Set<string>();
       for (const value of r.messages) {
         const m = object(value);
-        keys(m, ["messageID", "text", "outcome", "timingLabel", "feedback"]);
+        keys(m, [
+          "messageID",
+          "text",
+          "outcome",
+          "timingLabel",
+          "feedback",
+          "revisions",
+        ]);
         const mid = text(m.messageID, 256);
         requireValue(mid.length > 0 && !messageIDs.has(mid));
         messageIDs.add(mid);
         text(m.text, 100000);
         text(m.timingLabel, 1000);
         requireValue(validOutcome(m.outcome));
+        if (m.revisions !== undefined) {
+          requireValue(Array.isArray(m.revisions) && m.revisions.length <= 200);
+          for (const value of m.revisions) {
+            const r = object(value);
+            keys(r, ["text", "timingLabel"]);
+            text(r.text, 100000);
+            text(r.timingLabel, 1000);
+          }
+        }
         if (m.feedback !== undefined)
           requireValue(
             ["favorite", "negative", "unmarked"].includes(String(m.feedback)),
@@ -348,7 +373,7 @@ const connectionLabels: Record<string, string> = {
   grokBot: "Grok Bot",
 };
 function renderMessage(m: PublishedMessage, index: number) {
-  return `<section class="message" data-message="${escape(m.messageID)}"><h4>Reply ${index + 1}</h4><p class="outcome">${escape(outcomeLabels[m.outcome] ?? "Outcome unknown")} · ${escape(m.timingLabel)}</p><div class="reply">${escape(m.text)}</div>${m.feedback ? `<p>Owner preference: ${escape(m.feedback)} (not task accuracy)</p>` : ""}</section>`;
+  return `<section class="message" data-message="${escape(m.messageID)}"><h4>Reply ${index + 1}</h4><p class="outcome">${escape(outcomeLabels[m.outcome] ?? "Outcome unknown")} · ${escape(m.timingLabel)}</p><div class="reply">${escape(m.text)}</div>${m.revisions?.length ? `<details><summary>${m.revisions.length} earlier observed streaming revisions</summary>${m.revisions.map((r) => `<p>${escape(r.timingLabel)}</p><div class="reply">${escape(r.text)}</div>`).join("")}</details>` : ""}${m.feedback ? `<p>Owner preference: ${escape(m.feedback)} (not task accuracy)</p>` : ""}</section>`;
 }
 function renderAgent(
   a: Projection["participants"][number],
@@ -363,7 +388,7 @@ function renderAgent(
   return `<article data-agent="${escape(a.id)}" class="agent ${index === 0 ? "selected" : ""}"><h3>${escape(a.label)}</h3><p class="connection">${escape(connectionLabels[a.connectionType] ?? "Connection unknown")}</p><p class="outcome">Turn outcome: ${escape(outcomeLabels[reply?.outcome ?? "unobserved"] ?? "Outcome unknown")}</p>${reply?.messages.length ? reply.messages.map(renderMessage).join("") : '<p class="reply">No reply captured. This missing response is retained.</p>'}</article>`;
 }
 function renderTurn(p: Projection, t: Turn, index: number) {
-  return `<section class="turn"><h2>Turn ${index + 1} · ${t.kind === "initial" ? "Initial request" : t.kind === "followUp" ? "Follow-up" : "Recorded request (position unknown)"} · ${escape(t.scope)}</h2>${t.alignmentLabel ? `<p>${escape(t.alignmentLabel)}</p>` : ""}<div class="prompt">${escape(t.prompt)}</div><div class="agents">${p.participants
+  return `<section class="turn"><h2>Turn ${index + 1} · ${t.kind === "initial" ? "Initial request" : t.kind === "followUp" ? "Follow-up" : "Recorded request (position unknown)"} · ${escape(t.scope === "unknown" ? "Scope unknown" : t.scope === "private" ? "Private" : "Shared")}</h2>${t.alignmentLabel ? `<p>${escape(t.alignmentLabel)}</p>` : ""}<div class="prompt">${escape(t.prompt)}</div><div class="agents">${p.participants
     .map((a, j) =>
       renderAgent(
         a,

@@ -1,3 +1,4 @@
+import { requireService } from "./identity";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { hash, HttpError, requireValue } from "./http";
 export async function authenticate(
@@ -5,16 +6,7 @@ export async function authenticate(
   env: Env,
   allowDeleted = false,
 ): Promise<string> {
-  requireValue(
-    env.SERVICE_MODE === "fixture",
-    "service_not_configured: live identity management unprovisioned",
-    503,
-  );
-  requireValue(
-    ["localhost", "127.0.0.1", "[::1]"].includes(new URL(request.url).hostname),
-    "fixture_mode_requires_loopback",
-    503,
-  );
+  requireService(request, env);
   const issuer = new URL(env.OIDC_ISSUER);
   requireValue(
     issuer.protocol === "https:" && issuer.hostname !== "identity.invalid",

@@ -1,8 +1,13 @@
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-export async function harness({ queueDelay = 0 } = {}) {
+import { readFile, readdir } from "node:fs/promises";
+export async function harness({
+  queueDelay = 0,
+  bindings = {},
+  outbound,
+  beforeMigration,
+} = {}) {
   const { publicKey, privateKey } = await generateKeyPair("RS256");
   const jwk = {
     ...(await exportJWK(publicKey)),
@@ -21,6 +26,7 @@ export async function harness({ queueDelay = 0 } = {}) {
         OIDC_ISSUER: "https://fixture.invalid/",
         OIDC_AUDIENCE: "msgblast-benchmarks",
         SERVICE_MODE: "fixture",
+        ...bindings,
       },
       assets: {
         directory: "site",
@@ -38,16 +44,22 @@ export async function harness({ queueDelay = 0 } = {}) {
         },
       },
       outboundService: async (request) => {
-        if (request.url !== "https://fixture.invalid/.well-known/jwks.json")
-          throw new Error("Unexpected network request");
-        return Response.json({ keys: [jwk] });
+        if (request.url === "https://fixture.invalid/.well-known/jwks.json")
+          return Response.json({ keys: [jwk] });
+        if (outbound) return outbound(request);
+        throw new Error("Unexpected network request");
       },
     }),
   );
   const db = await mf.getD1Database("DB");
-  const sql = await readFile("migrations/0001_initial.sql", "utf8");
-  for (const stmt of sql.split(/;\n(?=CREATE)/).filter((s) => s.trim()))
-    await db.prepare(stmt).run();
+  for (const file of (await readdir("migrations")).sort()) {
+    if (beforeMigration) await beforeMigration(file, db, mf);
+    const sql = await readFile(`migrations/${file}`, "utf8");
+    for (const stmt of sql
+      .split(/;\n(?=CREATE|ALTER|INSERT|UPDATE)/)
+      .filter((s) => s.trim()))
+      await db.prepare(stmt).run();
+  }
   async function token(sub = "alice", overrides = {}) {
     return new SignJWT({ scope: "benchmarks:write", ...overrides })
       .setProtectedHeader({ alg: "RS256", kid: "fixture-key" })

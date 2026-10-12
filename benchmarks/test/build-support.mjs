@@ -4,6 +4,7 @@ import { build } from "esbuild";
 await build({
   entryPoints: [
     "src/jobs.ts",
+    "src/identity.ts",
     "src/validation.ts",
     "src/sessions.ts",
     "src/objects.ts",
