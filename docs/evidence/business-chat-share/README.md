@@ -12,7 +12,7 @@ Native images show the blue isolated Demo at the stated source revision. The
 business recording was seeded with synthetic captured labels and a confirmed
 selection. The native video contains four actual UI snapshots at workflow steps:
 chat, camera preview, owner card preview, and redacted option with its selected
-mark retained. It preserves elapsed timing (about52seconds), is sampled rather
+mark retained. It preserves elapsed timing (about 52 seconds), is sampled rather
 than continuous, and scales/pads only the captured app window to a fixed video
 frame. It does not establish native Messages submission or delivery.
 
