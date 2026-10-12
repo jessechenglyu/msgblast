@@ -375,6 +375,24 @@ import msgblastCore
         instanceModel.webAgents.beginShutdown()
         await instanceModel.webAgents.cancelAndWait()
         print("PASS: actual AppModel + LocalStore + WebAgents preserve two ChatGPT identities in one comparison, separate chat URLs/private follow-ups, and exact restored membership. Local website fixtures only.")
+        let choiceModel = AppModel()
+        let businessAddress = "urn:biz:00000000-0000-0000-0000-000000000001"
+        let businessChat = Chat(id: "iMessage;-;" + businessAddress, handle: businessAddress, lastActivity: 0, displayName: "Fixture Poke", businessConversation: true)
+        choiceModel.chats = [businessChat]
+        choiceModel.appendBusinessChoiceFixture(chat: businessChat)
+        let sourceChoice = choiceModel.messages[businessChat.id]!.last!
+        let choiceMember = Member(agentID: UUID(), name: "Fixture Poke", chat: businessChat)
+        precondition(choiceModel.canChooseBusinessOption(sourceChoice, member: choiceMember, optionID: 0))
+        await choiceModel.chooseBusinessOption(sourceChoice, member: choiceMember, optionID: 0)
+        precondition(choiceModel.messages[businessChat.id]!.filter(\.outgoing).map(\.text) == ["Find Plumbers"])
+        precondition(choiceModel.businessChoiceAttempt(sourceChoice)?.status == .submitted)
+        let choiceState = try choiceModel.local.load()
+        precondition(choiceState.businessChoiceAttempts?[sourceChoice.guid]?.status == .submitted)
+        await choiceModel.chooseBusinessOption(sourceChoice, member: choiceMember, optionID: 1)
+        precondition(choiceModel.messages[businessChat.id]!.filter(\.outgoing).count == 1)
+        choiceModel.webAgents.beginShutdown()
+        await choiceModel.webAgents.cancelAndWait()
+        print("PASS: Business choice controller submits one simulated choice, durably records the attempt and blocks a repeated action. No native Messages button was pressed.")
         print("PASS: actual AppModel + WindowCoordinator restore comparison ID, native recipient, provider selection, saved website URLs including the ongoing Dots thread and separate Codex CLI/Claude Code sessions; disabled archived CLI remains readable without sending. All sends use local fixtures.")
     }
 

@@ -200,3 +200,11 @@ no live routine, provider request, or tunnel is started.
 checks the actual Duplicate/Rename sheets and independently selected tiles in
 an isolated Demo session. Change reasoning in the embedded website manually;
 this feature does not automate or verify provider model settings.
+
+## Business choice fixtures
+
+`BusinessChoiceTests` and `MessagesDatabaseTests` cover archived quick replies/list pickers, read-only database access, source identity, stale cards, exact conversation/question matching, native control grouping, and durable no-repeat attempts. The web comparison controller fixture also exercises simulated selection and persistence through the real app model.
+
+For manual evidence, launch the packaged blue Demo with `--isolated-demo --business-choices-preview`, select Poke and send the sample prompt. Its reply includes **Find Plumbers** and **Not Now**. Choosing one creates a simulated response and disables further selection; it never invokes Apple Messages.
+
+Live native action requires the exact app's Accessibility permission. Inspecting native controls without pressing them verifies only their availability; Demo and matcher fixtures do not establish real Business submission or delivery. Preserve the user's active Business choices unless they authorize that live selection.

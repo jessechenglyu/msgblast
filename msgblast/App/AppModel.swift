@@ -137,6 +137,12 @@ final class AppModel: ObservableObject {
             state.selection = Set(state.agents.map(\.id))
             state.draft = "What is the clearest way to compare three approaches to the same problem?"
         }
+        if ProcessInfo.processInfo.arguments.contains("--business-choices-preview") {
+            let address = "urn:biz:00000000-0000-0000-0000-000000000001"
+            chats[0] = Chat(id: "iMessage;-;" + address, handle: address, lastActivity: 0, displayName: "Poke", businessConversation: true)
+            state.agents[0].name = "Poke 🌴"
+            state.agents[0].destination = MessagesDestination(chat: chats[0])
+        }
         // Synthetic transcripts are reconstructed from app-owned prompts, never copied into the local store.
         if onboardingPreview {
             state.draft = ""
@@ -686,6 +692,9 @@ final class AppModel: ObservableObject {
                 messages[member.chat.id]?[index].reactions = [MessageReaction(id: "fixture-recipient", emoji: "✅", outgoing: false)]
                 let answer = sent.linkPreview?.url.absoluteString ?? answers[offset % answers.count]
                 appendDemo(answer, chat: member.chat, outgoing: false, replyTo: anchor.guid)
+                if ProcessInfo.processInfo.arguments.contains("--business-choices-preview"), member.chat.businessConversation == true {
+                    appendBusinessChoiceFixture(chat: member.chat)
+                }
             } else {
                 appendDemo(answers[offset % answers.count], chat: member.chat, outgoing: false, replyTo: anchor.guid)
             }
