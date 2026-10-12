@@ -73,3 +73,13 @@ a { color: var(--blue); }
   .agent.selected { display: flex; }
   .transcript { padding: 12px 18px 24px; }
 }
+
+.business-card { min-width: min(180px, 92%); width: 92%; max-width: 360px; padding: 12px; border-radius: 15px; }
+.business-title { font-weight: 500; margin-bottom: 8px; }
+.business-option + .business-option { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+.business-choice { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 0; border: 0; background: transparent; text-align: left; font: inherit; color: var(--blue); opacity: 1; cursor: default; overflow-wrap: anywhere; }
+.business-choice span:first-child { flex: 1; min-width: 0; }
+.business-section, .business-subtitle { font-size: 12px; color: var(--muted); }
+.business-section { margin-bottom: 3px; }
+.business-subtitle { margin-top: 3px; }
+.selection-mark { flex: none; }

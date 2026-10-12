@@ -135,3 +135,34 @@ test("legacy missing target declarations and unaligned turns do not imply an age
     await h.close();
   }
 });
+
+test("business cards preserve selected choices as escaped read-only controls", async () => {
+  const h = await harness();
+  try {
+    const p = structuredClone(projection);
+    p.turns[0].replies[0].messages[0].businessChoices = {
+      kind: "quickReply", title: "Choose <script>window.compromised=true</script>",
+      options: [
+        { title: "Find Plumbers", selected: true },
+        { title: "Not Now", selected: false, subtitle: "Later & safely", section: "Other" },
+      ],
+    };
+    const created = await publication(h, await h.token(), p);
+    assert.equal(created.status, 201);
+    const link = await created.json();
+    const data = await h.request(link.path + "/data").then(r => r.json());
+    assert.deepEqual(data.turns[0].replies[0].messages[0].businessChoices, p.turns[0].replies[0].messages[0].businessChoices);
+    const html = await h.request(link.path).then(r => r.text());
+    assert.match(html, /Read-only business choices/);
+    assert.match(html, /Choose &lt;script&gt;window.compromised=true&lt;\/script&gt;/);
+    assert.match(html, /disabled[^>]*>[\s\S]*?Find Plumbers[\s\S]*?Selected/);
+    assert.doesNotMatch(html, /onclick|href="[^"]*Find Plumbers/);
+    for (const invalid of [
+      { ...p.turns[0].replies[0].messages[0].businessChoices, actionURL: "https://example.com" },
+      { kind: "quickReply", title: "Choose", options: [{ title: "Option", selected: "yes" }] },
+    ]) {
+      p.turns[0].replies[0].messages[0].businessChoices = invalid;
+      assert.equal((await publication(h, await h.token(), p)).status, 400);
+    }
+  } finally { await h.close(); }
+});

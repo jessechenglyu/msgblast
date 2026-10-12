@@ -110,3 +110,7 @@ A default “Shared comparison” title uses the initial request. Custom publica
 titles stay intact. Timing, preferences, connection types and benchmark metadata
 are not displayed in the reader. The approved publication JSON and its access,
 revocation and inclusion rules are unchanged.
+
+Business choice messages render as read-only cards matching the native app, with
+blue option labels, dividers, and selected checkmarks. List-picker section and
+subtitle labels are retained. The shared page cannot submit Messages actions.

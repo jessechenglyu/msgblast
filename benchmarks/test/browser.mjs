@@ -10,11 +10,23 @@ try {
   const auth = await h.token();
   const longChat = structuredClone(projection);
   longChat.participants.push({ ...longChat.participants[1], id: "agent-c", label: "Agent C" });
+  longChat.turns[0].replies[0].messages[0].businessChoices = {
+    kind: "quickReply", title: "Would you like me to find a plumber?",
+    options: [{ title: "Find Plumbers", selected: true }, { title: "Not Now", selected: false }],
+  };
+  longChat.turns[0].replies[0].messages[2].businessChoices = {
+    kind: "listPicker", title: "Choose a visit time",
+    options: [
+      { section: "Today", title: "Afternoon", subtitle: "Between 1 and 4 PM", selected: false },
+      { section: "Tomorrow", title: "Morning", subtitle: "Between 9 AM and noon", selected: true },
+    ],
+  };
   const followUp = structuredClone(longChat.turns[0]);
   followUp.id = "fixture-follow-up";
   followUp.kind = "followUp";
   followUp.prompt = "How would you explain this to a beginner?";
   for (const reply of followUp.replies) for (const message of reply.messages) {
+    delete message.businessChoices;
     message.messageID += "-follow-up";
     message.text = (message.text + "\n\n").repeat(12) + "End of complete conversation.";
   }
@@ -48,6 +60,19 @@ try {
   assert.equal(await page.getByText("Included context and limits").count(), 0);
   assert.equal(await page.getByText(/Dispatch to observed reply/).count(), 0);
   assert.equal(await page.locator(".transcript").first().evaluate((el) => el.scrollHeight > el.clientHeight), true);
+  const choices = page.locator(".business-choice");
+  assert.equal(await choices.count(), 4);
+  assert.equal(await choices.first().isDisabled(), true);
+  assert.equal(await choices.first().getByText("Selected", { exact: true }).count(), 1);
+  assert.equal(await choices.nth(1).getByText("Selected", { exact: true }).count(), 0);
+  // Real pointer input over the displayed choice must not navigate or send a request.
+  let requests = 0;
+  page.on("request", () => requests++);
+  const choiceBox = await choices.first().boundingBox();
+  await page.mouse.click(choiceBox.x + 20, choiceBox.y + 10);
+  await page.waitForTimeout(500);
+  assert.equal(requests, 0);
+  assert.equal(page.url(), base + link.path);
   await page.screenshot({ path: dir + "/reader-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 740, height: 900 });
   const transcriptBox = await page.locator(".transcript").first().boundingBox();
@@ -67,6 +92,8 @@ try {
   });
   const phone = await mobile.newPage();
   await phone.goto(base + link.path);
+  assert.equal(await phone.locator(".business-choice").first().isDisabled(), true);
+  assert.equal(await phone.locator(".business-choice").nth(3).getByText("Selected", { exact: true }).count(), 1);
   await phone.screenshot({
     path: dir + "/reader-mobile-messages.png",
     fullPage: true,

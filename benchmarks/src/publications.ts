@@ -1,3 +1,4 @@
+import { BusinessChoices, validateBusinessChoices } from "./businessChoices";
 import { immutableWrite } from "./objects";
 import {
   body,
@@ -25,7 +26,8 @@ export interface PublishedMessage {
   outcome: string;
   timingLabel: string;
   feedback?: string;
-  revisions?: { text: string; timingLabel: string }[];
+  businessChoices?: BusinessChoices;
+  revisions?: { text: string; timingLabel: string; businessChoices?: BusinessChoices }[];
 }
 export interface Reply {
   agentID: string;
@@ -161,6 +163,7 @@ export function validateProjection(value: unknown): Projection {
           "timingLabel",
           "feedback",
           "revisions",
+          "businessChoices",
         ]);
         const mid = text(m.messageID, 256);
         requireValue(mid.length > 0 && !messageIDs.has(mid));
@@ -168,11 +171,13 @@ export function validateProjection(value: unknown): Projection {
         text(m.text, 100000);
         text(m.timingLabel, 1000);
         requireValue(validOutcome(m.outcome));
+        if (m.businessChoices !== undefined) validateBusinessChoices(m.businessChoices);
         if (m.revisions !== undefined) {
           requireValue(Array.isArray(m.revisions) && m.revisions.length <= 200);
           for (const value of m.revisions) {
             const r = object(value);
-            keys(r, ["text", "timingLabel"]);
+            keys(r, ["text", "timingLabel", "businessChoices"]);
+            if (r.businessChoices !== undefined) validateBusinessChoices(r.businessChoices);
             text(r.text, 100000);
             text(r.timingLabel, 1000);
           }
@@ -371,8 +376,14 @@ const escape = (s: string) =>
 function renderPicker(p: Projection) {
   return `<nav class="agent-picker" aria-label="Select conversation">${p.participants.map((a, i) => `<button data-agent="${escape(a.id)}" aria-pressed="${i === 0}">${escape(a.label)}</button>`).join("")}</nav>`;
 }
+function renderBusinessChoices(card: BusinessChoices) {
+  return `<div class="bubble reply business-card" role="group" aria-label="Read-only business choices"><div class="business-title">${escape(card.title)}</div>${card.options.map(option => `<div class="business-option">${option.section ? `<div class="business-section">${escape(option.section)}</div>` : ""}<button type="button" class="business-choice" disabled><span>${escape(option.title)}</span>${option.selected ? '<span class="selection-mark" aria-hidden="true">✓</span><span class="sr-only">Selected</span>' : ""}</button>${option.subtitle ? `<div class="business-subtitle">${escape(option.subtitle)}</div>` : ""}</div>`).join("")}</div>`;
+}
+function renderContent(m: { text: string; businessChoices?: BusinessChoices }) {
+  return m.businessChoices ? renderBusinessChoices(m.businessChoices) : `<div class="bubble reply">${escape(m.text)}</div>`;
+}
 function renderMessage(m: PublishedMessage, index: number) {
-  return `<section class="message" data-message="${escape(m.messageID)}"><h4 class="sr-only">Reply ${index + 1}</h4><div class="bubble reply">${escape(m.text)}</div>${m.revisions?.length ? `<details class="versions"><summary>Earlier versions</summary>${m.revisions.map((r) => `<div class="bubble reply">${escape(r.text)}</div>`).join("")}</details>` : ""}</section>`;
+  return `<section class="message" data-message="${escape(m.messageID)}"><h4 class="sr-only">Reply ${index + 1}</h4>${renderContent(m)}${m.revisions?.length ? `<details class="versions"><summary>Earlier versions</summary>${m.revisions.map(renderContent).join("")}</details>` : ""}</section>`;
 }
 function renderConversation(p: Projection, agent: Projection["participants"][number], index: number) {
   const turns = p.turns.map((turn) => {
