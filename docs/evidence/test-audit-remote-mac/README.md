@@ -24,8 +24,9 @@ validation run in the PR; they must not be inferred from these fixture captures.
 
 A first live SSH preflight stopped because Apple's Python was older than 3.11.
 The user then authorized the other MacBook: its Homebrew Python 3.14 is ready,
-and an Apple-signed Xcode 27 bundle is being staged in its test cache. A full
-personal SSH native run is not shown in these fixture captures. No native tests
+and a subsequent Xcode cache transfer was stopped at the user’s request. The
+user is handling the macOS/Xcode update. A full personal SSH native run is not
+shown in these fixture captures. No native tests
 ran on the initiating user's desktop. See `docs/remote-mac-testing.md` for the
 dedicated host prerequisites and result format.
 

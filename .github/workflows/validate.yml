@@ -161,11 +161,6 @@ jobs:
         if: always()
         run: |
           set +e
-          /usr/bin/log show --style compact --info --debug --last 1h --predicate 'eventMessage BEGINSWITH "MSGBLAST_UI_GRID_DRAG"' > build/grid-drag-diagnostics.log 2>&1
-          mkdir -p build/grid-drag
-          for trace in /tmp/msgblast-ui-grid-drag-*.log; do
-            if [ -f "$trace" ]; then cp "$trace" build/grid-drag/; fi
-          done
           if [ -d build/ui-tests.xcresult ]; then
             xcrun xcresulttool get test-results tests --path build/ui-tests.xcresult > build/ui-test-results.json
             xcrun xcresulttool get test-results summary --path build/ui-tests.xcresult > build/ui-test-summary.json
@@ -182,8 +177,6 @@ jobs:
             build/ui-desktop.log
             build/ui-test-results.json
             build/ui-test-summary.json
-            build/grid-drag-diagnostics.log
-            build/grid-drag/
           if-no-files-found: ignore
           retention-days: 14
 

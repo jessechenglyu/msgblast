@@ -329,7 +329,7 @@ final class WorkflowTests: XCTestCase {
         image.name = "Permission guide — simulated history denial"
         image.lifetime = .keepAlways
         add(image)
-        drag.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1, thenDragTo: guide.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)))
+        drag.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click(forDuration: 0.1, thenDragTo: guide.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)))
         XCTAssertTrue(guide.exists)
         XCTAssertFalse(app.staticTexts["Done"].exists)
         guide.buttons["Back to msgblast"].click()
