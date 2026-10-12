@@ -145,16 +145,33 @@ def run(args):
             code = 124
             print("Remote test connection timed out. Inspect the remote worker/lock before retrying.", file=sys.stderr)
         manifest["status"] = "timed-out" if timed_out.is_set() else "passed" if code == 0 else "failed"
+        manifest["worker_exit_code"] = code
         manifest["exit_code"] = code
         # Preserve .xcresult and fixture logs on the remote even if retrieval fails.
-        with (output / "results.tar.gz").open("wb") as results:
-            retrieved = subprocess.run(ssh_command(args.host, ["tar", "-czf", "-", "-C", workspace, "build/test-results"]), stdout=results, timeout=120)
+        try:
+            with (output / "results.tar.gz").open("wb") as results:
+                retrieved = subprocess.run(ssh_command(args.host, ["tar", "-czf", "-", "-C", workspace, "build/test-results"]), stdout=results, timeout=120)
+        except (subprocess.TimeoutExpired, OSError) as error:
+            manifest["results_retrieved"] = False
+            manifest["retrieval_exit_code"] = None
+            manifest["retrieval_error_type"] = type(error).__name__
+            manifest["exit_code"] = code or 1
+            if code == 0:
+                manifest["status"] = "interrupted-or-incomplete"
+            print(f"Results retrieval failed: {error}\nResults remain at {args.host}:{workspace}/build/test-results", file=sys.stderr)
+            return manifest["exit_code"]
         manifest["results_retrieved"] = retrieved.returncode == 0
+        manifest["retrieval_exit_code"] = retrieved.returncode
+        manifest["exit_code"] = code or retrieved.returncode
         if retrieved.returncode:
+            if code == 0:
+                manifest["status"] = "retrieval-failed"
             print(f"Results remain at {args.host}:{workspace}/build/test-results", file=sys.stderr)
-        return code or retrieved.returncode
-    except BaseException:
+        return manifest["exit_code"]
+    except BaseException as error:
         manifest["status"] = "interrupted-or-incomplete"
+        manifest["exit_code"] = 130 if isinstance(error, KeyboardInterrupt) else 1
+        manifest.setdefault("results_retrieved", False)
         raise
     finally:
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

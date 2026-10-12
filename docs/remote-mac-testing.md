@@ -41,7 +41,12 @@ python3 scripts/run_mac_checks.py --host test-mac --revision HEAD \
 
 Commit the intended changes first. `--revision HEAD` excludes unstaged/staged
 edits, ignored files, local accounts, and credentials. The manifest records the
-resolved full SHA, remote machine, Xcode version, suite, and exit status. To see
+resolved full SHA, remote machine, Xcode version, suite, and combined check/retrieval
+exit code. `worker_exit_code` preserves the test process result; `results_retrieved`
+and `retrieval_exit_code` describe archive retrieval. After successful worker execution,
+failed retrieval is `retrieval-failed`, not `passed`; retrieval timeout leaves an
+incomplete record and a nonzero exit code. Worker failures and deadlines keep their
+original status/code when retrieval also fails. To see
 the revision/target without connecting or running tests, add `--dry-run`.
 
 ## Choose the suite

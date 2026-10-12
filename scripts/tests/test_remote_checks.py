@@ -79,8 +79,19 @@ class RemoteChecksTests(unittest.TestCase):
     def test_committed_snapshot_runs_and_results_survive_success_or_failure(self):
         # Real git archive + tar + worker process, with SSH replaced by local subprocesses.
         # The tiny worker is fixture input; native tests are never launched here.
-        for exit_code in [0, 7, 124]:
-            with self.subTest(exit_code=exit_code), tempfile.TemporaryDirectory() as temporary:
+        cases = [
+            (0, 0, "passed", 0),
+            (7, 0, "failed", 7),
+            (124, 0, "timed-out", 124),
+            (0, 23, "retrieval-failed", 23),
+            (7, 23, "failed", 7),
+            (124, 23, "timed-out", 124),
+            (0, "timeout", "interrupted-or-incomplete", 1),
+            (7, "timeout", "failed", 7),
+            (124, "timeout", "timed-out", 124),
+        ]
+        for exit_code, retrieval, expected_status, expected_exit in cases:
+            with self.subTest(exit_code=exit_code, retrieval=retrieval), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary) / "source"
                 root.mkdir()
                 subprocess.run(["git", "init", "-q", str(root)], check=True)
@@ -101,16 +112,35 @@ class RemoteChecksTests(unittest.TestCase):
                 def transport(host, arguments):
                     if arguments[0] == "env":
                         return ["bash", "-c", 'cd "$1"; shift; exec "$@"', "fixture", str(workspace), *arguments]
+                    if arguments[:2] == ["tar", "-czf"] and retrieval == 23:
+                        return [sys.executable, "-c", "raise SystemExit(23)"]
                     return arguments
-                with patch.object(remote, "ROOT", root), patch.object(remote, "prepare", return_value=target), patch.object(remote, "ssh_command", side_effect=transport), contextlib.redirect_stdout(io.StringIO()):
+                real_run = subprocess.run
+                def run_command(arguments, **kwargs):
+                    if arguments[:2] == ["tar", "-czf"] and retrieval == "timeout":
+                        raise subprocess.TimeoutExpired(arguments, 120)
+                    return real_run(arguments, **kwargs)
+                with patch.object(remote, "ROOT", root), patch.object(remote, "prepare", return_value=target), patch.object(remote, "ssh_command", side_effect=transport), patch.object(remote.subprocess, "run", side_effect=run_command), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                     args = self.args(output)
                     if exit_code == 124:
                         args.timeout_seconds = 0.2
-                    self.assertEqual(remote.run(args), exit_code)
+                    if retrieval == "timeout":
+                        with patch.object(sys, "argv", [str(SCRIPT), "--host", "fixture-mac", "--suite", "core", "--output", str(output), "--timeout-seconds", "1"]):
+                            self.assertEqual(remote.main(), expected_exit)
+                    else:
+                        self.assertEqual(remote.run(args), expected_exit)
                 manifest = json.loads((output / "manifest.json").read_text())
-                self.assertEqual(manifest["status"], "timed-out" if exit_code == 124 else "passed" if exit_code == 0 else "failed")
-                self.assertTrue(manifest["results_retrieved"])
-                self.assertTrue((output / "results.tar.gz").stat().st_size)
+                self.assertEqual(manifest["status"], expected_status)
+                self.assertEqual(manifest["exit_code"], expected_exit)
+                self.assertEqual(manifest["worker_exit_code"], exit_code)
+                self.assertEqual(manifest["results_retrieved"], retrieval == 0)
+                if retrieval != "timeout":
+                    self.assertEqual(manifest["retrieval_exit_code"], retrieval)
+                else:
+                    self.assertIsNone(manifest["retrieval_exit_code"])
+                    self.assertEqual(manifest["retrieval_error_type"], "TimeoutExpired")
+                if retrieval == 0:
+                    self.assertTrue((output / "results.tar.gz").stat().st_size)
                 self.assertNotIn("UNCOMMITTED", (output / "run.log").read_text())
                 self.assertFalse((workspace / "private-account.txt").exists())
                 self.assertEqual((workspace / "build/test-results/assertions.txt").read_text(), "fixture-result\n")
