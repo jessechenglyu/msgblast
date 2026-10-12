@@ -42,14 +42,14 @@ def revision(ref):
     return sha
 
 
-def prepare(host, sha, developer_dir):
+def prepare(host, sha, developer_dir, remote_python="python3"):
     # Probe and refuse this computer before creating a workspace or executing tests.
     probe = """import json,platform,subprocess,re
 text=subprocess.check_output(['ioreg','-rd1','-c','IOPlatformExpertDevice'],text=True) if platform.system()=='Darwin' else ''
 match=re.search(r'"IOPlatformUUID" = "([^\\"]+)"',text)
 print(json.dumps({'system':platform.system(),'name':platform.node(),'id':match[1] if match else None}))
 """
-    result = subprocess.run(ssh_command(host, ["python3", "-c", probe]), capture_output=True, text=True, check=True, timeout=45)
+    result = subprocess.run(ssh_command(host, [remote_python, "-c", probe]), capture_output=True, text=True, check=True, timeout=45)
     remote = json.loads(result.stdout)
     if remote["system"] != "Darwin" or not remote["id"]:
         raise RuntimeError("Remote target must be an identifiable Mac")
@@ -66,7 +66,7 @@ root.mkdir(parents=True,exist_ok=True)
 workspace=tempfile.mkdtemp(prefix=sys.argv[2][:12]+'-',dir=root)
 print(json.dumps({'workspace':workspace,'xcode':version.strip()}))
 """
-    result = subprocess.run(ssh_command(host, ["python3", "-c", preflight, developer_dir or "", sha]), capture_output=True, text=True, check=True, timeout=45)
+    result = subprocess.run(ssh_command(host, [remote_python, "-c", preflight, developer_dir or "", sha]), capture_output=True, text=True, check=True, timeout=45)
     details = json.loads(result.stdout)
     return {**remote, **details}
 
@@ -75,6 +75,8 @@ def run(args):
     sha = revision(args.revision)
     if args.timeout_seconds <= 0:
         raise ValueError("Timeout must be positive")
+    if args.remote_python != "python3" and (not args.remote_python.startswith("/") or Path(args.remote_python).name != "python3"):
+        raise ValueError("--remote-python must be python3 or an absolute executable named python3 so worker helpers use the same interpreter")
     if args.suite == "ui" and not args.allow_remote_ui:
         raise ValueError("UI tests use the remote desktop; pass --allow-remote-ui for a dedicated interactive Mac")
     output = Path(args.output).resolve()
@@ -84,10 +86,10 @@ def run(args):
     if args.dry_run:
         print("Dry run: no SSH connection, build, test, or workspace creation")
         return 0
-    remote = prepare(args.host, sha, args.developer_dir)
+    remote = prepare(args.host, sha, args.developer_dir, args.remote_python)
     workspace = remote["workspace"]
     output.mkdir(parents=True)
-    manifest = {"revision": sha, "host": args.host, "machine": remote["name"], "xcode": remote["xcode"], "suite": args.suite, "remote_workspace": workspace, "status": "running"}
+    manifest = {"revision": sha, "host": args.host, "machine": remote["name"], "xcode": remote["xcode"], "remote_python": args.remote_python, "suite": args.suite, "remote_workspace": workspace, "status": "running"}
     print(f"Remote Mac: {remote['name']}\nWorkspace: {workspace}\n{remote['xcode']}", flush=True)
     manifest_path = output / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
@@ -98,6 +100,9 @@ def run(args):
             archive.seek(0)
             subprocess.run(ssh_command(args.host, ["tar", "-xf", "-", "-C", workspace]), stdin=archive, check=True, timeout=120)
         command = ["env", "MSGBLAST_REMOTE_TEST_WORKER=1"]
+        if "/" in args.remote_python:
+            # Use the selected Python's bin directory for the worker's Python helpers too.
+            command.append("PATH=" + str(Path(args.remote_python).parent) + ":/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
         if args.developer_dir:
             command.append("DEVELOPER_DIR=" + args.developer_dir)
         command += ["bash", workspace + "/scripts/mac_checks.sh", args.suite, sha]
@@ -162,6 +167,7 @@ def main():
     parser.add_argument("--suite", choices=SUITES, default="all", help="all includes core/controllers/updater, excludes UI")
     parser.add_argument("--output", required=True, help="Fresh local folder for log, manifest, and remote result archive")
     parser.add_argument("--developer-dir", help="Remote full Xcode developer directory")
+    parser.add_argument("--remote-python", default="python3", help="python3 or an absolute executable named python3 (e.g. /opt/homebrew/bin/python3)")
     parser.add_argument("--allow-remote-ui", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=5400, help="Remote test connection deadline (default 90 minutes)")

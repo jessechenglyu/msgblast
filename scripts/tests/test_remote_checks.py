@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -18,6 +19,24 @@ spec.loader.exec_module(remote)
 
 
 class RemoteChecksTests(unittest.TestCase):
+    def test_versioned_or_relative_python_is_rejected_before_remote_work(self):
+        for executable in ["python3.14", "/opt/homebrew/bin/python3.14", "../bin/python3"]:
+            with self.subTest(executable=executable), tempfile.TemporaryDirectory() as temporary:
+                args = self.args(Path(temporary) / "results")
+                args.remote_python = executable
+                with patch.object(remote, "revision", return_value="a" * 40), patch.object(remote, "prepare", side_effect=AssertionError("No remote work")):
+                    with self.assertRaisesRegex(ValueError, "same interpreter"):
+                        remote.run(args)
+
+    def test_selected_python_preflights_the_remote_without_changing_profiles(self):
+        probe = {"system": "Darwin", "name": "fixture-remote", "id": "remote-mac"}
+        workspace = {"workspace": "/fixture/workspace", "xcode": "Xcode 27.0"}
+        responses = [subprocess.CompletedProcess([], 0, json.dumps(value), "") for value in [probe, workspace]]
+        with patch.object(remote.subprocess, "run", side_effect=responses), patch.object(remote, "ssh_command", side_effect=lambda host, argv: argv) as transport, patch.object(remote, "machine_id", return_value="local-mac"):
+            result = remote.prepare("fixture-mac", "a" * 40, "/fixture/Xcode.app/Contents/Developer", "/opt/homebrew/bin/python3")
+        self.assertEqual(result["workspace"], workspace["workspace"])
+        self.assertEqual([call.args[1][0] for call in transport.call_args_list], ["/opt/homebrew/bin/python3"] * 2)
+
     def test_same_machine_is_rejected_before_workspace_or_test_creation(self):
         probe = subprocess.CompletedProcess([], 0, json.dumps({"system": "Darwin", "name": "fixture", "id": "same-mac"}), "")
         with patch.object(remote.subprocess, "run", return_value=probe) as transport, patch.object(remote, "machine_id", return_value="same-mac"):
@@ -44,7 +63,7 @@ class RemoteChecksTests(unittest.TestCase):
                 remote.ssh_command(host, ["true"])
 
     def test_ui_needs_explicit_remote_desktop_authorization(self):
-        args = argparse.Namespace(host="fixture-mac", revision="HEAD", suite="ui", allow_remote_ui=False, timeout_seconds=5400)
+        args = argparse.Namespace(host="fixture-mac", revision="HEAD", suite="ui", allow_remote_ui=False, timeout_seconds=5400, remote_python="python3")
         with patch.object(remote, "revision", return_value="a" * 40), patch.object(remote, "prepare", side_effect=AssertionError("No remote activity")):
             with self.assertRaisesRegex(ValueError, "allow-remote-ui"):
                 remote.run(args)
@@ -98,10 +117,46 @@ class RemoteChecksTests(unittest.TestCase):
 
     @staticmethod
     def args(output, dry_run=False):
-        return argparse.Namespace(host="fixture-mac", revision="HEAD", suite="core", output=str(output), developer_dir=None, allow_remote_ui=False, dry_run=dry_run, timeout_seconds=5400)
+        return argparse.Namespace(host="fixture-mac", revision="HEAD", suite="core", output=str(output), developer_dir=None, remote_python="python3", allow_remote_ui=False, dry_run=dry_run, timeout_seconds=5400)
 
 
 class MacWorkerTests(unittest.TestCase):
+    def test_web_harness_discovers_app_sources_without_ripgrep(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            harness = scripts / "test_web_comparisons.sh"
+            harness.write_text((SCRIPT.parent / "test_web_comparisons.sh").read_text())
+            app = root / "msgblast"
+            (app / "App").mkdir(parents=True)
+            (app / "Core").mkdir()
+            (app / "Resources/WebAgentIcons").mkdir(parents=True)
+            owner = app / "App/Owner.swift"
+            owner.write_text("// Fixture app owner")
+            excluded = app / "Core/Ignored.swift"
+            excluded.write_text("// Already linked through the core framework")
+            entry = app / "App/msgblastApp.swift"
+            entry.write_text("@main\nenum msgblastMain {}\n@MainActor\nprivate final class AppStartup {}\n")
+            derived = root / "derived"
+            derived.mkdir()
+            binary = root / "bin"
+            binary.mkdir()
+            (binary / "python3").symlink_to(sys.executable)
+            compiler = binary / "xcrun"
+            compiler.write_text('#!/bin/bash\nprintf "%s\\n" "$@" >> "$COMPILER_LOG"\noutput="${@: -1}"\nprintf "#!/bin/bash\\nexit 0\\n" > "$output"\nchmod 700 "$output"\n')
+            compiler.chmod(0o700)
+            command_log = root / "compiler.txt"
+            env = {**os.environ, "PATH": str(binary) + ":/usr/bin:/bin", "COMPILER_LOG": str(command_log)}
+            result = subprocess.run(["bash", str(harness), str(derived)], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("rg: command not found", result.stderr)
+            sources = command_log.read_text().splitlines()
+            self.assertIn(str(owner), sources, "Source discovery must pass app owners to the compiler")
+            self.assertNotIn(str(excluded), sources)
+            self.assertNotIn(str(entry), sources, "The fixture must use its own entry point")
+            self.assertTrue(any(path.endswith("/app-support.swift") for path in sources))
+
     def test_suite_routing_failures_and_locks_without_native_tools(self):
         worker_source = (SCRIPT.parent / "mac_checks.sh").read_text()
         for suite in ["core", "controllers", "updater", "all", "ui", "failed-core", "locked"]:

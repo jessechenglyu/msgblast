@@ -14,7 +14,15 @@ web_flags=(-swift-version 6 -D DEBUG -parse-as-library -module-cache-path "$web_
     -framework msgblastCore -framework Sparkle
     -Xlinker -rpath -Xlinker "$web_frameworks" -Xlinker -rpath -Xlinker "$web_sparkle")
 web_sources=()
-while IFS= read -r source; do web_sources+=("$source"); done < <(rg --files "$web_root/msgblast" -g '*.swift' | rg -v '/Core/|/msgblastApp.swift$')
+python3 - "$web_root/msgblast" > "$web_tmp/sources.txt" <<'PY_SOURCES'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+for source in sorted(root.rglob("*.swift")):
+    if "Core" not in source.relative_to(root).parts and source.name != "msgblastApp.swift":
+        print(source)
+PY_SOURCES
+while IFS= read -r source; do web_sources+=("$source"); done < "$web_tmp/sources.txt"
 # Keep the real scene actions/lifecycle definitions while giving the fixture its own entry point.
 python3 - "$web_root/msgblast/App/msgblastApp.swift" "$web_tmp/app-support.swift" <<'PY_SUPPORT'
 from pathlib import Path

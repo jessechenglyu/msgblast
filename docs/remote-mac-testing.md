@@ -13,9 +13,14 @@ Mac and never falls back to local execution when SSH or the remote setup fails.
 ## Prepare a dedicated Mac
 
 The target needs Apple Silicon, full Xcode 27 with first-launch setup completed,
-Python 3.11+, Git, and `rg`. Follow [Build from source](build-from-source.md) for
+Python 3.11+ and Git. Follow [Build from source](build-from-source.md) for
 native prerequisites. Select Xcode on that machine or pass `--developer-dir`;
 the script does not change machine-wide Xcode selection.
+If SSH resolves Apple's older Python, pass `--remote-python /opt/homebrew/bin/python3`
+or an absolute executable named `python3` for your installed Python 3.11+.
+Versioned names such as `python3.14` are rejected so preflight and worker helpers
+cannot select different interpreters. The selected bin
+directory is used for the worker's Python helpers without editing shell profiles.
 
 Connect both computers to the authorized tailnet. Configure a working SSH alias
 with the remote username and key in your personal `~/.ssh/config`. Ordinary
