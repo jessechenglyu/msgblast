@@ -17,13 +17,39 @@ import XCTest
         let (client, http, events) = try await setup(root)
         var projection = try ComparisonPublicationBuilder.build(events: events, comparisonID: "comparison")
         projection.turns[0].prompt = "Manually redacted\n  preview"
-        _ = try await client.publish(projection, owner: "owner-a")
+        _ = try await client.publish(projection, comparisonID: "comparison", owner: "owner-a")
         XCTAssertTrue(client.store.paused); XCTAssertTrue(client.store.lineages.isEmpty)
         XCTAssertEqual(http.requests.map { $0.url!.path }, ["/api/v1/account", "/api/v1/publications"])
         let body = try JSONSerialization.jsonObject(with: XCTUnwrap(http.requests.last?.httpBody)) as! [String: Any]
+        XCTAssertEqual(body["localID"] as? String, "comparison", "Publication must retain private comparison association without uploading raw events")
         XCTAssertEqual(body["previewHash"] as? String, try projection.previewHash())
         let sent = try JSONDecoder().decode(ComparisonPublication.self, from: JSONSerialization.data(withJSONObject: body["projection"]!))
         XCTAssertEqual(sent, projection)
+    }
+    func testPublicationAssociatesOnlyVerifiedOwnersExistingLineageAndStaleApprovalCannotTransmit() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); defer { try? FileManager.default.removeItem(at: root) }
+        let (client, http, events) = try await setup(root)
+        var lineage = try client.store.prepare(events: events, comparisonID: "comparison", owner: "owner-a", context: "unknown")
+        lineage.sessionID = "cloud-session"; lineage.snapshotID = "head-one"; try client.store.update(lineage)
+        let approval = try XCTUnwrap(BenchmarkContributionApproval(lineage: lineage, owner: "owner-a"))
+        let projection = try ComparisonPublicationBuilder.build(events: events, comparisonID: "comparison")
+        _ = try await client.publish(projection, comparisonID: "comparison", owner: "owner-a")
+        let body = try JSONSerialization.jsonObject(with: http.requests.last!.httpBody!) as! [String: Any]
+        XCTAssertEqual(body["sessionID"] as? String, "cloud-session"); XCTAssertEqual(body["localID"] as? String, "comparison")
+        XCTAssertEqual(body["previewHash"] as? String, try projection.previewHash())
+        lineage.snapshotID = "head-two"; try client.store.update(lineage)
+        let count = http.requests.count
+        do { _ = try await client.contributeSelected(approval); XCTFail("Consent for head-one cannot authorize head-two") } catch { XCTAssertEqual(error as? BenchmarkSyncError, .staleOperation) }
+        XCTAssertEqual(http.requests.count, count)
+        let renewedApproval = try XCTUnwrap(BenchmarkContributionApproval(lineage: lineage, owner: "owner-a"))
+        http.holdHistory = true
+        let contributing = Task { try await client.contributeSelected(renewedApproval) }
+        while http.pending == nil { await Task.yield() }
+        lineage.snapshotID = "head-three"; try client.store.update(lineage); http.completeChunk()
+        do { _ = try await contributing.value; XCTFail("Head changed while reading history") } catch { XCTAssertEqual(error as? BenchmarkSyncError, .staleOperation) }
+        XCTAssertFalse(http.requests.contains { $0.url!.path.hasSuffix("/contribution") })
+        lineage.snapshotID = nil; try client.store.update(lineage)
+        XCTAssertNil(BenchmarkContributionApproval(lineage: lineage, owner: "owner-a"))
     }
     func testInterruptedChunkRetryPreservesBytesThenContributionDoesNotEnableSync() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); defer { try? FileManager.default.removeItem(at: root) }
@@ -85,7 +111,7 @@ import XCTest
 }
 @MainActor private final class CloudHTTP: BenchmarkHTTPTransport {
     var requests: [URLRequest] = []
-    var failChunk = false, holdChunk = false, quotaChunk = false
+    var failChunk = false, holdChunk = false, quotaChunk = false, holdHistory = false
     var pending: CheckedContinuation<(Data, HTTPURLResponse), Error>?
     var pendingRequest: URLRequest?
     var headHash = "", sequenceEnd = 0
@@ -96,12 +122,14 @@ import XCTest
             if failChunk { throw URLError(.notConnectedToInternet) }
             if holdChunk { pendingRequest = request; return try await withCheckedThrowingContinuation { pending = $0 } }
         }
+        if request.url!.path.hasSuffix("/contributions"), holdHistory { pendingRequest = request; return try await withCheckedThrowingContinuation { pending = $0 } }
         return try response(request)
     }
     private func response(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
         let path = request.url!.path
         var value: [String: Any] = ["status": "accepted"]
         if path.hasSuffix("/account") { value = ["accountID": "owner-a", "identity": "fixture bearer"] }
+        else if path.hasSuffix("/contributions") { value = ["history": [], "acceptedDistinctSessions": 0] }
         else if path.hasSuffix("/sessions") { value = ["id": "cloud-session"] }
         else if path.hasSuffix("/chunks") {
             let chunk = try JSONDecoder().decode(PerformanceUploadChunk.self, from: request.httpBody!)

@@ -121,7 +121,7 @@ public enum ComparisonPublicationBuilder {
         var p = ComparisonPublication(title: redact(options.title), fixture: !events.isEmpty && events.allSatisfy(\.fixture),
             participants: agents.enumerated().map { .init(id: "agent-\($0.offset + 1)", label: "Agent \($0.offset + 1)", connectionType: $0.element.connection) },
             turns: [], omissions: ["Earlier provider history was not collected and is excluded.", "Attachment metadata and bodies are excluded unless explicitly selected for this preview."],
-            limitations: ["Locally recorded, owner-reviewed; not independently witnessed. Automatic redaction is incomplete; inspect and edit every text before publication.", "Owner feedback expresses preference, not accuracy or completion. Timing measures native observation, not model token generation."], includesPrivate: options.includePrivate)
+            limitations: ["Locally recorded, owner-reviewed; not independently witnessed. Automatic redaction is incomplete; inspect and redact captured text before publication.", "Owner feedback expresses preference, not accuracy or completion. Timing measures native observation, not model token generation."], includesPrivate: options.includePrivate)
         p.includesUnknown = options.includeUnknownScope ? true : nil
         let starts = events.filter { $0.kind == .turnStarted }
         let startsByTurn = Dictionary(grouping: starts, by: TurnKey.init)

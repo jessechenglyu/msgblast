@@ -15,12 +15,14 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
     @Published private(set) var remotePublications: [BenchmarkOwnedPublication] = []
     @Published private(set) var remoteRecords: [BenchmarkOwnedRecord] = []
     @Published private(set) var contributionSummaries: [BenchmarkContributionHistoryEntry] = []
+    @Published private(set) var acceptedComparisons: Int?
     @Published private(set) var contributionHistory = "No contribution history loaded."
     @Published private(set) var cloudSessions = "No private records loaded."
     private weak var performance: PerformanceController?
     private var autoTask: Task<Void, Never>?
     private var restored = false
     private var stopped = false
+    private var presentationOwner: String?
     private var subscriptions = Set<AnyCancellable>()
     var lineages: [BenchmarkSyncLineage] { client?.store.lineages ?? [] }
     var paused: Bool { client?.store.paused ?? true }
@@ -44,6 +46,24 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
         }
         do { client = BenchmarkCloudClient(account: account, store: try BenchmarkSyncStore(directory: directory)) }
         catch { self.error = error.localizedDescription }
+        observeAccount()
+    }
+    init(account: BenchmarkAccountSession, store: BenchmarkSyncStore) {
+        self.account = account; client = BenchmarkCloudClient(account: account, store: store)
+        observeAccount()
+    }
+    private func clearCloudPresentation() {
+        remotePublications = []; remoteRecords = []; contributionSummaries = []; publicationLinks = []
+        acceptedComparisons = nil; contributionHistory = "No contribution history loaded."; cloudSessions = "No private records loaded."
+    }
+    private func observeAccount() {
+        account.$account.sink { [weak self] identity in
+            guard let self else { return }
+            if self.presentationOwner != identity?.accountID {
+                self.presentationOwner = identity?.accountID; self.clearCloudPresentation()
+            }
+            self.objectWillChange.send()
+        }.store(in: &subscriptions)
         account.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
     }
     private func loadLinks() {
@@ -53,9 +73,10 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
         guard !restored else { return }; restored = true
         await account.restore(); loadLinks(); scheduleFuture()
     }
-    func signIn() async { await account.signIn(); loadLinks(); scheduleFuture() }
+    func signIn() async { clearCloudPresentation(); await account.signIn(); loadLinks(); scheduleFuture() }
     func signOut() {
         autoTask?.cancel(); autoTask = nil; client?.cancel(); do { try client?.pause() } catch { self.error = error.localizedDescription }
+        acceptedComparisons = nil
         account.signOut(); remotePublications = []; remoteRecords = []; contributionSummaries = []; publicationLinks = []; contributionHistory = "Sign in to view history."; cloudSessions = "Sign in to view private records."; revision += 1
     }
     func shutdown() { stopped = true; autoTask?.cancel(); autoTask = nil; client?.cancel() }
@@ -80,7 +101,7 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
         } catch { self.error = error.localizedDescription }
     }
     private func scheduleFuture() {
-        guard !stopped, autoTask == nil, !working, futureSync, !paused, let performance, let client, let owner = account.account?.accountID else { return }
+        guard !stopped, autoTask == nil, !working, !account.deletionOnly, futureSync, !paused, let performance, let client, let owner = account.account?.accountID else { return }
         let counts = Dictionary(grouping: performance.events, by: \.comparisonID).mapValues(\.count)
         let lineages = Dictionary(uniqueKeysWithValues: client.store.lineages.map { ($0.comparisonID, $0) })
         let candidates = client.store.futureComparisons(events: performance.events, owner: owner).filter { id in
@@ -89,9 +110,11 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
             return count > (lineage?.selectedSequenceEnd ?? 0) || (lineage != nil && lineage?.finalized == false)
         }
         guard !candidates.isEmpty else { return }
+        let accountGeneration = account.generation
         autoTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(2)) } catch { return }
             guard let self, !Task.isCancelled else { return }
+            guard !self.working, !self.account.deletionOnly, self.account.generation == accountGeneration else { self.autoTask = nil; return }
             self.working = true
             var failed = false
             do {
@@ -107,8 +130,10 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
                 }
                 self.status = "Future selected recordings synced privately. Publications and contribution selections are unchanged."
             } catch {
-                failed = true; self.error = error.localizedDescription
-                if !BenchmarkCloudRetry.isRetryable(error) { try? client.pause() }
+                if self.account.generation == accountGeneration {
+                    failed = true; self.error = error.localizedDescription
+                    if !BenchmarkCloudRetry.isRetryable(error) { try? client.pause() }
+                }
             }
             self.working = false; self.revision += 1; self.autoTask = nil
             // Failed exact retries remain saved. The explicit Resume action or a
@@ -122,9 +147,13 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
         }
     }
     private func action(_ operation: () async throws -> Void) async {
-        guard !working else { return }; working = true; error = nil
+        guard !working else { return }
+        autoTask?.cancel(); autoTask = nil
+        working = true; error = nil
+        let expectedAccountGeneration = account.generation
         defer { working = false; revision += 1; scheduleFuture() }
         do { try await operation() } catch {
+            guard account.generation == expectedAccountGeneration else { return }
             if case BenchmarkAccountError.quota = error { try? client?.pause() }
             self.error = error.localizedDescription
         }
@@ -150,23 +179,28 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
             status = "Saved selected uploads finished. No newer local events were selected."
         }
     }
-    func publish(_ publication: ComparisonPublication) async {
+    func publish(_ publication: ComparisonPublication, comparisonID: String, owner: String, accountGeneration: UInt64) async {
         await action {
-            guard let client, let owner = account.account?.accountID, let config = account.configuration else { throw BenchmarkAccountError.signedOut }
+            guard let client, let config = account.configuration else { throw BenchmarkAccountError.signedOut }
+            try checkOwner(owner, generation: accountGeneration)
+            let expected = accountGeneration
             let approvedHash = try publication.previewHash()
-            let data = try await client.publish(publication, owner: owner)
+            let data = try await client.publish(publication, comparisonID: comparisonID, owner: owner)
+            try checkOwner(owner, generation: expected)
             let result = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             guard let id = result?["id"] as? String, let path = result?["path"] as? String,
                   result?["projectionHash"] as? String == approvedHash,
                   path.hasPrefix("/s/"), let url = URL(string: path, relativeTo: config.serviceURL)?.absoluteURL else { throw BenchmarkAccountError.invalidResponse }
-            try client.store.savePublication(.init(id: id, owner: owner, url: url, projectionHash: approvedHash))
+            try client.store.savePublication(.init(id: id, owner: owner, url: url, projectionHash: approvedHash, comparisonID: comparisonID))
             publicationLinks.append((id, url)); status = "Reviewed comparison published. Anyone with the link can read and forward it."
         }
     }
     func revoke(_ id: String) async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
+            let expected = account.generation
             try await client.revoke(publicationID: id, owner: owner)
+            try checkOwner(owner, generation: expected)
             try client.store.revokePublication(id, owner: owner)
             remotePublications.removeAll { $0.id == id }
             publicationLinks.removeAll { $0.id == id }; status = "Link revoked. Previously downloaded copies cannot be recalled."
@@ -180,10 +214,12 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
             status = "Selected contribution evidence uploaded privately for validation. Private sync remains \(client.store.paused ? "paused" : "enabled"). Contribution still requires the separate final choice."
         }
     }
-    func contribute(_ lineage: BenchmarkSyncLineage) async {
+    func contribute(_ approval: BenchmarkContributionApproval) async {
         await action {
-            guard let client, let owner = account.account?.accountID, owner == lineage.owner, let session = lineage.sessionID, let snapshot = lineage.snapshotID else { throw BenchmarkSyncError.ownerMismatch }
-            _ = try await client.contributeSelected(sessionID: session, snapshotID: snapshot, owner: owner)
+            guard let client, let owner = account.account?.accountID, owner == approval.owner else { throw BenchmarkSyncError.ownerMismatch }
+            let expected = account.generation
+            _ = try await client.contributeSelected(approval)
+            try checkOwner(owner, generation: expected)
             status = "Contribution requested for the selected snapshot. Validation determines eligibility; this comparison counts once."
             try await loadHistory(owner: owner)
         }
@@ -191,9 +227,14 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
     func withdraw(_ lineage: BenchmarkSyncLineage) async {
         await action {
             guard let client, let owner = account.account?.accountID, owner == lineage.owner, let session = lineage.sessionID else { throw BenchmarkSyncError.ownerMismatch }
-            try await client.withdraw(sessionID: session, owner: owner); status = "Contribution withdrawn."
+            let expected = account.generation
+            try await client.withdraw(sessionID: session, owner: owner)
+            try checkOwner(owner, generation: expected); status = "Contribution withdrawn."
             try await loadHistory(owner: owner)
         }
+    }
+    private func checkOwner(_ owner: String, generation: UInt64) throws {
+        guard account.generation == generation, account.account?.accountID == owner else { throw BenchmarkSyncError.staleOperation }
     }
     private func readable(_ data: Data) throws -> String {
         let value = try JSONSerialization.jsonObject(with: data)
@@ -202,18 +243,32 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
     }
     private func loadHistory(owner: String) async throws {
         guard let client else { return }
+        acceptedComparisons = nil
+        let expected = account.generation
         let data = try await client.list("contributions", owner: owner)
-        struct History: Decodable { let history: [BenchmarkContributionHistoryEntry] }
-        contributionSummaries = try JSONDecoder().decode(History.self, from: data).history
+        try checkOwner(owner, generation: expected)
+        struct History: Decodable { let history: [BenchmarkContributionHistoryEntry]; let acceptedDistinctSessions: Int }
+        let history = try JSONDecoder().decode(History.self, from: data)
+        guard history.acceptedDistinctSessions >= 0 else { throw BenchmarkAccountError.invalidResponse }
+        contributionSummaries = history.history; acceptedComparisons = history.acceptedDistinctSessions
         contributionHistory = try readable(data)
     }
     func refreshRecords() async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
+            acceptedComparisons = nil
+            let expected = account.generation
             let records = try await client.list("sessions", owner: owner)
+            let history = try await client.list("contributions", owner: owner)
+            let publications = try await client.list("publications", owner: owner)
+            guard account.generation == expected, account.account?.accountID == owner else { throw BenchmarkSyncError.staleOperation }
+            struct History: Decodable { let history: [BenchmarkContributionHistoryEntry]; let acceptedDistinctSessions: Int }
+            let contribution = try JSONDecoder().decode(History.self, from: history)
+            guard contribution.acceptedDistinctSessions >= 0 else { throw BenchmarkAccountError.invalidResponse }
             remoteRecords = try JSONDecoder().decode([BenchmarkOwnedRecord].self, from: records)
-            cloudSessions = try readable(records); try await loadHistory(owner: owner)
-            remotePublications = try JSONDecoder().decode([BenchmarkOwnedPublication].self, from: await client.list("publications", owner: owner))
+            remotePublications = try JSONDecoder().decode([BenchmarkOwnedPublication].self, from: publications)
+            contributionSummaries = contribution.history; acceptedComparisons = contribution.acceptedDistinctSessions
+            contributionHistory = try readable(history); cloudSessions = try readable(records)
             // Server stores hashes rather than recoverable link capabilities.
             status = "\(remotePublications.filter { $0.revoked_at == nil }.count) active publications. Previously created links cannot be recovered from their hashes."
         }
@@ -221,29 +276,39 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
     func delete(_ lineage: BenchmarkSyncLineage) async {
         await action {
             guard let client, let owner = account.account?.accountID, owner == lineage.owner, let session = lineage.sessionID else { throw BenchmarkSyncError.ownerMismatch }
+            let expected = account.generation
             try await client.deleteSession(session, comparisonID: lineage.comparisonID, owner: owner)
+            try checkOwner(owner, generation: expected)
+            loadLinks(); acceptedComparisons = nil
             status = "Cloud record tombstoned; associated links and contribution are disabled. Cleanup is pending. Local recording is retained."
         }
     }
     func deleteRemoteRecord(_ record: BenchmarkOwnedRecord) async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
+            let expected = account.generation
             try await client.deleteSession(record.id, comparisonID: record.local_id, owner: owner)
+            try checkOwner(owner, generation: expected)
+            loadLinks(); acceptedComparisons = nil
             remoteRecords.removeAll { $0.id == record.id }; status = "Cloud record deleted; local My Stats remains. Content cleanup is pending."
         }
     }
     func deleteAccount() async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
+            let expected = account.generation
             _ = try await client.deleteAccount(owner: owner)
+            try checkOwner(owner, generation: expected)
             status = "Account deletion requested. Links and contributions are disabled; cloud content and identity cleanup are pending."
-            publicationLinks = []; contributionHistory = "Account deletion requested."
+            clearCloudPresentation(); contributionHistory = "Account deletion requested."
         }
     }
     func deletionStatus() async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
+            let expected = account.generation
             let data = try await client.list("account/deletion", owner: owner)
+            try checkOwner(owner, generation: expected)
             let value = try JSONSerialization.jsonObject(with: data) as? [String: Any]
             guard let deletion = value?["deletion"] as? [String: Any] else { status = "No account deletion requested."; return }
             if deletion["completed_at"] is String { status = "Account deletion completed." }

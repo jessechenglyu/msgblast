@@ -15,7 +15,7 @@ struct BenchmarkSettingsView: View {
     @State private var includeRevisions = false
     @State private var includeFeedback = true
     @State private var publishConsent = false
-    @State private var contributionConsent = false
+    @State private var contributionApproval: BenchmarkContributionApproval?
     @State private var evidenceConsent = false
     @State private var redactionTerm = ""
     @State private var confirmDeleteAccount = false
@@ -24,12 +24,16 @@ struct BenchmarkSettingsView: View {
     private var comparisons: [String] { Array(Set(model.performance.events.map(\.comparisonID))).sorted() }
     private var owner: String? { controller.account.account?.accountID }
     private var selectedLineage: BenchmarkSyncLineage? { controller.lineages.first { $0.comparisonID == selected && $0.owner == owner } }
+    private var selectedApproval: BenchmarkContributionApproval? { .init(lineage: selectedLineage, owner: owner) }
     var body: some View {
         Form {
             accountSection
             selectionSection
             publicationSection
-            if owner != nil { syncSection; contributionSection; recordsSection }
+            if owner != nil {
+                if controller.account.deletionOnly { Section("Account deletion") { Button("Check account deletion status") { Task { await controller.deletionStatus() } }.disabled(controller.working) } }
+                else { syncSection; contributionSection; recordsSection }
+            }
             Section("Status") {
                 Text(controller.status).textSelection(.enabled)
                 if let error = controller.error ?? controller.account.errorMessage ?? previewError { Text(error).foregroundStyle(.red).textSelection(.enabled) }
@@ -39,8 +43,9 @@ struct BenchmarkSettingsView: View {
         .onAppear {
             if let initialComparisonID, selected.isEmpty { selected = initialComparisonID }
         }
+        .onChange(of: selectedApproval) { _, _ in contributionApproval = nil }
         .onChange(of: selected) { _, _ in clearPreview() }
-        .onChange(of: owner) { _, _ in uploadConsent = false; contributionConsent = false; clearPreview() }
+        .onChange(of: owner) { _, _ in uploadConsent = false; contributionApproval = nil; clearPreview() }
         .onChange(of: includePrivate) { _, _ in clearPreview() }
         .onChange(of: includeUnknown) { _, _ in clearPreview() }
         .onChange(of: includeRevisions) { _, _ in clearPreview() }
@@ -124,15 +129,16 @@ struct BenchmarkSettingsView: View {
             if publication != nil {
                 publicationEditor
                 TextField("Exact text to redact", text: $redactionTerm)
-                Button("Redact this text throughout the preview") { publication?.redactLiteral(redactionTerm); redactionTerm = ""; publishConsent = false }.disabled(redactionTerm.isEmpty)
+                Button("Redact captured conversation text") { publication?.redactLiteral(redactionTerm); redactionTerm = ""; publishConsent = false }.disabled(redactionTerm.isEmpty)
                 Text("Captured prompts and replies are read-only. Redaction masks matching text with [redacted]; originals stay on this Mac.").foregroundStyle(.secondary)
                 Button("Select a text, PNG, or JPEG artifact for this preview") { selectArtifact = true }
                 Text("Artifacts are uploaded exactly as selected. Inspect images for private content; filenames are replaced with a generic public label.").foregroundStyle(.secondary)
                 Toggle("I reviewed the exact preview and approve publishing these bytes", isOn: $publishConsent)
                 Button("Publish reviewed comparison") {
-                    guard let approved = publication else { return }
-                    Task { await controller.publish(approved); publishConsent = false }
-                }.disabled(!publishConsent || controller.working || owner == nil)
+                    guard let approved = publication, let approvedOwner = owner else { return }
+                    let comparisonID = selected, generation = controller.account.generation
+                    Task { await controller.publish(approved, comparisonID: comparisonID, owner: approvedOwner, accountGeneration: generation); publishConsent = false }
+                }.disabled(!publishConsent || controller.working || owner == nil || controller.account.deletionOnly)
             }
             ForEach(controller.publicationLinks, id: \.id) { link in
                 HStack {
@@ -198,12 +204,16 @@ struct BenchmarkSettingsView: View {
             }.disabled(selected.isEmpty || !evidenceConsent || controller.working)
             if let lineage = selectedLineage, lineage.snapshotID != nil {
                 Text("Ready to contribute the selected finalized snapshot")
-                Toggle("Contribute this finalized snapshot to benchmark statistics", isOn: $contributionConsent)
+                Toggle("Contribute this finalized snapshot to benchmark statistics", isOn: Binding(get: { contributionApproval != nil && contributionApproval == selectedApproval }, set: { contributionApproval = $0 ? selectedApproval : nil }))
                 Button("Request contribution") {
-                    Task { await controller.contribute(lineage); contributionConsent = false }
-                }.disabled(!contributionConsent || controller.working)
+                    guard let approved = contributionApproval, approved == selectedApproval else { return }
+                    contributionApproval = nil
+                    Task { await controller.contribute(approved) }
+                }.disabled(contributionApproval == nil || contributionApproval != selectedApproval || controller.working)
                 Button("Withdraw this lineage's contribution", role: .destructive) { Task { await controller.withdraw(lineage) } }
             } else { Text("Upload and finalize a selected snapshot before contributing it.") }
+            if let count = controller.acceptedComparisons { Text("Accepted comparisons: \(count)") }
+            else { Text("Accepted comparisons: unavailable until history is loaded") }
             ForEach(controller.contributionSummaries) { item in
                 VStack(alignment: .leading) {
                     Text("Contribution: \(item.status)").font(.headline)
@@ -235,7 +245,7 @@ struct BenchmarkSettingsView: View {
     private func outcomeLabel(_ outcome: String) -> String {
         ["observedCompletion": "Answer completion observed", "observedReply": "Reply observed", "missing": "No reply observed", "timeout": "Timed out", "failed": "Failed", "canceled": "Canceled", "uncertain": "Outcome uncertain"][outcome] ?? "Outcome unknown"
     }
-    private func clearPreview() { redactionTerm = ""; evidenceConsent = false; contributionConsent = false; uploadConsent = false; publication = nil; publishConsent = false; previewError = nil }
+    private func clearPreview() { redactionTerm = ""; evidenceConsent = false; contributionApproval = nil; uploadConsent = false; publication = nil; publishConsent = false; previewError = nil }
     private func preparePreview() {
         do {
             var options = ComparisonPublicationOptions(); options.includePrivate = includePrivate; options.includeUnknownScope = includeUnknown

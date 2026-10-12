@@ -81,11 +81,18 @@ public enum BenchmarkCloudRetry {
     public func validation(sessionID: String, snapshotID: String, owner: String) async throws -> Data {
         try await send("sessions/\(sessionID)/snapshots/\(snapshotID)/validation", owner: owner)
     }
-    public func contributeSelected(sessionID: String, snapshotID: String, owner: String) async throws -> Data {
+    public func contributeSelected(_ approval: BenchmarkContributionApproval) async throws -> Data {
+        func checkApproval() throws {
+            guard account.account?.accountID == approval.owner,
+                  BenchmarkContributionApproval(lineage: store.lineages.first { $0.comparisonID == approval.comparisonID }, owner: approval.owner) == approval else { throw BenchmarkSyncError.staleOperation }
+        }
+        try checkApproval()
+        let sessionID = approval.sessionID, snapshotID = approval.snapshotID, owner = approval.owner
         struct History: Decodable { let history: [BenchmarkContributionHistoryEntry] }
         let data = try await send("contributions", owner: owner)
         let history = try JSONDecoder().decode(History.self, from: data).history
         let revision = try BenchmarkContributionSelection.revision(sessionID: sessionID, snapshotID: snapshotID, history: history)
+        try checkApproval()
         return try await contribute(sessionID: sessionID, snapshotID: snapshotID, contributionRevision: revision, owner: owner)
     }
     public func contribute(sessionID: String, snapshotID: String, contributionRevision: Int, owner: String) async throws -> Data {
@@ -94,10 +101,13 @@ public enum BenchmarkCloudRetry {
     public func withdraw(sessionID: String, owner: String) async throws {
         _ = try await send("sessions/\(sessionID)/contribution", method: "DELETE", owner: owner)
     }
-    public func publish(_ publication: ComparisonPublication, owner: String) async throws -> Data {
+    public func publish(_ publication: ComparisonPublication, comparisonID: String, owner: String) async throws -> Data {
         let bytes = try publication.previewBytes()
         let projection = try JSONSerialization.jsonObject(with: bytes)
-        return try await send("publications", method: "POST", value: ["consent": true, "projection": projection, "previewHash": PerformanceCanonical.hash(bytes)], owner: owner)
+        guard !comparisonID.isEmpty else { throw BenchmarkSyncError.emptySelection }
+        var value: [String: Any] = ["consent": true, "projection": projection, "previewHash": PerformanceCanonical.hash(bytes), "localID": comparisonID]
+        if let lineage = store.lineages.first(where: { $0.comparisonID == comparisonID && $0.owner == owner }), let session = lineage.sessionID { value["sessionID"] = session }
+        return try await send("publications", method: "POST", value: value, owner: owner)
     }
     public func revoke(publicationID: String, owner: String) async throws {
         _ = try await send("publications/\(publicationID)", method: "DELETE", owner: owner)
@@ -107,12 +117,16 @@ public enum BenchmarkCloudRetry {
         return try await send(kind, owner: owner)
     }
     public func deleteSession(_ sessionID: String, comparisonID: String, owner: String) async throws {
+        let expected = account.generation
         cancel(); _ = try await send("sessions/\(sessionID)", method: "DELETE", owner: owner)
+        guard account.generation == expected, account.account?.accountID == owner else { throw BenchmarkSyncError.staleOperation }
         try store.remove(comparisonID: comparisonID, owner: owner)
     }
     public func deleteAccount(owner: String) async throws -> Data {
+        let expected = account.generation
         try pause()
         let data = try await send("account", method: "DELETE", owner: owner)
+        guard account.generation == expected, account.account?.accountID == owner else { throw BenchmarkSyncError.staleOperation }
         try store.removeAccount(owner); return data
     }
 }

@@ -33,7 +33,7 @@ final class ComparisonPublicationTests: XCTestCase {
         let p = try ComparisonPublicationBuilder.build(events: chunk.events, comparisonID: chunk.sessionID)
         XCTAssertEqual(p.turns.count, 2)
         // Independently canonicalized with Python json + hashlib from the native fixture.
-        XCTAssertEqual(try p.previewHash(), "2310af07c33c9f59c2d2255bb6b92d3b191d932c480da24e1ea7a309f3017ef7")
+        XCTAssertEqual(try p.previewHash(), "90e0ab4c01810bdc08bf4fd5ec3d6ffaad70667a503ee35b21ac2d804ed01f7e")
         XCTAssertEqual(p.turns.map(\.kind), ["initial", "followUp"])
         XCTAssertEqual(p.turns.map { $0.replies.count }, [4, 4])
         XCTAssertEqual(p.turns[0].prompt, p.turns[1].prompt)

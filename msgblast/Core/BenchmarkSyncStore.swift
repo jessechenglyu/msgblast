@@ -46,8 +46,9 @@ public struct BenchmarkSavedPublication: Codable, Equatable, Sendable {
     public var owner: String
     public var url: URL
     public var projectionHash: String
+    public var comparisonID: String?
     public var revoked = false
-    public init(id: String, owner: String, url: URL, projectionHash: String) { self.id = id; self.owner = owner; self.url = url; self.projectionHash = projectionHash }
+    public init(id: String, owner: String, url: URL, projectionHash: String, comparisonID: String? = nil) { self.comparisonID = comparisonID; self.id = id; self.owner = owner; self.url = url; self.projectionHash = projectionHash }
 }
 /// Owner-bound exact bytes and retry identifiers survive process restarts. No
 /// credentials are stored here. Upload selection never follows recording.
@@ -116,6 +117,11 @@ public struct BenchmarkSavedPublication: Codable, Equatable, Sendable {
         var next = journal
         guard !next.lineages.contains(where: { $0.comparisonID == comparisonID && $0.owner != owner }) else { throw BenchmarkSyncError.ownerMismatch }
         next.lineages.removeAll { $0.comparisonID == comparisonID }
+        next.publications = publications.map { link in
+            var link = link
+            if link.owner == owner && link.comparisonID == comparisonID { link.revoked = true }
+            return link
+        }
         var deleted = next.deletedComparisons ?? [:]; deleted[owner] = Array(Set((deleted[owner] ?? []) + [comparisonID])); next.deletedComparisons = deleted
         try save(next)
     }

@@ -76,6 +76,39 @@ import XCTest
         XCTAssertTrue(restored.futureComparisons(events: recorder.events, owner: "b").isEmpty)
     }
 
+    func testDeleteRevokesOwnerComparisonLinksAcrossRelaunchAndLegacyLinksDecode() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); defer { try? FileManager.default.removeItem(at: root) }
+        let store = try BenchmarkSyncStore(directory: root)
+        for (id, owner, comparison) in [("a", "owner", "comparison"), ("b", "other", "comparison"), ("c", "owner", "other-comparison")] {
+            try store.savePublication(.init(id: id, owner: owner, url: URL(string: "https://example.invalid/s/" + id)!, projectionHash: "hash", comparisonID: comparison))
+        }
+        try store.remove(comparisonID: "comparison", owner: "owner")
+        let restored = try BenchmarkSyncStore(directory: root)
+        XCTAssertEqual(restored.publications.filter(\.revoked).map(\.id), ["a"])
+        let legacy = Data(#"{"id":"old","owner":"owner","url":"https://example.invalid/s/old","projectionHash":"hash","revoked":false}"#.utf8)
+        XCTAssertNil(try JSONDecoder().decode(BenchmarkSavedPublication.self, from: legacy).comparisonID)
+    }
+    func testDamagedJournalIsNeverReplacedOrRepairedSilently() throws {
+        for defect in ["json", "schema", "duplicate", "chunkHash"] {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); defer { try? FileManager.default.removeItem(at: root) }
+            let (_, events) = try sample(root)
+            let store = try BenchmarkSyncStore(directory: root)
+            _ = try store.prepare(events: events, comparisonID: "comparison", owner: "a", context: "unknown")
+            var journal = try JSONSerialization.jsonObject(with: Data(contentsOf: store.url)) as! [String: Any]
+            var lineages = journal["lineages"] as! [[String: Any]]
+            if defect == "schema" { journal["schemaVersion"] = 999 }
+            if defect == "duplicate" { journal["lineages"] = lineages + lineages }
+            if defect == "chunkHash" {
+                var chunks = lineages[0]["chunks"] as! [[String: Any]]; chunks[0]["hash"] = "wrong"
+                lineages[0]["chunks"] = chunks; journal["lineages"] = lineages
+            }
+            let damaged = defect == "json" ? Data("{broken".utf8) : try JSONSerialization.data(withJSONObject: journal)
+            try damaged.write(to: store.url)
+            XCTAssertThrowsError(try BenchmarkSyncStore(directory: root), defect)
+            XCTAssertThrowsError(try store.pause(false), defect)
+            XCTAssertEqual(try Data(contentsOf: store.url), damaged, defect)
+        }
+    }
     func testCompetingJournalAndDeletedComparisonNeverResurrect() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

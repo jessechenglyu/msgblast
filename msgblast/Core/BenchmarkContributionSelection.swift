@@ -24,3 +24,16 @@ public enum BenchmarkContributionSelection {
         return latest.revision + 1
     }
 }
+
+/// Explicit approval belongs to one verified owner and one finalized prefix.
+public struct BenchmarkContributionApproval: Equatable, Sendable {
+    public let comparisonID: String
+    public let owner: String
+    public let sessionID: String
+    public let snapshotID: String
+    public init?(lineage: BenchmarkSyncLineage?, owner: String?) {
+        guard let lineage, let owner, lineage.owner == owner,
+              let session = lineage.sessionID, let snapshot = lineage.snapshotID else { return nil }
+        comparisonID = lineage.comparisonID; self.owner = owner; sessionID = session; snapshotID = snapshot
+    }
+}

@@ -107,3 +107,15 @@ current macOS temporary directory; only loopback HTTP is accepted. Its AppStore
 is isolated beneath that directory. `benchmark_seed.swift` creates accurately
 labeled synthetic native journal events for preview interaction, not live connector
 evidence. Production and Dev never load this fixture transport or credential store.
+
+### Review fixes and account recovery
+
+Contribution approval is bound to the verified owner, comparison, cloud session, and finalized snapshot. A newer private continuation clears that approval; contribution submission checks the same binding again after loading history. The accepted comparison count comes from the verified owner's service response, and remains unavailable until loaded. Switching accounts clears cloud records, links, history, and that count.
+
+Temporary token endpoint or verification outages retain the current verified account for retry. A rotated credential is held in memory only until its identity is verified and Keychain persistence succeeds; it cannot authorize cloud requests before those checks. If it expires during an outage, recovery uses its rotated refresh credential. A permanent authentication failure or changed identity stops the session. Restart before an unpersisted rotation is recovered can require signing in again.
+
+A deleted account can restore a restricted session only when the authenticated deletion response confirms the saved owner. It permits only read-only deletion-status polling, including blocked identity cleanup. Refresh still requires the identity provider: expired credentials cannot bypass authentication if that provider is unavailable or the identity has already been removed.
+
+Publication association is private request metadata outside the approved public projection. Sharing sends the selected local comparison ID and, if available, its verified owner's cloud session ID; it does not create or upload a raw session. Deleting that comparison's cloud record revokes associated links whether publication happened before or after the explicit upload. Saved associated links are marked revoked locally. Older saved links without association metadata remain separately revocable; their original journal format still decodes.
+
+Focused controller regression checks can be run with `scripts/test_benchmark_controller.sh /absolute/path/to/isolated-derived-data`. They use actual native controllers and synthetic OAuth, HTTP, and credential-store boundaries; they hold requests across debounce and account changes and verify local-delete cancellation/preservation. The separate loopback Worker workflow verifies both publication/deletion orderings and fixture-ineligible accepted count.
