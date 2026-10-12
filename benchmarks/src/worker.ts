@@ -67,7 +67,7 @@ async function route(
     )
       .bind(owner)
       .first();
-    return json({ deletion });
+    return json({ accountID: owner, deletion });
   }
   if (parts.length === 3 && parts[2] === "account") {
     if (method === "GET")
@@ -172,8 +172,8 @@ async function route(
           'UPDATE sessions SET deleted_at=?,status="deleting" WHERE id=?',
         ).bind(stamp, sid),
         env.DB.prepare(
-          "UPDATE publications SET revoked_at=? WHERE session=? AND revoked_at IS NULL",
-        ).bind(stamp, sid),
+          "UPDATE publications SET revoked_at=? WHERE owner=? AND (session=? OR local_id=?) AND revoked_at IS NULL",
+        ).bind(stamp, owner, sid, s.local_id),
         env.DB.prepare(
           "UPDATE contribution_revisions SET withdrawn_at=? WHERE session=? AND withdrawn_at IS NULL",
         ).bind(stamp, sid),

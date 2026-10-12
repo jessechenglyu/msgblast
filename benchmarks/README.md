@@ -46,7 +46,13 @@ Its source is Stream A `docs/performance/sample-upload-v1.json` and
 
 Private sync, publication and contribution are three independent actions. A
 publication uploads only the hash-confirmed redacted projection and can have no
-private session at all. Local originals are never fetched by the reader. Tokens
+private session at all. Optional `localID` is owner-private association metadata
+outside the projection; an optional `sessionID` must belong to that owner and
+match the comparison. Legacy session-linked publications derive that association.
+Deleting the comparison's cloud record revokes and cleans its associated pages,
+including pages published before private upload, and prevents republishing that
+tombstoned comparison. An older standalone page without either association
+cannot be inferred retroactively and must be revoked separately. Local originals are never fetched by the reader. Tokens
 are random 192-bit capabilities, stored as hashes, and returned only at creation.
 Recipients may copy or forward a page; revocation cannot erase those copies.
 

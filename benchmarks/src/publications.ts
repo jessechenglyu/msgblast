@@ -244,14 +244,30 @@ function artifactBytes(a: Artifact) {
 }
 export async function publish(request: Request, env: Env, owner: string) {
   const b = object((await body(request)).value);
-  keys(b, ["consent", "projection", "previewHash", "sessionID"]);
+  keys(b, ["consent", "projection", "previewHash", "sessionID", "localID"]);
   requireValue(b.consent === true, "publication_consent_required");
   const p = validateProjection(b.projection),
     raw = canonical(p),
     digest = await hash(raw);
   requireValue(b.previewHash === digest, "preview_hash_mismatch");
-  if (b.sessionID !== undefined)
-    await ownedSession(env, owner, id(b.sessionID));
+  const session =
+    b.sessionID === undefined
+      ? undefined
+      : await ownedSession(env, owner, id(b.sessionID));
+  const localID = b.localID === undefined ? session?.local_id : id(b.localID);
+  requireValue(
+    !session || localID === session.local_id,
+    "publication_association_mismatch",
+    409,
+  );
+  if (localID !== undefined) {
+    const tombstone = await env.DB.prepare(
+      "SELECT id FROM sessions WHERE owner=? AND local_id=? AND deleted_at IS NOT NULL",
+    )
+      .bind(owner, localID)
+      .first();
+    requireValue(!tombstone, "session_deleted", 410);
+  }
   const count = await env.DB.prepare(
     "SELECT count(*) AS n FROM publications WHERE owner=?",
   )
@@ -269,9 +285,10 @@ export async function publish(request: Request, env: Env, owner: string) {
     key,
     raw,
     b.sessionID === undefined ? null : id(b.sessionID),
+    localID ?? null,
   );
   await env.DB.prepare(
-    "INSERT INTO publications(id,owner,token_hash,object_key,projection_hash,bytes,session,created_at) VALUES(?,?,?,?,?,?,?,?)",
+    "INSERT INTO publications(id,owner,token_hash,object_key,projection_hash,bytes,session,local_id,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
   )
     .bind(
       pid,
@@ -281,6 +298,7 @@ export async function publish(request: Request, env: Env, owner: string) {
       digest,
       new TextEncoder().encode(raw).length,
       b.sessionID ?? null,
+      localID ?? null,
       now(),
     )
     .run();
@@ -311,7 +329,7 @@ export async function publicRead(
   requireValue(/^[0-9a-f]{48}$/.test(token), "not_found", 404);
   // Direct D1 queries always use the primary (no replica session). Every artifact goes through this gate.
   const p = await env.DB.prepare(
-    "SELECT p.* FROM publications p JOIN accounts a ON a.id=p.owner LEFT JOIN sessions s ON s.id=p.session WHERE p.token_hash=? AND p.revoked_at IS NULL AND a.deleted_at IS NULL AND (p.session IS NULL OR s.deleted_at IS NULL)",
+    "SELECT p.* FROM publications p JOIN accounts a ON a.id=p.owner LEFT JOIN sessions s ON s.id=p.session WHERE p.token_hash=? AND p.revoked_at IS NULL AND a.deleted_at IS NULL AND (p.session IS NULL OR s.deleted_at IS NULL) AND NOT EXISTS(SELECT 1 FROM sessions tombstone WHERE tombstone.owner=p.owner AND tombstone.local_id=p.local_id AND tombstone.deleted_at IS NOT NULL)",
   )
     .bind(await hash(token))
     .first<{ object_key: string }>();

@@ -28,11 +28,13 @@ async function cleanPendingObjects(
   env: Env,
   owner: string | null,
   session: string | null,
+  comparisonOwner: string | null = null,
+  localID: string | null = null,
 ) {
   const rows = await env.DB.prepare(
-    "SELECT object_key FROM object_intents WHERE (? IS NOT NULL AND owner=?) OR (? IS NOT NULL AND session=?)",
+    "SELECT object_key FROM object_intents WHERE (? IS NOT NULL AND owner=?) OR (? IS NOT NULL AND session=?) OR (? IS NOT NULL AND owner=? AND local_id=?)",
   )
-    .bind(owner, owner, session, session)
+    .bind(owner, owner, session, session, localID, comparisonOwner, localID)
     .all<{ object_key: string }>();
   for (const row of rows.results) {
     await env.CONTENT.delete(row.object_key);
@@ -137,17 +139,17 @@ export async function processJob(env: Env, jid: string) {
       .run();
   } else if (job.kind === "deleteSession") {
     const s = await env.DB.prepare(
-      "SELECT id FROM sessions WHERE id=? AND deleted_at IS NOT NULL",
+      "SELECT id,owner,local_id FROM sessions WHERE id=? AND deleted_at IS NOT NULL",
     )
       .bind(job.target)
-      .first();
+      .first<{ id: string; owner: string; local_id: string }>();
     requireValue(s, "deletion_not_tombstoned", 409);
     await deletePrefix(env, `sessions/${job.target}/`);
-    await cleanPendingObjects(env, null, job.target);
+    await cleanPendingObjects(env, null, job.target, s.owner, s.local_id);
     const pubs = await env.DB.prepare(
-      "SELECT id FROM publications WHERE session=?",
+      "SELECT id FROM publications WHERE owner=? AND (session=? OR local_id=?)",
     )
-      .bind(job.target)
+      .bind(s.owner, job.target, s.local_id)
       .all<{ id: string }>();
     for (const p of pubs.results) {
       await deletePrefix(env, `publications/${p.id}/`);

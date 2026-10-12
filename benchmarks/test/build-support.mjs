@@ -8,6 +8,7 @@ await build({
     "src/validation.ts",
     "src/sessions.ts",
     "src/objects.ts",
+    "src/publications.ts",
   ],
   outdir: "dist/support",
   outExtension: { ".js": ".mjs" },

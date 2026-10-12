@@ -17,7 +17,7 @@ Event and chunk hash chains are separate; sequence positions begin at 1.
 | --- | --- |
 | GET `/api/v1/account` | Verified private account identity and consent separation |
 | DELETE `/api/v1/account` | Atomically tombstone sessions/links/contributions; 202 tracked cleanup; tracked provider deletion when configured |
-| GET `/api/v1/account/deletion` | Owner-only deletion stage; allowed after account tombstone |
+| GET `/api/v1/account/deletion` | `{accountID,deletion}`; verified owner identity and deletion stage, allowed after account tombstone |
 | POST `/api/v1/sessions` | `{localID,purpose:"sync" or "contribution",consent:true,fixture,context:"fresh"/"prior"/"unknown"/"omitted"}`; cloud UUID |
 | GET `/api/v1/sessions` or `/sessions/:id` | Owner-only metadata; no public lookup |
 | POST `/sessions/:id/chunks` | Native `PerformanceUploadChunk` bytes; immutable hash/sequence/server-receipt timestamp |
@@ -30,7 +30,7 @@ Event and chunk hash chains are separate; sequence positions begin at 1.
 | DELETE `/sessions/:id/contribution` | Withdraw all prior contribution revisions and aggregate influence |
 | GET `/api/v1/contributions` | Owner-only latest unique contribution history, validation state, accepted distinct count |
 | GET `/api/v1/statistics` | Authenticated aggregate, selection/verification/missingness/denominators; no raw conversations or account IDs |
-| POST `/api/v1/publications` | `{consent:true,projection,previewHash,sessionID?}`; no private sync required |
+| POST `/api/v1/publications` | `{consent:true,projection,previewHash,sessionID?,localID?}`; no private sync required |
 | GET `/api/v1/publications` | Owner metadata; capability plaintext is not retained |
 | DELETE `/publications/:id` | Immediate revoke; private original unchanged; asynchronous artifact cleanup |
 | GET `/s/:token` | Anonymous direct-link reader; no-store/noindex/no-referrer |
@@ -101,6 +101,18 @@ uncaptured agent was asked; its membership is shown as undeclared. Native sharin
 must preserve unknown/unaligned turn position rather than guessing an initial or
 shared request from matching text/time.
 
+
+`localID` is optional owner-private comparison association metadata, outside the
+public projection and its hash. Publication never registers a session or uploads
+private events. If `sessionID` is supplied, it must be active and owned by the
+verified account; `localID` must match its comparison or is derived when omitted.
+Deleting an owner's cloud comparison revokes and cleans every associated page,
+including publication-before-upload, without affecting another owner's identical
+`localID`. The tombstone denies later associated publication, including at the
+D1 insertion boundary. Readers recheck the comparison tombstone on every request.
+Migration backfills existing session-linked publications; older standalone links
+without comparison metadata cannot be inferred and require explicit revocation.
+
 ## Immutable cloud revisions
 
 A session is one owner/comparison lineage. Its `current_revision` begins at 1;
@@ -163,3 +175,11 @@ accepted credit when capacity is exhausted. Reconciliation resumes the blocked
 job after capacity becomes available. Session/account cleanup removes snapshot
 heads, revision requests and derived validation content; the minimal lineage
 and account tombstones still prevent resurrection.
+
+Pending publication object leases carry the same private owner/comparison association.
+Session cleanup removes them even if no private session existed when publication began.
+A put completing after the comparison tombstone erases its bytes; if that erasure fails,
+it records a deleting lease and reopens the corresponding tracked cleanup generation.
+Migration 0003 backfills committed session-linked publications and preserves legacy
+session-bound pending leases without changing their retry identity. Standalone legacy
+publications have no recoverable comparison association and are not guessed.
