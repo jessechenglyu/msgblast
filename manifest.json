@@ -1,0 +1,14 @@
+{
+  "source_revision": "de052a541194ee3bd4801dbc43b69993da75274b",
+  "fixture": "com.msgblast.release070.evidence.de052a5",
+  "fixture_inputs": "Fictional contacts; synthetic UUID Business conversation; simulated permissions; simulated send. No real messages or Contacts writes.",
+  "video": "Continuous native window recording, trimmed to first38seconds and resized; no audio; original timing retained. Shows connector, checklist, discovery and deselection. Workspace and saved-comparison result are separate screenshots.",
+  "screenshots": {
+    "04-contribution.png": "92d3ae7c5e0f7500a2fd42922da50d3c45934356c3361d1ac34ef48c80e3b968",
+    "03-discovery.png": "6870f4e0aa36f52434c932db3a9a6efbcaa31c11b7f07414b16dfbf0c18ac777",
+    "01-connectors.png": "2ba04f6e2c772c885a44ac75546655d941c8a0e2ba7fec645020897dd30b4d57",
+    "02-checklist.png": "f67cf1f7fd79f743c9e839e577267c632ba3f8d80531523dadfcdc651b887c0a",
+    "06-saved-conversation.png": "c15f59ca292c698c00c329498e78693231533ab5dcf49269c1d2f3e587ce8858",
+    "05-workspace.png": "947e59816b7fcbd676421950fc383c0d26c090392f3b7ec5b948034bdb57e9d1"
+  }
+}
