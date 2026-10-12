@@ -1,0 +1,110 @@
+{
+  "sourceSHA": "b224679f9dd224b8642a8bbab5541229eca4b760",
+  "baseSHA": "1d8d4763fbc388cd3c6244057d3c97b00ddf1dd5",
+  "bundleIdentifier": "com.msgblast.demo",
+  "appName": "msgblast Demo",
+  "fixture": true,
+  "updatesDisabled": true,
+  "feedURL": "",
+  "supportDirectory": "msgblast-PerfEvidence-b224679",
+  "evidenceConfiguration": "Packaged blue Demo; post-package dedicated synthetic support-folder override; ad-hoc re-sign; executable code unchanged.",
+  "executableSHA256": "5adbe2624e495910ba1d69594a7d254c8f6432bbfbbdcc54c41b4b2fd59fe842",
+  "limits": [
+    "Synthetic inputs, accounts, and replies; measured simulated response delays",
+    "No live provider/CLI, Messages, Contacts, account sign-in, sync, publication, or contribution actions",
+    "Window-only recordings; no audio; video resized without time edits",
+    "XCTest UI automation timed out before execution; actual computer-use evidence is separate"
+  ],
+  "checks": {
+    "nativeCoreTests": 345,
+    "nativeCoreFailures": 0,
+    "focusedPerformanceTests": 11,
+    "actualControllerFixtures": "passed",
+    "configuredCLIExecutableFixture": "passed",
+    "relaunchRetention": "passed",
+    "requestGroupCounts": [
+      3,
+      1,
+      3
+    ],
+    "repeatedSharedTurnPositions": [
+      1,
+      2,
+      1
+    ]
+  },
+  "media": {
+    "comparison-timing.png": {
+      "sha256": "e898775b138b28a6734b74f6c1edee114640784c2468ad0c9ed761eb0cb670ca",
+      "bytes": 463417
+    },
+    "stats-tabs-and-favorites.mp4": {
+      "sha256": "549ff059d3f190c5d6ee3a16d2f6725e2b1d6c48f65cd69870515dafebefcbcc",
+      "bytes": 982457,
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1400,
+            "height": 1362
+          }
+        ],
+        "format": {
+          "duration": "30.041992"
+        }
+      }
+    },
+    "comparison-follow-up.png": {
+      "sha256": "f883084bd9e37907179662241c2f10b4b85adffe5925a41739393e0b9f0a8034",
+      "bytes": 682133
+    },
+    "favorite-relaunch.png": {
+      "sha256": "6ded57211c93236bc04f0a4e5b5457b7c98c4c49bd6479c34653c050320a36cd",
+      "bytes": 332744
+    },
+    "favorite-local.png": {
+      "sha256": "52ff430092d4ac2aa696ecb2bab113b5303cf2281cea315af0d465583a3bcd2d",
+      "bytes": 362527
+    },
+    "my-stats-recorded.png": {
+      "sha256": "6e9fe14812e9e4b12cebe64d8941dcceb7df79317786f58befa286134ef9baed",
+      "bytes": 379823
+    },
+    "my-stats-relaunch.png": {
+      "sha256": "bc7c62fded8f742404460945fec532a3d6175b4453bb3decb26043d9e2256122",
+      "bytes": 357935
+    },
+    "my-stats-disabled-retained.png": {
+      "sha256": "12f2375adfcf7812b54bb39a32260a5fc622bbb1a55cf68d581cff8e896d123d",
+      "bytes": 358094
+    },
+    "my-stats-off.png": {
+      "sha256": "d006a971047a511810a84bbf750694536a601968708b456d0f5128c586ec9764",
+      "bytes": 321439
+    },
+    "benchmarks-local-only.png": {
+      "sha256": "e2ada39ae80b257f4105b5fcb355049d71b48fbe5db75e343f857b18b78a532a",
+      "bytes": 248714
+    },
+    "comparison-feedback.mp4": {
+      "sha256": "7a871b912131eb32769ff5efcbbae2fc4cb64c49cb348fba0090a4fc48f43db6",
+      "bytes": 919114,
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1600,
+            "height": 1124
+          }
+        ],
+        "format": {
+          "duration": "45.025000"
+        }
+      }
+    }
+  }
+}
