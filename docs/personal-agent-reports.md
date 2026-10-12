@@ -134,9 +134,8 @@ The harness invokes the real core adapter with a deterministic local executable 
 
 ## Capture and share a chat
 
-The camera button opens the native macOS window picker. Select the active chat
-window to capture it, or cancel to return without taking an image. The picker
-is restricted to that chat so the image and full-chat link refer to the same conversation.
+The camera button automatically captures the current chat window, with the
+native macOS window-capture appearance. It does not open a window picker.
 The capture keeps the native window chrome, rounded frame and shadow, and the
 request title with a msgblast label. It hides the conversation sidebar while
 capturing. Your sidebar is restored afterward.

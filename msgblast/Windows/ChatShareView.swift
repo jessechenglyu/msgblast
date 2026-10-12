@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import ScreenCaptureKit
+import ScreenCaptureKit
 import UniformTypeIdentifiers
 import msgblastCore
 
@@ -14,14 +14,9 @@ import msgblastCore
 
 /// WindowServer captures the complete composited window, including SwiftUI and
 /// out-of-process website surfaces. Enumerate only content available to this
-/// process without screen-recording consent. The native picker confirms which
-/// chat window to capture before any pixels are read.
+/// process without screen-recording consent, then bind the exact app window.
 @MainActor enum ChatWindowCapture {
-    private static var isCapturing = false
     static func capture(_ window: NSWindow, title: String, layout: ChatCaptureLayout?) async throws -> NSImage {
-        guard !isCapturing else { throw CaptureError.inProgress }
-        isCapturing = true
-        defer { isCapturing = false }
         let sidebar = layout?.sidebarVisibility
         let originalFrame = window.frame
         let originalTitle = window.title
@@ -43,13 +38,6 @@ import msgblastCore
         guard let target = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
             throw CaptureError.unavailable
         }
-        let selection = ChatWindowSelection()
-        let selected = try await selection.select(windowID: target.windowID, content: content)
-        if #available(macOS 15.2, *), selected.includedWindows.map(\.windowID) != [target.windowID] {
-            throw CaptureError.unavailable
-        }
-        // Keep the pixel capture scoped to this chat even on older systems
-        // that do not expose the picker filter's selected window IDs.
         let filter = SCContentFilter(desktopIndependentWindow: target)
         let captured: CGImage
         if #available(macOS 26.0, *) {
@@ -74,58 +62,8 @@ import msgblastCore
                                                      height: CGFloat(captured.height) / window.backingScaleFactor))
     }
     enum CaptureError: LocalizedError {
-        case unavailable, inProgress
-        var errorDescription: String? {
-            switch self {
-            case .unavailable: "The chat window could not be captured. Select the active chat window and try again."
-            case .inProgress: "Finish or cancel the current window capture before starting another."
-            }
-        }
-    }
-}
-
-/// Own the one-shot system picker until selection/cancellation completes. Only
-/// the invoking chat is offered, so a screenshot cannot acquire unrelated data
-/// or be paired with a different chat's URL publication.
-@MainActor private final class ChatWindowSelection: NSObject, SCContentSharingPickerObserver {
-    private var continuation: CheckedContinuation<SCContentFilter, Error>?
-    func select(windowID: CGWindowID, content: SCShareableContent) async throws -> SCContentFilter {
-        let picker = SCContentSharingPicker.shared
-        let originalConfiguration = picker.defaultConfiguration
-        let originallyActive = picker.isActive
-        var configuration = SCContentSharingPickerConfiguration()
-        configuration.allowedPickerModes = [.singleWindow]
-        configuration.allowsChangingSelectedContent = false
-        configuration.excludedWindowIDs = content.windows.filter { $0.windowID != windowID }.map { Int($0.windowID) }
-        configuration.excludedBundleIDs = NSWorkspace.shared.runningApplications.compactMap {
-            $0.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : $0.bundleIdentifier
-        }
-        picker.defaultConfiguration = configuration
-        picker.add(self)
-        picker.isActive = true
-        defer {
-            picker.remove(self)
-            picker.defaultConfiguration = originalConfiguration
-            picker.isActive = originallyActive
-        }
-        return try await withCheckedThrowingContinuation { continuation in
-            self.continuation = continuation
-            picker.present(using: .window)
-        }
-    }
-    private func finish(_ result: sending Result<SCContentFilter, Error>) {
-        let pending = continuation
-        continuation = nil
-        pending?.resume(with: result)
-    }
-    nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
-        Task { @MainActor in self.finish(.failure(CancellationError())) }
-    }
-    nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
-        Task { @MainActor in self.finish(.success(filter)) }
-    }
-    nonisolated func contentSharingPickerStartDidFailWithError(_ error: Error) {
-        Task { @MainActor in self.finish(.failure(error)) }
+        case unavailable
+        var errorDescription: String? { "The chat window could not be captured. Try again when it is visible." }
     }
 }
 
@@ -155,12 +93,11 @@ struct ChatShareButton: View {
                     image = try await ChatWindowCapture.capture(window, title: title, layout: captureLayout)
                     showingPreview = true
                 }
-                catch is CancellationError {}
                 catch { self.error = error.localizedDescription }
             }
         } label: { Label("Capture chat", systemImage: "camera").labelStyle(.iconOnly) }
         .accessibilityLabel("Capture chat")
-        .help("Select this chat window, then preview and share its image")
+        .help("Preview and share an image of this chat window")
         .disabled(capturing)
         .background(ChatWindowAnchor(view: anchor).frame(width: 0, height: 0))
         .sheet(isPresented: $showingPreview, onDismiss: { image = nil }) {
