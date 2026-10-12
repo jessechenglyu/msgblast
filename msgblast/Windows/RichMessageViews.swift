@@ -143,6 +143,7 @@ struct BusinessChoicesPreview: View {
             }
         }.padding(12).frame(minWidth: 180, maxWidth: 360, alignment: .leading)
             .background(MessageAppearance.incomingBubbleColor, in: RoundedRectangle(cornerRadius: 15))
+            .accessibilityElement(children: .contain)
             .accessibilityLabel("Read-only business choices")
     }
 }
