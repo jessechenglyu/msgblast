@@ -255,7 +255,10 @@ final class WebServiceWorkflowTests: XCTestCase {
         XCTAssertTrue(signOut.waitForExistence(timeout: 10))
         signOut.click()
         XCTAssertTrue(app.buttons["Sign in to fixture"].waitForExistence(timeout: 10))
-        app.buttons["New Blast"].click()
+        XCTAssertFalse(app.buttons["New Blast"].exists, "No comparison has been saved yet")
+        let agents = app.outlines.cells.containing(NSPredicate(format: "label == %@", "Agents")).firstMatch
+        XCTAssertTrue(agents.waitForExistence(timeout: 5))
+        agents.click()
         let editor = app.textViews["Shared prompt"]
         editor.click(); editor.typeKey("a", modifierFlags: .command); editor.typeText("Keep this comparison request")
         let send = app.buttons["Send & compare"]
