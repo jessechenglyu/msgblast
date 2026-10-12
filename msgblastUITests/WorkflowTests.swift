@@ -114,7 +114,11 @@ final class WorkflowTests: XCTestCase {
         after.lifetime = .keepAlways; add(after)
         // Keep the report open while continuing the source conversation.
         let input = workspace.textViews["Universal message"]
+        workspace.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: 20)).click()
+        XCTAssertFalse(app.buttons["Refresh agents"].exists, "Report options must be dismissed before returning to the conversation")
         input.click(); input.typeText("Compare the tradeoffs too")
+        XCTAssertEqual(input.value as? String, "Compare the tradeoffs too")
         workspace.buttons["Send to Cedar, Lumen, Orbit"].click()
         let stale = report.staticTexts["Conversation changed · update the report to include the latest replies."]
         XCTAssertTrue(stale.waitForExistence(timeout: 5))

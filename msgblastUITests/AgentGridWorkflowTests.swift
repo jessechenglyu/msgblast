@@ -4,7 +4,7 @@ final class AgentGridWorkflowTests: XCTestCase {
     @MainActor
     func testEditGridHidesAddsReordersAndKeepsDraft() {
         let app = XCUIApplication()
-        app.launchArguments = ["--demo", "--isolated-demo"]
+        app.launchArguments = ["--demo", "--isolated-demo", "--ui-gesture-diagnostics"]
         app.launch()
         app.activate()
         defer { app.terminate() }

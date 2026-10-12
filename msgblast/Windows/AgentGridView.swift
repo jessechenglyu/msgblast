@@ -24,6 +24,14 @@ struct AgentGridView: View {
     private var catalog: [AgentGridEntry] { model.agentGridCatalog }
     private var motion: Animation? { reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.8) }
 
+    private func traceDrag(_ event: String) {
+        guard model.demo, ProcessInfo.processInfo.arguments.contains("--ui-gesture-diagnostics") else { return }
+        NSLog("MSGBLAST_UI_GRID_DRAG %@ dragging=%@ hovered=%@ preview=%@ busy=%@ frames=%d",
+              event, dragging?.id ?? "nil", hovered?.id ?? "nil",
+              previewLayout?.visibleIDs.map(\.id).joined(separator: ",") ?? "nil",
+              String(busy), tileFrames.count)
+    }
+
     var body: some View {
         let entries = catalog
         let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
@@ -95,6 +103,7 @@ struct AgentGridView: View {
             query = ""; dragging = nil; previewLayout = nil; hovered = nil; arrived = nil; setup = nil
         }
         .onChange(of: dragActive) { _, active in
+            traceDrag("dragActive=\(active)")
             if !active { withAnimation(motion) { previewLayout = nil }; dragging = nil; hovered = nil }
         }
     }
@@ -166,14 +175,21 @@ struct AgentGridView: View {
                     }
                 }
                 .highPriorityGesture(DragGesture(minimumDistance: 6, coordinateSpace: .named("agent-grid"))
-                    .updating($dragActive) { _, active, _ in active = true }
+                    .updating($dragActive) { _, active, _ in
+                        traceDrag("updating \(entry.id.id)")
+                        active = true
+                    }
                     .onChanged { value in
+                        traceDrag("onChanged \(entry.id.id) location=\(value.location)")
                         guard !busy else { return }
                         if dragging == nil { dragging = entry.id; previewLayout = model.agentGridLayout }
                         guard dragging == entry.id else { return }
                         guard let target = tileFrames.first(where: {
                             $0.key != entry.id && $0.value.contains(value.location)
-                        })?.key else { hovered = nil; return }
+                        })?.key else {
+                            traceDrag("no target location=\(value.location) frames=\(tileFrames)")
+                            hovered = nil; return
+                        }
                         guard hovered != target else { return }
                         hovered = target
                         var layout = previewLayout ?? model.agentGridLayout
@@ -181,6 +197,7 @@ struct AgentGridView: View {
                         withAnimation(motion) { previewLayout = layout }
                     }
                     .onEnded { _ in
+                        traceDrag("onEnded \(entry.id.id)")
                         if let previewLayout { _ = model.setAgentGrid(previewLayout) }
                         previewLayout = nil; dragging = nil; hovered = nil
                     })
