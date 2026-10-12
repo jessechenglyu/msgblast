@@ -11,7 +11,7 @@ final class WebServiceWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    private func reveal(_ element: XCUIElement, in scroll: XCUIElement, horizontal: Bool = false) -> Bool {
+    private func reveal(_ element: XCUIElement, in scroll: XCUIElement, window: XCUIElement, horizontal: Bool = false) -> Bool {
         guard scroll.waitForExistence(timeout: 5), element.waitForExistence(timeout: 5) else {
             XCTFail("The intended control and its scrolling container must exist")
             return false
@@ -27,10 +27,23 @@ final class WebServiceWorkflowTests: XCTestCase {
                 let bars = scroll.children(matching: .scrollBar)
                 guard bars.count == 1 else { XCTFail("Expected the outer horizontal scrollbar"); return false }
                 let bar = bars.element
-                bar.hover()
+                let barFrame = bar.frame
+                let windowFrame = window.frame
                 let toRight = frame.midX > viewport.midX
-                let source = bar.coordinate(withNormalizedOffset: CGVector(dx: toRight ? 0.25 : 0.75, dy: 0.5))
-                let destination = bar.coordinate(withNormalizedOffset: CGVector(dx: toRight ? 0.95 : 0.05, dy: 0.5))
+                let sourcePoint = CGPoint(x: barFrame.minX + barFrame.width * (toRight ? 0.25 : 0.75), y: barFrame.midY)
+                let destinationPoint = CGPoint(x: barFrame.minX + barFrame.width * (toRight ? 0.95 : 0.05), y: barFrame.midY)
+                guard barFrame.width.isFinite, barFrame.height.isFinite, barFrame.width > 0, barFrame.height > 0,
+                      viewport.contains(sourcePoint), viewport.contains(destinationPoint),
+                      windowFrame.contains(sourcePoint), windowFrame.contains(destinationPoint) else {
+                    XCTFail("The outer scrollbar drag must stay inside the visible viewport and window")
+                    return false
+                }
+                let origin = window.coordinate(withNormalizedOffset: .zero)
+                let source = origin.withOffset(CGVector(dx: sourcePoint.x - windowFrame.minX, dy: sourcePoint.y - windowFrame.minY))
+                let destination = origin.withOffset(CGVector(dx: destinationPoint.x - windowFrame.minX, dy: destinationPoint.y - windowFrame.minY))
+                // Element hover tries AX autoscrolling for this scrollbar.
+                // Target its visible thumb by bounded mouse coordinate instead.
+                source.hover()
                 source.click(forDuration: 0.1, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.1)
                 let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in abs(element.frame.minX - frame.minX) > 1 }, object: element)
                 guard XCTWaiter.wait(for: [moved], timeout: 5) == .completed else { XCTFail("The outer scrollbar must move the chat column"); return false }
@@ -48,7 +61,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         guard button.waitForExistence(timeout: 5) else { XCTFail("Missing fixture recipient \(name)"); return false }
         let expected = selected ? "Selected" : "Not selected"
         if button.value as? String == expected { return true }
-        guard reveal(button, in: app.scrollViews["Agent grid scroll area"]) else { return false }
+        guard reveal(button, in: app.scrollViews["Agent grid scroll area"], window: app.windows.firstMatch) else { return false }
         button.click()
         let reached = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: button)
         guard XCTWaiter.wait(for: [reached], timeout: 5) == .completed else {
@@ -86,14 +99,14 @@ final class WebServiceWorkflowTests: XCTestCase {
         for name in ["Muse", "ChatGPT", "Claude", "Grok"] {
             let reload = app.buttons["Reload \(name)"]
             XCTAssertTrue(reload.waitForExistence(timeout: 5))
-            guard reveal(reload, in: columns, horizontal: true) else { return }
+            guard reveal(reload, in: columns, window: app.windows.firstMatch, horizontal: true) else { return }
             reload.click()
             XCTAssertTrue(reload.isHittable, "The \(name) column must remain reachable")
         }
         for name in ["Cedar", "Lumen", "Orbit"] {
             let editor = app.textViews["Private reply to \(name)"]
             XCTAssertTrue(editor.exists)
-            guard reveal(editor, in: columns, horizontal: true) else { return }
+            guard reveal(editor, in: columns, window: app.windows.firstMatch, horizontal: true) else { return }
             editor.click()
             XCTAssertTrue(editor.isHittable, "The \(name) column must remain reachable")
             editor.typeText("Reachable \(name) fixture draft")
