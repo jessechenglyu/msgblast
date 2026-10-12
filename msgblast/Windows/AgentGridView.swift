@@ -20,6 +20,7 @@ struct AgentGridView: View {
     @State private var setup: AgentGridID?
     @State private var arrived: AgentGridID?
     @State private var configuration: AgentConfigurationAction?
+    @State private var dragEventMonitor: Any?
 
     private var catalog: [AgentGridEntry] { model.agentGridCatalog }
     private var motion: Animation? { reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.8) }
@@ -30,6 +31,17 @@ struct AgentGridView: View {
               event, dragging?.id ?? "nil", hovered?.id ?? "nil",
               previewLayout?.visibleIDs.map(\.id).joined(separator: ",") ?? "nil",
               String(busy), tileFrames.count)
+        let line = "\(Date()) \(event) dragging=\(dragging?.id ?? "nil") hovered=\(hovered?.id ?? "nil") preview=\(String(describing: previewLayout?.visibleIDs)) busy=\(busy) frames=\(tileFrames.count)\n"
+        let path = "/tmp/msgblast-ui-grid-drag-\(ProcessInfo.processInfo.processIdentifier).log"
+        if !FileManager.default.fileExists(atPath: path) {
+            guard FileManager.default.createFile(atPath: path, contents: nil, attributes: [.posixPermissions: 0o600]) else { return }
+        }
+        do {
+            let file = try FileHandle(forWritingTo: URL(fileURLWithPath: path))
+            defer { try? file.close() }
+            _ = try file.seekToEnd()
+            try file.write(contentsOf: Data(line.utf8))
+        } catch { NSLog("MSGBLAST_UI_GRID_DRAG_FILE_ERROR %@", String(describing: error)) }
     }
 
     var body: some View {
@@ -101,6 +113,25 @@ struct AgentGridView: View {
         }
         .onChange(of: editing) { _, _ in
             query = ""; dragging = nil; previewLayout = nil; hovered = nil; arrived = nil; setup = nil
+        }
+        .onAppear {
+            guard model.demo, ProcessInfo.processInfo.arguments.contains("--ui-gesture-diagnostics") else { return }
+            traceDrag("view appeared; diagnostics installed")
+            guard dragEventMonitor == nil else { return }
+            dragEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { event in
+                let type = event.type.rawValue
+                let location = event.locationInWindow
+                let windowNumber = event.windowNumber
+                MainActor.assumeIsolated {
+                    let window = NSApp.window(withWindowNumber: windowNumber)
+                    traceDrag("mouse type=\(type) AppKitWindowLocation=\(location) active=\(NSApp.isActive) keyWindow=\(window?.isKeyWindow == true)")
+                }
+                return event
+            }
+        }
+        .onDisappear {
+            if let dragEventMonitor { NSEvent.removeMonitor(dragEventMonitor) }
+            dragEventMonitor = nil
         }
         .onChange(of: dragActive) { _, active in
             traceDrag("dragActive=\(active)")

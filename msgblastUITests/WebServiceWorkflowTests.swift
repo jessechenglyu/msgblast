@@ -22,7 +22,20 @@ final class WebServiceWorkflowTests: XCTestCase {
             if frame.width > 0, frame.height > 0, viewport.contains(frame), element.isHittable { return true }
             guard step < 12 else { break }
             if horizontal {
-                scroll.scroll(byDeltaX: frame.midX < viewport.midX ? 500 : -500, deltaY: 0)
+                // A wheel event over the container can land inside a WKWebView.
+                // Move the real outer scrollbar instead of an embedded scroller.
+                let bars = scroll.scrollBars.allElementsBoundByIndex.filter {
+                    $0.frame.width > viewport.width / 2 && $0.frame.width > $0.frame.height
+                }
+                guard bars.count == 1 else { XCTFail("Expected the outer horizontal scrollbar"); return false }
+                let bar = bars[0]
+                bar.hover()
+                let toRight = frame.midX > viewport.midX
+                let source = bar.coordinate(withNormalizedOffset: CGVector(dx: toRight ? 0.25 : 0.75, dy: 0.5))
+                let destination = bar.coordinate(withNormalizedOffset: CGVector(dx: toRight ? 0.95 : 0.05, dy: 0.5))
+                source.press(forDuration: 0.1, thenDragTo: destination, withVelocity: .slow, thenHoldForDuration: 0.1)
+                let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in abs(element.frame.minX - frame.minX) > 1 }, object: element)
+                guard XCTWaiter.wait(for: [moved], timeout: 5) == .completed else { XCTFail("The outer scrollbar must move the chat column"); return false }
             } else {
                 scroll.scroll(byDeltaX: 0, deltaY: frame.midY < viewport.midY ? 500 : -500)
             }

@@ -114,8 +114,10 @@ final class WorkflowTests: XCTestCase {
         after.lifetime = .keepAlways; add(after)
         // Keep the report open while continuing the source conversation.
         let input = workspace.textViews["Universal message"]
-        workspace.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
-            .withOffset(CGVector(dx: 0, dy: 20)).click()
+        let exposedTitlebarWidth = report.frame.minX - workspace.frame.minX
+        guard exposedTitlebarWidth > 90 else { return XCTFail("The source window must have an exposed titlebar activation point") }
+        workspace.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: min(100, exposedTitlebarWidth - 10), dy: 20)).click()
         XCTAssertFalse(app.buttons["Refresh agents"].exists, "Report options must be dismissed before returning to the conversation")
         input.click(); input.typeText("Compare the tradeoffs too")
         XCTAssertEqual(input.value as? String, "Compare the tradeoffs too")

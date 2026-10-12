@@ -108,7 +108,13 @@ xcodebuild -project msgblast.xcodeproj -scheme msgblast \
 
 Select affected cases in `WorkflowTests` or `WebServiceWorkflowTests`. A compiled
 UI target, a locked desktop, or an automation-permission failure is not a passing
-interaction test. Do not bypass permissions or reset system grants for evidence.
+UI result. Do not bypass permissions or reset system grants for evidence.
+
+The generated scheme is configured to retain automatic UI recordings even when a case
+passes. Export the recordings and screenshots from the retained result bundle
+with `xcrun xcresulttool export attachments --path PATH.xcresult --output-path OUTPUT`.
+Use those actual Demo recordings for reviewed workflow evidence, and label their
+synthetic replies. The complete bundle remains the authoritative assertion record.
 
 GitHub manual validation with `run_ui=true` runs UI tests on a fresh `xcode-27`
 worker in its own job, retaining the desktop log, test log, `.xcresult`, and
