@@ -271,6 +271,99 @@ final class CoreTests: XCTestCase {
         XCTAssertNotNil(unicode.linkPreview)
         XCTAssertEqual(unicode.linkPreview?.remainingText, "")
     }
+    func testChosenDestinationPersistsAndDoesNotRerouteAcrossContactNumbers() throws {
+        let first = Chat(id: "first", handle: "+100001", lastActivity: 1)
+        let second = Chat(id: "second", handle: "+100002", lastActivity: 99)
+        var agent = Agent(name: "Poke", handles: [first.handle, second.handle])
+        XCTAssertEqual(ChatResolver.resolve(agent: agent, chats: [first, second])?.id, second.id, "Two numbers automatically use one most recent existing conversation")
+        agent.destination = MessagesDestination(chat: first)
+        let restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(agent))
+        XCTAssertEqual(ChatResolver.resolve(agent: restored, chats: [second, first])?.id, first.id)
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [second]))
+        var changed = first; changed.handle = second.handle
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [changed, second]))
+        var business = first; business.businessConversation = true
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [business]))
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [first, first]), "Duplicate identities are ambiguous")
+        XCTAssertEqual(ChatResolver.normalize("opaque-100001"), "opaque-100001")
+    }
+    func testExistingSavedPokeIsPinnedOnceAndNeverFallsBackAfterRefresh() throws {
+        let handle = "urn:biz:00000000-0000-0000-0000-000000000123"
+        let chat = Chat(id: "any;-;" + handle, handle: handle, lastActivity: 1, displayName: "Poke", businessConversation: true)
+        var state = AppState()
+        let poke = Agent(contactID: "fixture-poke", name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
+        let regular = Agent(name: "Fo", handles: ["fo@example.com"])
+        state.agents = [poke, regular]
+        XCTAssertTrue(state.pinBusinessDestinations(chats: [chat]))
+        let destination = try XCTUnwrap(state.agents[0].destination)
+        XCTAssertEqual(destination.chatID, chat.id)
+        XCTAssertNil(state.agents[1].destination, "Regular legacy routing is unchanged")
+        state = try JSONDecoder().decode(AppState.self, from: JSONEncoder().encode(state))
+        var newer = chat; newer.id = "iMessage;-;" + handle; newer.lastActivity = 999
+        XCTAssertFalse(state.pinBusinessDestinations(chats: [newer]))
+        XCTAssertEqual(state.agents[0].destination, destination)
+        let phone = Chat(id: "phone", handle: poke.handles[0], lastActivity: 1000)
+        XCTAssertNil(ChatResolver.resolve(agent: state.agents[0], chats: [phone, newer]))
+    }
+    func testVerifiedBusinessURNIsOneExactSendableDestination() throws {
+        let handle = "urn:biz:00000000-0000-0000-0000-000000000123"
+        let chat = Chat(id: "iMessage;-;" + handle, handle: handle, lastActivity: 1,
+                        displayName: "Poke", businessConversation: true)
+        XCTAssertTrue(chat.eligible)
+        let agent = Agent(name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
+        XCTAssertEqual(ChatResolver.resolve(agent: agent, chats: [chat])?.id, chat.id)
+        XCTAssertEqual(ChatResolver.status(agent: agent, chats: [chat]), "Connected · Business conversation")
+        var restored = agent; restored.destination = MessagesDestination(chat: chat)
+        restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(restored))
+        XCTAssertEqual(ChatResolver.resolve(agent: restored, chats: [chat])?.id, chat.id)
+        var group = chat; group.participantCount = 2
+        XCTAssertFalse(group.eligible)
+        var sms = chat; sms.service = "SMS"
+        XCTAssertFalse(sms.eligible)
+        var unverified = chat; unverified.businessConversation = nil
+        XCTAssertFalse(unverified.eligible)
+        var wrongGUID = chat; wrongGUID.id = "any;+;some-other-thread"
+        XCTAssertFalse(wrongGUID.eligible)
+        var invalidURN = chat; invalidURN.handle = "urn:biz:not-a-uuid"
+        XCTAssertFalse(invalidURN.eligible)
+    }
+    func testPokeBusinessConversationMatchesAutomaticallyAndPersistsWithoutPhoneGuessing() throws {
+        var poke = Agent(name: "Poke 🌴", handles: ["+15550000001", "+15550000002"])
+        let business = Chat(id: "business-poke", handle: "opaque-brand-destination", lastActivity: 10,
+                            displayName: "Poke", businessConversation: true)
+        let ordinary = Chat(id: "ordinary", handle: poke.handles[0], lastActivity: 100)
+        let selected = try XCTUnwrap(ChatResolver.conversation(agent: poke, chats: [ordinary, business]))
+        XCTAssertEqual(selected.id, business.id)
+        poke.destination = MessagesDestination(chat: selected)
+        let restored = try JSONDecoder().decode(Agent.self, from: JSONEncoder().encode(poke))
+        XCTAssertEqual(ChatResolver.conversation(agent: restored, chats: [business, ordinary])?.id, business.id)
+        XCTAssertNil(ChatResolver.conversation(agent: restored, chats: [ordinary]), "Never fall back to phone numbers when the saved Business thread disappears")
+        XCTAssertNil(ChatResolver.resolve(agent: restored, chats: [business, ordinary]), "Matching does not prove Business sending is supported")
+    }
+    func testAutomaticBusinessMatchRejectsUnidentifiedAndAmbiguousBrands() {
+        let poke = Agent(name: "Poke", handles: ["+15550000001"])
+        let wrongBrand = Chat(id: "wrong", handle: "opaque-one", lastActivity: 10, displayName: "Pokemon", businessConversation: true)
+        let unverified = Chat(id: "unknown", handle: "opaque-two", lastActivity: 20, displayName: "Poke")
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [wrongBrand, unverified]))
+        let first = Chat(id: "one", handle: "business-one", lastActivity: 10, displayName: "Poke", businessConversation: true)
+        let second = Chat(id: "two", handle: "business-two", lastActivity: 20, displayName: "Poke", businessConversation: true)
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [first, second]))
+        let ordinary = Chat(id: "old-phone", handle: poke.handles[0], lastActivity: 100)
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [first, second, ordinary]), "Ambiguity must not fall back to either phone number")
+        XCTAssertNil(ChatResolver.resolve(agent: poke, chats: [first, second, ordinary]))
+        XCTAssertEqual(ChatResolver.status(agent: poke, chats: [first, second, ordinary]), "Multiple Business conversations found · sending unavailable")
+        XCTAssertEqual(ChatResolver.resolve(agent: poke, chats: [ordinary])?.id, ordinary.id, "Ordinary Poke chats still work when no Business identity exists")
+        XCTAssertNil(ChatResolver.conversation(agent: Agent(name: "Alex Poke", handles: poke.handles), chats: [first]))
+        var missingHandle = first; missingHandle.handle = ""
+        var anotherMissing = second; anotherMissing.handle = ""
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [missingHandle, anotherMissing]))
+    }
+    func testLegacyAgentStillDecodesWithoutDestination() throws {
+        let bytes = Data(#"{"id":"00000000-0000-0000-0000-000000000001","name":"Old","handles":["old@example.com"],"colorIndex":0}"#.utf8)
+        let agent = try JSONDecoder().decode(Agent.self, from: bytes)
+        XCTAssertNil(agent.destination)
+        XCTAssertEqual(ChatResolver.resolve(agent: agent, chats: [Chat(id: "old", handle: "old@example.com", lastActivity: 1)])?.id, "old")
+    }
     func testResolverExcludesGroupsAndChoosesNewestExistingIMessage() throws {
         let chats = [Chat(id: "old", handle: "palcowen@gmail.com", lastActivity: 1), Chat(id: "new", handle: "PALCOWEN@gmail.com", lastActivity: 9), Chat(id: "group", handle: "palcowen@gmail.com", lastActivity: 99, participantCount: 2), Chat(id: "sms", handle: "palcowen@gmail.com", lastActivity: 100, service: "SMS")]
         XCTAssertEqual(ChatResolver.resolve(handles: ["palcowen@gmail.com"], chats: chats)?.id, "new")

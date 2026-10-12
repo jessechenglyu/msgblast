@@ -36,14 +36,16 @@ public struct AgentGridLayout: Codable, Equatable, Sendable {
     }
 
     public init(onboarding: OnboardingState, messageGridIDs: [UUID: AgentGridID]) {
-        let connected = onboarding.completed.intersection(onboarding.selected)
-        self.init(visibleIDs: OnboardingChoice.allCases.compactMap { choice in
-            guard connected.contains(choice) else { return nil }
+        let selected = onboarding.selected
+        let choices: [AgentGridID] = OnboardingChoice.allCases.compactMap { choice in
+            guard selected.contains(choice) else { return nil }
             if let provider = choice.provider { return .web(provider) }
             if let runtime = choice.runtime { return .runtime(runtime) }
             guard let id = onboarding.messageAgentIDs[choice.rawValue] else { return nil }
             return messageGridIDs[id] ?? .messages(id)
-        })
+        }
+        let excluded = Set(onboarding.excludedDiscoveredMessageAgentIDs ?? [])
+        self.init(visibleIDs: choices + (onboarding.discoveredMessageAgentIDs ?? []).filter { !excluded.contains($0) }.map { messageGridIDs[$0] ?? .messages($0) })
     }
 
     public func shown(in catalog: [AgentGridID]) -> [AgentGridID] {

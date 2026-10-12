@@ -3,11 +3,60 @@ public enum ChatResolver {
     public static func normalize(_ value: String) -> String {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if value.contains("@") { return value }
+        guard value.allSatisfy({ $0.isNumber || "+()- .".contains($0) }) else { return value }
         return value.filter { $0.isNumber || $0 == "+" }
+    }
+    // A chosen conversation never falls back to a contact number or a newer thread.
+    public static func conversation(agent: Agent, chats: [Chat]) -> Chat? {
+        if let destination = agent.destination {
+            let matches = chats.filter { destination.matches($0) }
+            return matches.count == 1 ? matches[0] : nil
+        }
+        switch businessMatch(agent: agent, chats: chats) {
+        case .matched(let chat): return chat
+        case .ambiguous: return nil
+        case .absent: return resolve(handles: agent.handles, chats: chats)
+        }
+    }
+    public static func automaticBusinessConversation(agent: Agent, chats: [Chat]) -> Chat? {
+        if case .matched(let chat) = businessMatch(agent: agent, chats: chats) { return chat }
+        return nil
+    }
+    private enum BusinessMatch { case absent, ambiguous, matched(Chat) }
+    private static func businessMatch(agent: Agent, chats: [Chat]) -> BusinessMatch {
+        func brand(_ name: String) -> String {
+            name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+                .components(separatedBy: .alphanumerics.inverted).filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        guard ["poke", "poke ai", "poke agent"].contains(brand(agent.name)) else { return .absent }
+        let matches = chats.filter {
+            $0.businessConversation == true && brand($0.displayName ?? "") == "poke"
+        }
+        // Match only positively identified Business metadata and an exact brand.
+        // Different Business identities are ambiguous; never guess from phone numbers.
+        guard !matches.isEmpty else { return .absent }
+        guard matches.count == 1 || (matches.allSatisfy { !$0.handle.isEmpty } && Set(matches.map(\.handle)).count == 1) else { return .ambiguous }
+        return .matched(matches.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }!)
+    }
+    public static func resolve(agent: Agent, chats: [Chat]) -> Chat? {
+        guard let chat = conversation(agent: agent, chats: chats), chat.eligible else { return nil }
+        return chat
+    }
+    public static func status(agent: Agent, chats: [Chat]) -> String {
+        if agent.destination == nil, case .ambiguous = businessMatch(agent: agent, chats: chats) {
+            return "Multiple Business conversations found · sending unavailable"
+        }
+        if let chat = conversation(agent: agent, chats: chats) {
+            if chat.businessConversation == true { return chat.eligible ? "Connected · Business conversation" : "Business conversation found · sending unavailable" }
+            return chat.eligible ? "Connected" : "Conversation found · sending unavailable"
+        }
+        return agent.destination == nil ? "No supported conversation found" : "Saved conversation unavailable · choose again"
     }
     public static func resolve(handles: [String], chats: [Chat]) -> Chat? {
         let normalized = Set(handles.map(normalize))
-        return chats.filter { $0.eligible && normalized.contains(normalize($0.handle)) }.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }
+        let matches = chats.filter { $0.eligible && normalized.contains(normalize($0.handle)) }
+        // Contact addresses are alternatives; choose one existing conversation, never broadcast.
+        return matches.min { $0.lastActivity == $1.lastActivity ? $0.id < $1.id : $0.lastActivity > $1.lastActivity }
     }
 }
 public enum ComparisonRange {

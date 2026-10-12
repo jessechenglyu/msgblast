@@ -109,6 +109,12 @@ struct PermissionCheck {
         precondition(probe.snapshot.asks == [false, true])
         print("PASS: Check access opens Messages and checks without consent; a separate Enable action may request it")
 
+        probe.change { $0.running = false; $0.automation = .notRequested; $0.asks = [] }
+        await permissions.refresh(model: model)
+        await permissions.enableSending(model: model, requestAfterOpening: true)
+        precondition(probe.snapshot.asks == [true])
+        print("PASS: onboarding opens Messages and requests Automation in one explicit action")
+
         model.contacts.status = .restricted
         probe.change { $0.automation = .unavailable }
         await permissions.refresh(model: model)
@@ -134,6 +140,6 @@ struct PermissionCheck {
         precondition(probe.snapshot.historyReads == beforeDemo.historyReads && probe.snapshot.asks == beforeDemo.asks && probe.snapshot.messagesOpened == beforeDemo.messagesOpened)
         precondition(permissions.history == .notConnected && permissions.sending == .allowed)
         print("PASS: demo permissions bypass native permission checks and requests")
-        print("8 permission-boundary regressions passed; all OS responses were simulated")
+        print("9 permission-boundary regressions passed; all OS responses were simulated")
     }
 }

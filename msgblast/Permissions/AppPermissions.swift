@@ -85,7 +85,7 @@ final class AppPermissions: ObservableObject {
         if !model.contactStatus.isEmpty { message = model.contactStatus }
     }
 
-    func enableSending(model: AppModel) async {
+    func enableSending(model: AppModel, requestAfterOpening: Bool = false) async {
         guard !checkingSending else { return }
         message = nil
         guard sending == .notRequested || sending == .needsMessages else {
@@ -112,7 +112,7 @@ final class AppPermissions: ObservableObject {
         }
         // Native checks and requests run off the main thread and do not send
         // an Apple event. Only an explicit Enable action may request consent.
-        sending = await Task.detached { client.automationStatus(!checkingOnly) }.value
+        sending = await Task.detached { client.automationStatus(!checkingOnly || requestAfterOpening) }.value
         if sending == .unavailable { message = "Couldn’t check sending access. Open Messages and try again." }
     }
 

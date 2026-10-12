@@ -23,9 +23,14 @@ final class OnboardingController: ObservableObject {
         let previousGrid = model.state.agentGrid
         change(&next)
         if next.isFinished {
-            restoreRecipients(from: next)
-            if !previous.isFinished, model.state.agentGrid == nil {
-                model.state.agentGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
+            if !previous.isFinished {
+                let setupGrid = AgentGridLayout(onboarding: next, messageGridIDs: model.messageGridIDs)
+                if var grid = model.state.agentGrid {
+                    for id in setupGrid.visibleIDs.reversed() { grid.add(id) }
+                    model.state.agentGrid = grid
+                } else {
+                    model.state.agentGrid = setupGrid
+                }
             }
         }
         model.state.onboarding = next
@@ -37,18 +42,44 @@ final class OnboardingController: ObservableObject {
         }
     }
 
+    func completePrerequisites(discoverMessages: Bool = false) {
+        error = nil
+        edit {
+            $0.prerequisitesCompleted = true
+            if discoverMessages, $0.messagesDiscoveryReviewed == nil { $0.messagesDiscoveryReviewed = false }
+        }
+    }
+
+    func restartForAccess() {
+        guard !model.busy, !model.webBroadcastBusy else { return }
+        error = nil
+        let previous = model.state.onboarding
+        model.state.onboarding?.prerequisitesCompleted = false
+        do {
+            try model.saveForTermination()
+        } catch {
+            model.state.onboarding = previous
+            self.error = "Could not save setup progress: \(error.localizedDescription)"
+            return
+        }
+        model.onboardingRestartRequested = true
+        NSApp.terminate(nil)
+    }
+
     func begin() {
         error = nil
         browserImportNotice = nil
         invalidateCheck()
-        restoreRecipients(from: state)
         edit { $0.begin() }
     }
 
     func back() {
         invalidateCheck()
         model.accessGuide.cancel()
-        edit { $0.chooseAgain() }
+        edit {
+            if $0.connector == .messages { $0.reviewMessages(prerequisitesReady: $0.prerequisitesCompleted == true) }
+            else { $0.chooseAgain() }
+        }
     }
 
     func skip() {
@@ -65,7 +96,25 @@ final class OnboardingController: ObservableObject {
     }
 
     func resume() {
-        edit { $0.resume(); $0.completed = [] }
+        invalidateCheck()
+        edit { $0.resume() }
+    }
+
+    var unresolvedMessageAgents: [Agent] { state.unresolvedMessageAgents(in: model.state.agents, chats: model.chats) }
+    var setupReminderNames: [String] {
+        let other = state.skipped.intersection(state.selected).filter { choice in
+            if choice.isMessages { return candidate(for: choice) == nil }
+            if let provider = choice.provider { return !isReady(session(for: provider)) }
+            return true
+        }.map { $0 == .otherMessages ? "Messages contact" : $0.name }
+        return Array(Set(unresolvedMessageAgents.map(\.name) + other)).sorted()
+    }
+
+    func reviewMessagesAgents() {
+        invalidateCheck()
+        model.refresh()
+        let ready = model.databaseAvailable && model.contactsAvailable
+        edit { $0.reviewMessages(prerequisitesReady: ready) }
     }
 
     func chooseBrowser(_ source: BrowserLoginSource) {
@@ -167,7 +216,9 @@ final class OnboardingController: ObservableObject {
         defer { if checkGeneration == generation { checking = false } }
         model.refresh()
         var hasUsableAgent = false
+        var checkedChoices: Set<OnboardingChoice> = []
         for choice in OnboardingChoice.allCases where state.completed.intersection(state.selected).contains(choice) {
+            checkedChoices.insert(choice)
             if let provider = choice.provider {
                 let session = session(for: provider)
                 guard session.isEnabled else { continue }
@@ -189,7 +240,7 @@ final class OnboardingController: ObservableObject {
         }
         guard checkGeneration == generation, state.stage == .feedback else { return }
         guard hasUsableAgent else {
-            edit { $0.recheckConnections(); $0.chooseAgain() }
+            edit { $0.completed.subtract(checkedChoices); $0.chooseAgain() }
             error = "Connect at least one agent before starting a chat."
             return
         }
@@ -242,13 +293,46 @@ final class OnboardingController: ObservableObject {
     func complete(_ session: WebAgentSession) {
         guard state.stage == .connecting, !checking, state.currentStep == .agent(session.provider), isReady(session),
               let choice = state.pendingChoices.first(where: { $0.provider == session.provider }) else { return }
-        session.updateState { $0.selected = true }
         edit { $0.complete(choice) }
     }
 
     func candidate(for choice: OnboardingChoice) -> Agent? {
         guard let id = state.messageAgentIDs[choice.rawValue] else { return nil }
         return model.state.agents.first { $0.id == id }
+    }
+
+    func connectDiscoveredMessage(_ agent: Agent, choice: OnboardingChoice) async {
+        guard state.messagesDiscoveryReviewed == false, !model.busy else { return }
+        if let saved = model.savedAgent(matching: agent), (state.excludedDiscoveredMessageAgentIDs ?? []).contains(saved.id) { return }
+        await model.addAgent(agent)
+        model.matchConversationAutomatically(for: agent)
+        guard !Task.isCancelled, state.messagesDiscoveryReviewed == false,
+              model.contactStatus.isEmpty, let saved = model.savedAgent(matching: agent) else { return }
+        let ready = model.route(saved) != nil
+        edit {
+            $0.selected.insert(choice)
+            // Keep a usable representative when several contacts share Other Messages.
+            if ready || !$0.completed.contains(choice) { $0.messageAgentIDs[choice.rawValue] = saved.id }
+            if !($0.discoveredMessageAgentIDs ?? []).contains(saved.id) {
+                $0.discoveredMessageAgentIDs = ($0.discoveredMessageAgentIDs ?? []) + [saved.id]
+            }
+            if ready {
+                $0.completed.insert(choice)
+                $0.skipped.remove(choice)
+            }
+        }
+    }
+
+    func toggleDiscoveredMessage(_ agent: Agent) async {
+        guard let saved = model.savedAgent(matching: agent), !model.busy else { return }
+        if (state.excludedDiscoveredMessageAgentIDs ?? []).contains(saved.id) {
+            edit { $0.excludedDiscoveredMessageAgentIDs?.removeAll { $0 == saved.id } }
+            let choice = OnboardingChoice.allCases.first { !$0.contactSuggestions(in: [saved]).isEmpty } ?? .otherMessages
+            await connectDiscoveredMessage(saved, choice: choice)
+        } else {
+            let available = Set(model.state.agents.filter { model.route($0) != nil }.map(\.id))
+            edit { $0.excludeDiscoveredMessageAgent(saved.id, agents: model.state.agents, availableIDs: available) }
+        }
     }
 
     func connectMessages(_ contacts: [OnboardingChoice: Agent], selected: Set<OnboardingChoice>) async {
@@ -316,12 +400,4 @@ final class OnboardingController: ObservableObject {
         cancelBrowserProfileSelection()
     }
 
-    private func restoreRecipients(from state: OnboardingState) {
-        let connected = state.completed.intersection(state.selected)
-        for session in model.webAgents.sessions {
-            let selected = session.id.instance == nil && connected.contains { $0.provider == session.provider }
-            if session.state.selected != selected { session.updateState { $0.selected = selected } }
-        }
-        model.state.selection = Set(connected.compactMap { state.messageAgentIDs[$0.rawValue] })
-    }
 }

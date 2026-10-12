@@ -2,10 +2,20 @@ import XCTest
 
 final class WebServiceWorkflowTests: XCTestCase {
     @MainActor
+    private func selectWebFixtureRecipients(_ app: XCUIApplication) {
+        for name in ["Muse", "ChatGPT", "Claude", "Grok"] {
+            let button = app.buttons[name]
+            XCTAssertTrue(button.waitForExistence(timeout: 5))
+            if button.value as? String != "Selected" { button.click() }
+            XCTAssertEqual(button.value as? String, "Selected")
+        }
+    }
+    @MainActor
     func testSevenChatsResizeWindowAndRemainReachable() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         app.activate()
         defer { app.terminate() }
         XCTAssertTrue(app.buttons["Maple"].waitForExistence(timeout: 5))
@@ -36,6 +46,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         defer { app.terminate() }
         let excluded = ["Cedar", "Lumen", "Orbit", "Maple", "Echo", "Flint", "Claude", "Grok"]
         for name in excluded {
@@ -85,6 +96,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         defer { app.terminate() }
         XCTAssertTrue(app.buttons["Muse"].waitForExistence(timeout: 5))
         app.typeKey(",", modifierFlags: .command)
@@ -143,6 +155,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         defer { app.terminate() }
         for name in ["Muse", "ChatGPT", "Claude", "Grok"] {
             XCTAssertTrue(app.buttons[name].waitForExistence(timeout: 5))
@@ -165,8 +178,11 @@ final class WebServiceWorkflowTests: XCTestCase {
         capture(app, name: "Optional CLI toggles in Settings — simulated accounts")
         settings.buttons[XCUIIdentifierCloseWindow].click()
         for name in ["Cedar", "Lumen", "Orbit", "Maple", "Echo", "Flint", "Muse", "Grok"] { app.buttons[name].click() }
-        XCTAssertEqual(app.buttons["Codex CLI"].value as? String, "Selected")
-        XCTAssertEqual(app.buttons["Claude Code"].value as? String, "Selected")
+        for name in ["Codex CLI", "Claude Code"] {
+            XCTAssertEqual(app.buttons[name].value as? String, "Not selected", "Enabling an account is separate from choosing a recipient")
+            app.buttons[name].click()
+            XCTAssertEqual(app.buttons[name].value as? String, "Selected")
+        }
         let editor = app.textViews["Shared prompt"]
         editor.click(); editor.typeKey("a", modifierFlags: .command); editor.typeText("Web and CLI comparison fixture")
         app.buttons["Send & compare"].click()
@@ -208,6 +224,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         app.activate()
         defer { app.terminate() }
         XCTAssertTrue(app.buttons["Cedar"].waitForExistence(timeout: 5))
@@ -228,6 +245,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         app.activate()
         defer { app.terminate() }
         for name in ["Cedar", "Lumen", "Orbit", "Maple", "Echo", "Flint", "ChatGPT", "Claude", "Grok"] { app.buttons[name].click() }
@@ -237,7 +255,10 @@ final class WebServiceWorkflowTests: XCTestCase {
         XCTAssertTrue(signOut.waitForExistence(timeout: 10))
         signOut.click()
         XCTAssertTrue(app.buttons["Sign in to fixture"].waitForExistence(timeout: 10))
-        app.buttons["New Blast"].click()
+        XCTAssertFalse(app.buttons["New Blast"].exists, "No comparison has been saved yet")
+        let agents = app.outlines.cells.containing(NSPredicate(format: "label == %@", "Agents")).firstMatch
+        XCTAssertTrue(agents.waitForExistence(timeout: 5))
+        agents.click()
         let editor = app.textViews["Shared prompt"]
         editor.click(); editor.typeKey("a", modifierFlags: .command); editor.typeText("Keep this comparison request")
         let send = app.buttons["Send & compare"]
@@ -263,6 +284,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         defer { app.terminate() }
         for name in ["Lumen", "Orbit", "Maple", "Echo", "Flint"] { app.buttons[name].click() }
         app.checkBoxes["Simulate one failure"].click()
@@ -285,6 +307,7 @@ final class WebServiceWorkflowTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]
         app.launch()
+        selectWebFixtureRecipients(app)
         defer { app.terminate() }
         XCTAssertTrue(app.buttons["Muse"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["Muse"].value as? String, "Selected")

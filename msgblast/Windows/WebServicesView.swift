@@ -51,6 +51,7 @@ struct AgentsWorkspaceView: View {
                 AgentGridView(model: model, web: web, editing: $editingAgents, busy: busy,
                     toggleMessages: toggle, openChat: { session in
                         if web.comparisonID == nil { model.deselectHiddenGridRecipients(); model.persist() }
+                        if !session.state.selected { web.toggle(session) }
                         session.connect(); showingComparison = true
                     })
             }
@@ -70,7 +71,7 @@ struct AgentsWorkspaceView: View {
                         .disabled(busy)
                 }
             }
-            ToolbarItem(placement: .navigation) {
+            if !model.state.comparisons.isEmpty { ToolbarItem(placement: .navigation) {
                 Button {
                     showingConnectionIntro = false
                     showingComparison = false
@@ -83,7 +84,7 @@ struct AgentsWorkspaceView: View {
                         .padding(.vertical, 2)
                 }
                 .accessibilityLabel("New Blast").disabled(busy)
-            }
+            } }
         }
     }
 

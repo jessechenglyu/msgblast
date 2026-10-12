@@ -28,6 +28,7 @@ final class AppModel: ObservableObject {
         false
         #endif
     }
+    var onboardingRestartRequested = false
     var needsOnboarding: Bool { state.onboarding.map { !$0.isFinished } ?? false }
     var usesMessages: Bool {
         (state.onboarding?.stage == .connecting && state.onboarding?.currentStep == .messages) || !state.agents.isEmpty ||
@@ -68,9 +69,8 @@ final class AppModel: ObservableObject {
         do {
             state = try local.load()
             if !existingStore && (!demo || onboardingPreview) { state.onboarding = OnboardingState() }
-            // Saved intent survives a restart; readiness is checked against the
-            // actual accounts and permissions again before opening any chats.
-            state.onboarding?.recheckConnections()
+            // Preserve completed setup across permission restarts. The final
+            // connection check verifies readiness before opening chats.
             try local.save(state)
         } catch { storageLoadFailed = true; self.error = "Local state could not be loaded or saved: \(error.localizedDescription). Sending is unavailable until storage works." }
         if demo { setupDemo() }
@@ -80,15 +80,11 @@ final class AppModel: ObservableObject {
         if state.onboarding?.stage == .choosing, state.onboarding?.completed.isEmpty == true {
             state.selection = []
             webAgents.sessions.forEach { $0.updateState { $0.selected = false } }
-        } else if state.onboarding == nil && state.agentGrid == nil {
-            let ids = messageGridIDs
-            let shown = Set(agentGridLayout.visibleIDs)
-            state.selection = Set(state.agents.filter { shown.contains(ids[$0.id] ?? .messages($0.id)) }.map(\.id))
         }
         persist()
         accessGuide.checkHistory = { [weak self] in
             guard let self, !self.busy else { return false }
-            self.refresh()
+            self.refresh(forMessagesSetup: true)
             return self.databaseAvailable
         }
         refresh()
@@ -145,6 +141,11 @@ final class AppModel: ObservableObject {
         if onboardingPreview {
             state.draft = ""
             for name in ["Fo", "Instinct", "Szn", "Poke"] {
+                if name == "Poke", ProcessInfo.processInfo.arguments.contains("--business-messages-preview") {
+                    chats.append(Chat(id: "any;-;urn:biz:00000000-0000-0000-0000-000000000123", handle: "urn:biz:00000000-0000-0000-0000-000000000123", lastActivity: 0,
+                                      displayName: "Poke", businessConversation: true))
+                    continue
+                }
                 let handle = name.lowercased() + "@example.com"
                 if !chats.contains(where: { $0.handle == handle }) {
                     chats.append(Chat(id: "demo-onboarding-" + name.lowercased(), handle: handle, lastActivity: 0))
@@ -180,10 +181,10 @@ final class AppModel: ObservableObject {
         } catch { database = nil; lastDataVersion = nil }
         refresh()
     }
-    func refresh() {
+    func refresh(forMessagesSetup: Bool = false) {
         guard !busy else { return }
         refreshContactAccess()
-        guard !needsOnboarding || usesMessages else { return }
+        guard forMessagesSetup || !needsOnboarding || usesMessages else { return }
         defer { accessGuide.observeHistory(available: databaseAvailable) }
         if permissionGuidePreview {
             databaseAvailable = false
@@ -192,7 +193,9 @@ final class AppModel: ObservableObject {
         }
         if demo {
             databaseAvailable = true; databaseStatus = "Simulated Messages · no real sends"
-            if state.retainAvailableSelection(chats: chats) { persist() }
+            let destinationChanged = state.pinBusinessDestinations(chats: chats)
+            let selectionChanged = state.retainAvailableSelection(chats: chats)
+            if destinationChanged || selectionChanged { persist() }
             return
         }
         do {
@@ -201,7 +204,9 @@ final class AppModel: ObservableObject {
             let version = try database.changeVersion()
             let freshChats = try database.chats()
             if chats != freshChats { chats = freshChats }
-            if state.retainAvailableSelection(chats: freshChats) { try save() }
+            let destinationChanged = state.pinBusinessDestinations(chats: freshChats)
+            let selectionChanged = state.retainAvailableSelection(chats: freshChats)
+            if destinationChanged || selectionChanged { try save() }
             if !databaseAvailable { databaseAvailable = true }
             if databaseStatus != "Messages history available · read-only" { databaseStatus = "Messages history available · read-only" }
             let members = state.comparisons.flatMap(\.members)
@@ -280,14 +285,18 @@ final class AppModel: ObservableObject {
     }
 
     func onboardingContactSuggestions() async throws -> [Agent] {
-        guard databaseAvailable, contactsAvailable else { return [] }
+        refresh(forMessagesSetup: true)
+        guard databaseAvailable, contactsAvailable else {
+            throw AppFailure.blocked(databaseAvailable ? "Enable Contacts access to find your agents." : databaseStatus)
+        }
         if demo {
             return ["Fo", "Instinct", "Szn", "Poke"].map {
-                Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0 == "Poke" ? "Poke 🌴" : $0, handles: [$0.lowercased() + "@example.com"])
+                Agent(contactID: "fixture-known-" + $0.lowercased(), name: $0 == "Poke" ? "Poke 🌴" : $0, handles: $0 == "Poke" && ProcessInfo.processInfo.arguments.contains("--business-messages-preview") ? ["+15550000001", "+15550000002"] : [$0.lowercased() + "@example.com"])
             }
         }
+        let known = KnownAgentContacts(agents: try DiscoverCatalog.bundled().discoverAgents)
         let search = Task.detached(priority: .userInitiated) {
-            try ContactSearch().knownAgents(matching: KnownAgentContacts(agents: []))
+            try ContactSearch().knownAgents(matching: known)
         }
         let results = try await withTaskCancellationHandler { try await search.value } onCancel: { search.cancel() }
         guard !Task.isCancelled, databaseAvailable, contactsAvailable else { return [] }
@@ -296,7 +305,12 @@ final class AppModel: ObservableObject {
     func addAgent(_ agent: Agent) async {
         guard !busy else { return }
         contactStatus = ""
-        guard savedAgent(matching: agent) == nil else { return }
+        if let existing = savedAgent(matching: agent) {
+            if let destination = agent.destination, let chat = chats.first(where: destination.matches) {
+                chooseConversation(chat, for: existing)
+            }
+            return
+        }
         busy = true
         defer { busy = false }
         do {
@@ -305,12 +319,12 @@ final class AppModel: ObservableObject {
                 if demo { saved.contactID = "fixture-manual-\(saved.id.uuidString)" }
                 else { saved = try await contacts.saveManual(saved) }
             }
-            if let existing = state.agents.first(where: { $0.contactID == saved.contactID }) {
-                if route(existing) != nil { state.selection.insert(existing.id) }
-            } else {
+            if saved.destination == nil, let chat = conversation(saved), chat.businessConversation == true {
+                saved.destination = MessagesDestination(chat: chat)
+            }
+            if !state.agents.contains(where: { $0.contactID == saved.contactID }) {
                 state.agents.append(saved)
                 if state.agentGrid != nil { state.agentGrid?.add(gridID(for: saved)) }
-                if route(saved) != nil { state.selection.insert(saved.id) }
             }
             try save()
             if let i = contactResults.firstIndex(where: { $0.id == agent.id }) { contactResults[i] = saved }
@@ -319,7 +333,32 @@ final class AppModel: ObservableObject {
             contactStatus = error.localizedDescription
         }
     }
-    func route(_ agent: Agent) -> Chat? { ChatResolver.resolve(handles: agent.handles, chats: chats) }
+    private func destinationAgent(_ agent: Agent) -> Agent {
+        // Discovery rows may still hold a Contacts snapshot from before the choice was saved.
+        agent.destination != nil ? agent : savedAgent(matching: agent) ?? agent
+    }
+    func conversation(_ agent: Agent) -> Chat? { ChatResolver.conversation(agent: destinationAgent(agent), chats: chats) }
+    func route(_ agent: Agent) -> Chat? { ChatResolver.resolve(agent: destinationAgent(agent), chats: chats) }
+    func matchConversationAutomatically(for agent: Agent) {
+        guard let saved = savedAgent(matching: agent), saved.destination == nil,
+              let chat = ChatResolver.conversation(agent: saved, chats: chats), chat.businessConversation == true,
+              let index = state.agents.firstIndex(where: { $0.id == saved.id }) else { return }
+        let previous = state
+        state.agents[index].destination = MessagesDestination(chat: chat)
+        do { try save() } catch { state = previous; self.error = error.localizedDescription }
+    }
+    func chooseConversation(_ chat: Chat, for agent: Agent) {
+        guard let saved = savedAgent(matching: agent),
+              let index = state.agents.firstIndex(where: { $0.id == saved.id }),
+              chats.contains(chat) else { return }
+        let previous = state
+        state.agents[index].destination = MessagesDestination(chat: chat)
+        state.selection.remove(saved.id)
+        do { try save() } catch { state = previous; self.error = error.localizedDescription }
+    }
+    func messageConnectionStatus(_ agent: Agent) -> String {
+        ChatResolver.status(agent: destinationAgent(agent), chats: chats)
+    }
     func removeAgent(_ agent: Agent) { state.agents.removeAll { $0.id == agent.id }; state.selection.remove(agent.id); persist() }
     func validateMembers(prompt: String, selectedIDs: Set<UUID>? = nil) throws -> [Member] {
         guard databaseAvailable else { throw AppFailure.blocked(databaseStatus) }
@@ -334,7 +373,7 @@ final class AppModel: ObservableObject {
             }
             guard let chat = route(fresh) else { throw AppFailure.blocked("\(agent.name) no longer has a matching existing one-to-one Messages chat. Refresh setup before sending.") }
             // If activity reroutes the contact after preview, update the picker and require a new review.
-            guard ChatResolver.resolve(handles: agent.handles, chats: previewChats)?.id == chat.id else { throw AppFailure.blocked("\(agent.name)'s destination changed. Refresh and review the new destination.") }
+            guard ChatResolver.resolve(agent: agent, chats: previewChats)?.id == chat.id else { throw AppFailure.blocked("\(agent.name)'s destination changed. Refresh and review the new destination.") }
             guard !state.comparisons.contains(where: { $0.prompt == prompt && $0.members.contains(where: { $0.chat.id == chat.id && $0.anchor == nil && [.submitted, .uncertain, .sending].contains($0.submission) }) }) else {
                 throw AppFailure.blocked("An earlier submission of this text to \(agent.name) still needs reconciliation. Resolve it before sending the same prompt again.")
             }

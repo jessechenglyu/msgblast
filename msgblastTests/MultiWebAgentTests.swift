@@ -664,6 +664,7 @@ final class MultiWebAgentTests: XCTestCase {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         let required = await web.signInRequired(for: web.selected)
         XCTAssertTrue(required.isEmpty)
         XCTAssertTrue(web.selected.allSatisfy { $0.snapshot.signedIn == true })
@@ -673,6 +674,7 @@ final class MultiWebAgentTests: XCTestCase {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         _ = await web.signInRequired(for: web.selected)
         for session in web.selected {
             _ = try await session.webView.callAsyncJavaScript("chat.hidden=true;login.hidden=false", arguments: [:], in: nil, contentWorld: .page)
@@ -763,6 +765,7 @@ final class MultiWebAgentTests: XCTestCase {
         let chatgpt = try XCTUnwrap(web.sessions.first { $0.provider == .chatgpt })
         XCTAssertNotEqual(dots.state.sessionID, chatgpt.state.sessionID)
         web.toggle(dots)
+        web.toggle(chatgpt)
         web.toggle(chatgpt)
         let reopened = WebAgents(directory: directory, fixture: true)
         XCTAssertTrue(reopened.selected.contains { $0.provider.rawValue == "dots" })
@@ -1496,7 +1499,7 @@ final class MultiWebAgentTests: XCTestCase {
         """
         try Data(json.utf8).write(to: directory.appendingPathComponent("web-services.json"))
         let web = WebAgents(directory: directory, fixture: false)
-        XCTAssertEqual(web.selected.map(\.provider), WebProvider.webDefaults)
+        XCTAssertEqual(web.selected.map(\.provider), [.muse], "Only the saved legacy selection is restored; new providers stay unchecked")
         XCTAssertEqual(web.availableSessions[0].state.sessionID, id)
         XCTAssertEqual(web.availableSessions[0].state.draft, "Legacy draft")
         XCTAssertEqual(web.comparisonID, comparison)
@@ -1504,12 +1507,13 @@ final class MultiWebAgentTests: XCTestCase {
         for session in web.availableSessions where session.provider.personalAgentProvider == nil { XCTAssertEqual(session.webView.configuration.websiteDataStore.identifier, session.state.sessionID) }
         web.toggle(web.availableSessions[2])
         let reopened = WebAgents(directory: directory, fixture: false)
-        XCTAssertEqual(reopened.selected.map(\.provider), [.muse, .chatgpt, .grok])
+        XCTAssertEqual(reopened.selected.map(\.provider), [.muse, .claude])
         XCTAssertEqual(reopened.availableSessions.map { $0.state.sessionID }, web.availableSessions.map { $0.state.sessionID })
     }
 
     func testAllProvidersBroadcastAndObserveRepliesWithoutAnAttachedWindow() async throws {
         let web = WebAgents(directory: temporaryDirectory(), fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         web.connectSelected()
         try await waitFor { web.selected.allSatisfy { $0.snapshot.ready } }
         let results = await WebAgents.send("Compare a morning walk with an afternoon walk.", to: web.selected)
@@ -1530,6 +1534,7 @@ final class MultiWebAgentTests: XCTestCase {
 
     func testManualOnlyHarkStaysDisplayedWithoutBlockingSharedComparisonPreparation() async throws {
         let web = WebAgents(directory: temporaryDirectory(), fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         let hark = try XCTUnwrap(web.sessions.first { $0.provider == .hark })
         hark.updateState { $0.selected = true }
         XCTAssertTrue(web.displayed.contains { $0.provider == .hark })
@@ -1903,6 +1908,7 @@ final class MultiWebAgentTests: XCTestCase {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         web.connectSelected()
         try await waitFor { web.selected.allSatisfy { $0.snapshot.ready } }
         let claude = web.availableSessions[3]
@@ -1929,6 +1935,7 @@ final class MultiWebAgentTests: XCTestCase {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true), previousID = UUID()
+        web.restoreSelection(for: WebProvider.webDefaults)
         web.connectSelected()
         try await waitFor { web.selected.allSatisfy { $0.snapshot.ready } }
         let previous = await WebAgents.send("Previous comparison", to: web.selected, comparisonID: previousID)
@@ -1948,6 +1955,7 @@ final class MultiWebAgentTests: XCTestCase {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         web.connectSelected()
         try await waitFor { web.selected.allSatisfy { $0.snapshot.ready } }
         let claude = web.availableSessions[3]
@@ -1968,6 +1976,7 @@ final class MultiWebAgentTests: XCTestCase {
 
     func testComparisonSetupPreservesExistingPageDraft() async throws {
         let web = WebAgents(directory: temporaryDirectory(), fixture: true)
+        web.restoreSelection(for: WebProvider.webDefaults)
         web.connectSelected()
         try await waitFor { web.selected.allSatisfy { $0.snapshot.ready } }
         let chatgpt = web.availableSessions[3]
@@ -1978,14 +1987,17 @@ final class MultiWebAgentTests: XCTestCase {
         XCTAssertTrue(web.availableSessions.allSatisfy { $0.state.attempts.isEmpty })
     }
 
-    func testNewAgentsStartSelectedAndRememberDeselectionAfterRelaunch() {
+    func testNewAgentsStartUnselectedAndRememberExplicitSelectionAfterRelaunch() {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let web = WebAgents(directory: directory, fixture: true)
-        XCTAssertEqual(web.selected.map(\.provider), WebProvider.webDefaults)
+        XCTAssertTrue(web.selected.isEmpty)
+        XCTAssertTrue(web.availableSessions.allSatisfy { !$0.state.selected })
         web.toggle(web.availableSessions[3])
         let restored = WebAgents(directory: directory, fixture: true)
-        XCTAssertEqual(restored.selected.map(\.provider), [.muse, .chatgpt, .claude])
+        XCTAssertEqual(restored.selected.map(\.provider), [.grok])
+        restored.toggle(restored.availableSessions[3])
+        XCTAssertTrue(WebAgents(directory: directory, fixture: true).selected.isEmpty)
         XCTAssertEqual(restored.availableSessions.map { $0.state.sessionID }, web.availableSessions.map { $0.state.sessionID })
     }
 

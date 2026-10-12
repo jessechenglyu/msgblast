@@ -3,6 +3,7 @@ import SQLite3
 
 public final class MessagesDatabase {
     private var db: OpaquePointer?
+    private var chatColumns: Set<String> = []
     private var columns: Set<String> = []
     private var attachmentColumns: Set<String> = []
     private var hasAttachmentJoin = false
@@ -16,6 +17,7 @@ public final class MessagesDatabase {
         db = handle
         sqlite3_busy_timeout(handle, 1500)
         do {
+            chatColumns = Set(try rows("PRAGMA table_info(chat)").compactMap { $0["name"] })
             columns = Set(try rows("PRAGMA table_info(message)").compactMap { $0["name"] })
             attachmentColumns = Set(try rows("PRAGMA table_info(attachment)").compactMap { $0["name"] })
             hasAttachmentJoin = Set(try rows("PRAGMA table_info(message_attachment_join)").compactMap { $0["name"] }).isSuperset(of: ["message_id", "attachment_id"])
@@ -46,17 +48,25 @@ public final class MessagesDatabase {
         }
     }
     public func chats() throws -> [Chat] {
+        let title = chatColumns.contains("display_name") ? "c.display_name" : "NULL"
+        let service = chatColumns.contains("service_name") ? "COALESCE(NULLIF(c.service_name,''),h.service,'')" : "COALESCE(h.service,'')"
+        // Positive Business evidence only; names and phone numbers are not identities.
+        let business = columns.contains("balloon_bundle_id")
+            ? "MAX(CASE WHEN m.balloon_bundle_id='com.apple.icloud.apps.messages.business.extension' OR m.balloon_bundle_id LIKE '%:com.apple.icloud.apps.messages.business.extension' THEN 1 ELSE 0 END)"
+            : "0"
         let sql = """
-        SELECT c.guid AS guid,h.id AS handle,COUNT(DISTINCT ch.handle_id) AS participants,
-        COALESCE(MAX(m.date),0) AS activity,h.service AS service
-        FROM chat c JOIN chat_handle_join ch ON ch.chat_id=c.ROWID
-        JOIN handle h ON h.ROWID=ch.handle_id
+        SELECT c.guid AS guid,CASE WHEN COUNT(DISTINCT ch.handle_id)=1 THEN COALESCE(h.id,'') ELSE '' END AS handle,COUNT(DISTINCT ch.handle_id) AS participants,
+        COALESCE(MAX(m.date),0) AS activity,\(service) AS service,\(title) AS title,\(business) AS business
+        FROM chat c LEFT JOIN chat_handle_join ch ON ch.chat_id=c.ROWID
+        LEFT JOIN handle h ON h.ROWID=ch.handle_id
         LEFT JOIN chat_message_join cm ON cm.chat_id=c.ROWID LEFT JOIN message m ON m.ROWID=cm.message_id
-        GROUP BY c.ROWID HAVING COUNT(DISTINCT ch.handle_id)=1 AND h.service='iMessage' AND COUNT(cm.message_id)>0
+        GROUP BY c.ROWID HAVING COUNT(cm.message_id)>0 AND ((COUNT(DISTINCT ch.handle_id)=1 AND \(service)='iMessage') OR \(business)=1)
         """
         return try rows(sql).compactMap { row in
             guard let guid = row["guid"], let address = row["handle"] else { return nil }
-            return Chat(id: guid, handle: address, lastActivity: Int64(row["activity"] ?? "0") ?? 0, participantCount: Int(row["participants"] ?? "0") ?? 0, service: row["service"] ?? "")
+            return Chat(id: guid, handle: address, lastActivity: Int64(row["activity"] ?? "0") ?? 0,
+                        participantCount: Int(row["participants"] ?? "0") ?? 0, service: row["service"] ?? "",
+                        displayName: row["title"], businessConversation: row["business"] == "1" ? true : nil)
         }
     }
     public func messages(chatID: String, after: Int64 = 0) throws -> [Message] {

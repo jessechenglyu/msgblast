@@ -15,7 +15,7 @@ private enum DiscoverResources {
     }
     private static func loadCatalog() throws -> DiscoverCatalog {
         guard let directory else { throw CocoaError(.fileNoSuchFile) }
-        return try JSONDecoder().decode(DiscoverCatalog.self, from: Data(contentsOf: directory.appendingPathComponent("catalog.json")))
+        return try DiscoverCatalog.bundled()
     }
     static func image(_ filename: String?) -> NSImage? {
         guard let filename, let directory else { return nil }
@@ -137,7 +137,7 @@ struct DiscoverView: View {
             AgentAvatar(agent: agent, name: agent.name)
             VStack(alignment: .leading, spacing: 3) {
                 Text(agent.name).font(.headline)
-                Text(model.route(agent) != nil ? "Existing Messages conversation" : (agent.handles.first ?? "No existing chat"))
+                Text(model.messageConnectionStatus(agent))
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()

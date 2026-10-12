@@ -73,16 +73,6 @@ struct AgentGridView: View {
                             } else {
                                 grid(available, available: true, size: tileSize(geometry), scroll: scroll)
                             }
-                            Button(model.state.onboarding?.isFinished == true ? "Restore setup agents" : "Restore featured") {
-                                withAnimation(motion) {
-                                    _ = model.setAgentGrid(model.defaultAgentGrid)
-                                    query = ""
-                                }
-                                scrollToTop(scroll)
-                            }.buttonStyle(.plain).foregroundStyle(.secondary).disabled(busy)
-                                .help(model.state.onboarding?.isFinished == true
-                                      ? "Restore the agents connected during onboarding in their setup order"
-                                      : "Restore the featured agents and your connected agents in their default order")
                         }
                     }.padding(.horizontal, 24).padding(.top, 18).padding(.bottom, 24)
                         .id("agent-grid-top")
@@ -227,6 +217,7 @@ struct AgentGridView: View {
     }
 
     private func subtitle(_ id: AgentGridID) -> String? {
+        if let agent = model.messageAgent(for: id), model.route(agent) == nil { return model.messageConnectionStatus(agent) }
         if case .runtime = id { return "Local setup" }
         if let session = session(for: id), !session.provider.supportsSharedSubmissions { return "Manual chat" }
         if let session = session(for: id), !session.isEnabled { return "Set up" }
@@ -276,13 +267,6 @@ struct AgentGridView: View {
             return model.state.onboarding?.completed.contains { $0.runtime == runtime } != true
         }
         return false
-    }
-
-    private func scrollToTop(_ scroll: ScrollViewProxy) {
-        Task { @MainActor in
-            await Task.yield()
-            withAnimation(motion) { scroll.scrollTo("agent-grid-top", anchor: .top) }
-        }
     }
 
     private func hide(_ id: AgentGridID) {
@@ -422,8 +406,9 @@ private struct FeaturedMessagesGridSetup: View {
                     Text(agent.name)
                     Spacer()
                     if let saved = model.savedAgent(matching: agent) {
-                        Text(model.route(saved) != nil ? "Connected" : "Start a Messages conversation")
+                        Text(model.messageConnectionStatus(saved))
                             .foregroundStyle(.secondary)
+                        MessagesConversationMenu(model: model, agent: saved)
                     } else {
                         Button("Connect") { Task { await model.addAgent(agent) } }
                             .disabled(model.busy || !model.databaseAvailable || !model.contactsAvailable)
@@ -537,5 +522,20 @@ struct AgentConfigurationSheet: View {
             }
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+}
+
+// Shared by setup surfaces, including the discovered-Contacts onboarding list.
+struct MessagesConversationMenu: View {
+    @ObservedObject var model: AppModel
+    let agent: Agent
+    var body: some View {
+        Menu("Choose conversation") {
+            ForEach(model.chats) { chat in
+                Button("\(chat.displayName?.isEmpty == false ? chat.displayName! : chat.handle) · \(chat.businessConversation == true ? (chat.eligible ? "Business" : "Business · sending unavailable") : chat.service) · \(chat.id)") {
+                    model.chooseConversation(chat, for: agent)
+                }
+            }
+        }.disabled(model.busy || !model.databaseAvailable)
     }
 }

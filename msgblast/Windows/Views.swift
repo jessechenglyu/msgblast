@@ -232,12 +232,18 @@ struct MainView: View {
             } else {
             VStack(spacing: 0) {
                 if model.demo { demoControls }
-                if let setup = model.state.onboarding, !setup.skipped.isEmpty {
+                if model.state.onboarding != nil {
+                    let unresolved = model.onboarding.setupReminderNames
+                    if !unresolved.isEmpty {
                     HStack {
-                        Text("\(setup.skipped.count) \(setup.skipped.count == 1 ? "agent" : "agents") still need setup.").foregroundStyle(.secondary)
+                        Text("Finish connecting \(unresolved.joined(separator: ", ")).").foregroundStyle(.secondary)
                         Spacer()
-                        Button("Finish setup") { model.onboarding.resume() }
+                        Button("Connect agents") {
+                            if !model.onboarding.unresolvedMessageAgents.isEmpty { model.onboarding.reviewMessagesAgents() }
+                            else { model.onboarding.resume() }
+                        }
                     }.padding(18).background(.bar)
+                    }
                 }
                 if model.usesMessages { MessagesAccessBanner(model: model) }
                 AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: newBlastRequest)

@@ -38,6 +38,13 @@ public struct DiscoverCatalog: Decodable, Sendable {
 
     public var discoverAgents: [DiscoveredAgent] { agents.filter { $0.discoverCategory != nil } }
 
+    public static func bundled(in bundle: Bundle = .main) throws -> DiscoverCatalog {
+        guard let url = bundle.resourceURL?.appendingPathComponent("Discover/catalog.json") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
+    }
+
     public func filtered(query: String, category: DiscoverCategory?) -> [DiscoveredAgent] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return discoverAgents.filter { agent in

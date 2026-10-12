@@ -2,7 +2,39 @@ import XCTest
 @testable import msgblastCore
 
 final class AgentGridTests: XCTestCase {
-    func testCompletedOnboardingShowsOnlyConnectedChoicesAndKeepsTheRestAvailable() throws {
+    func testSelectedPokeIsVisibleEvenWithoutAConversationAndSurvivesRestart() throws {
+        let poke = UUID()
+        var setup = OnboardingState()
+        setup.selected = [.fo, .poke]
+        setup.completed = [.fo]
+        setup.skipped = [.poke]
+        setup.messageAgentIDs = ["poke": poke]
+        setup.stage = .finished
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        XCTAssertEqual(AgentGridLayout(onboarding: restored, messageGridIDs: [:]).visibleIDs, [.messages(poke)])
+        var deselected = restored
+        deselected.selected.remove(.poke)
+        XCTAssertTrue(AgentGridLayout(onboarding: deselected, messageGridIDs: [:]).visibleIDs.isEmpty)
+    }
+
+    func testAllDiscoveredMessagesAgentsSurviveOnboardingAndRestart() throws {
+        let first = UUID(), second = UUID(), third = UUID()
+        var setup = OnboardingState()
+        setup.selected = [.otherMessages]
+        setup.completed = [.otherMessages]
+        setup.messageAgentIDs = ["otherMessages": first]
+        setup.discoveredMessageAgentIDs = [first, second, third]
+        setup.messagesDiscoveryReviewed = true
+        setup.excludedDiscoveredMessageAgentIDs = [UUID()]
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        let grid = AgentGridLayout(onboarding: restored, messageGridIDs: [:])
+        XCTAssertEqual(grid.visibleIDs, [.messages(first), .messages(second), .messages(third)])
+        XCTAssertEqual(restored.messagesDiscoveryReviewed, true)
+        XCTAssertEqual(restored.excludedDiscoveredMessageAgentIDs, setup.excludedDiscoveredMessageAgentIDs)
+        XCTAssertFalse(grid.visibleIDs.contains(.messages(setup.excludedDiscoveredMessageAgentIDs![0])))
+    }
+
+    func testCompletedOnboardingShowsSelectedChoicesIncludingPendingSetup() throws {
         let foID = UUID(), otherID = UUID()
         var setup = OnboardingState()
         setup.selected = [.hark, .chatgpt, .fo, .otherMessages, .openclaw, .claude]
@@ -11,9 +43,9 @@ final class AgentGridTests: XCTestCase {
         setup.messageAgentIDs = ["fo": foID, "otherMessages": otherID]
         setup.stage = .finished
         let grid = AgentGridLayout(onboarding: setup, messageGridIDs: [foID: .featuredMessages(.fo)])
-        XCTAssertEqual(grid.visibleIDs, [.web(.chatgpt), .featuredMessages(.fo), .runtime(.openclaw), .web(.hark), .messages(otherID)])
+        XCTAssertEqual(grid.visibleIDs, [.web(.chatgpt), .web(.claude), .featuredMessages(.fo), .runtime(.openclaw), .web(.hark), .messages(otherID)])
         let catalog = grid.visibleIDs + [.web(.claude), .web(.grok), .featuredMessages(.szn)]
-        XCTAssertEqual(grid.available(in: catalog), [.web(.claude), .web(.grok), .featuredMessages(.szn)])
+        XCTAssertEqual(grid.available(in: catalog), [.web(.grok), .featuredMessages(.szn)])
         var state = AppState()
         state.onboarding = setup
         state.agentGrid = grid

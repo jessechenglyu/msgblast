@@ -67,6 +67,12 @@ struct GrokBotSetupView: View {
     @State private var webhookKey = ""
     @State private var saved = false
 
+    private func openGrokBot() {
+        let workspace = NSWorkspace.shared
+        if let app = workspace.urlForApplication(withBundleIdentifier: "com.anysphere.sand"), workspace.open(app) { return }
+        workspace.open(WebProvider.grokbot.homeURL)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if session.fixture {
@@ -79,7 +85,8 @@ struct GrokBotSetupView: View {
                     Text("1. Create your msgblast routine").font(.headline)
                     Spacer()
                     if !session.fixture {
-                        Link("Open Grok Bot", destination: WebProvider.grokbot.homeURL)
+                        Button("Open Grok Bot", action: openGrokBot)
+                            .buttonStyle(.plain).foregroundStyle(.blue)
                     }
                 }
                 Text("Copy this prompt and paste it into your Grok Bot.")

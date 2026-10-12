@@ -5,11 +5,11 @@ import msgblastCore
 struct MessageSender {
     // No participant creation and no group APIs: the exact existing chat is the only target.
     func send(_ text: String, to chat: Chat) async throws {
-        try await sendExpression(Self.literal(text), to: chat)
+        try await submit(MessagesSendScript.text(text, to: chat))
     }
     func send(_ attachment: MessageAttachment, to chat: Chat) async throws {
         guard FileManager.default.isReadableFile(atPath: attachment.url.path) else { throw SendFailure.notSubmitted("The attachment is unavailable. Restore the saved file before retrying.") }
-        guard chat.eligible else { throw SendFailure.notSubmitted("Only existing one-to-one Messages chats can receive a prompt.") }
+        guard chat.eligible else { throw SendFailure.notSubmitted("This Messages destination is unsupported. Refresh its conversation before sending.") }
         // Messages' sandboxed transfer processes cannot read arbitrary app-data
         // paths. Hand off a private copy in its attachment namespace; the saved
         // draft remains in msgblast. Retain the copy for asynchronous processing.
@@ -17,33 +17,18 @@ struct MessageSender {
         let file: URL
         do { file = try MessagesAttachmentStaging.stage(attachment, in: root) }
         catch { throw SendFailure.notSubmitted("Could not prepare the attachment for Messages: \(error.localizedDescription)") }
-        try await sendExpression("(POSIX file \(Self.literal(file.path)))", to: chat)
+        try await submit(MessagesSendScript.attachment(path: file.path, to: chat))
     }
-    private static func literal(_ value: String) -> String {
-        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\r", with: "\\r").replacingOccurrences(of: "\n", with: "\\n") + "\""
-    }
-    private func sendExpression(_ expression: String, to chat: Chat) async throws {
-        guard chat.eligible else { throw SendFailure.notSubmitted("Only existing one-to-one Messages chats can receive a prompt.") }
-        let source = """
-        try
-            with timeout of 20 seconds
-                tell application "Messages"
-                    set targetChat to chat id \(Self.literal(chat.id))
-                    if (count of participants of targetChat) is not 1 then error "The destination is no longer one-to-one."
-                    if service type of account of targetChat is not iMessage then error "The destination does not support this conversation."
-                    send \(expression) to targetChat
-                end tell
-            end timeout
-            return "SUBMITTED"
-        on error detail number code
-            return "ERROR:" & code & linefeed & detail
-        end try
-        """
+    private func submit(_ source: String) async throws {
         // NSAppleScript must run on a process's main thread. Isolate it from the UI process.
         let result = try await Task.detached(priority: .userInitiated) { try Self.execute(source) }.value
         if result == "SUBMITTED" { return }
-        if result.hasPrefix("ERROR:-1743\n") {
+        if result.hasPrefix("NOT_SUBMITTED:-1743\n") {
             throw SendFailure.notSubmitted("Automation permission denied. Allow msgblast to control Messages in System Settings → Privacy & Security → Automation. Your message is saved for retry.")
+        }
+        if result.hasPrefix("NOT_SUBMITTED:") {
+            let detail = result.split(separator: "\n", maxSplits: 1).last.map(String.init) ?? result
+            throw SendFailure.notSubmitted("\(detail) Nothing was sent. Refresh the conversation before retrying.")
         }
         // Timeouts and other execution failures may follow an accepted send. Never resend automatically.
         throw SendFailure.ambiguous(result.replacingOccurrences(of: "iMessage", with: "Messages"))
