@@ -3,11 +3,37 @@ import ScreenCaptureKit
 import UniformTypeIdentifiers
 import msgblastCore
 
+@MainActor final class ChatCaptureLayout: ObservableObject {
+    @Published var sidebarVisibility = NavigationSplitViewVisibility.all
+    func setSidebar(_ visibility: NavigationSplitViewVisibility) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { sidebarVisibility = visibility }
+    }
+}
+
 /// WindowServer captures the complete composited window, including SwiftUI and
 /// out-of-process website surfaces. Enumerate only content available to this
 /// process without screen-recording consent, then bind the exact app window.
 @MainActor enum ChatWindowCapture {
-    static func capture(_ window: NSWindow) async throws -> NSImage {
+    static func capture(_ window: NSWindow, title: String, layout: ChatCaptureLayout?) async throws -> NSImage {
+        let sidebar = layout?.sidebarVisibility
+        let originalFrame = window.frame
+        let originalTitle = window.title
+        let originalTitleVisibility = window.titleVisibility
+        defer {
+            window.title = originalTitle
+            window.titleVisibility = originalTitleVisibility
+            if let sidebar { layout?.setSidebar(sidebar) }
+            window.setFrame(originalFrame, display: true)
+        }
+        layout?.setSidebar(.detailOnly)
+        // Let SwiftUI commit the sidebar layout before capturing WindowServer.
+        try await Task.sleep(for: .milliseconds(150))
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.title = "msgblast · " + title
+        window.titleVisibility = .visible
+        window.displayIfNeeded()
         let content = try await SCShareableContent.currentProcess
         guard let target = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
             throw CaptureError.unavailable
@@ -37,6 +63,7 @@ private struct ChatWindowAnchor: NSViewRepresentable {
 struct ChatShareButton: View {
     @ObservedObject var model: AppModel
     var comparisonID: UUID?
+    var captureLayout: ChatCaptureLayout? = nil
     @State private var anchor = NSView()
     @State private var image: NSImage?
     @State private var capturing = false
@@ -48,7 +75,11 @@ struct ChatShareButton: View {
             capturing = true
             Task { @MainActor in
                 defer { capturing = false }
-                do { image = try await ChatWindowCapture.capture(window); showingPreview = true }
+                do {
+                    let title = comparisonID.flatMap { model.comparison($0)?.title } ?? "Chat"
+                    image = try await ChatWindowCapture.capture(window, title: title, layout: captureLayout)
+                    showingPreview = true
+                }
                 catch { self.error = error.localizedDescription }
             }
         } label: { Label("Capture chat", systemImage: "camera").labelStyle(.iconOnly) }

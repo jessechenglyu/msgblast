@@ -135,6 +135,8 @@ The harness invokes the real core adapter with a deterministic local executable 
 ## Capture and share a chat
 
 The camera button at the top of a chat captures the visible msgblast window.
+The capture keeps the window chrome and request title with a msgblast label, and
+hides the conversation sidebar while capturing. Your sidebar is restored afterward.
 The preview includes visible drafts and private panes, so inspect it before using
 **Copy image**, **Save image…**, or the macOS **Share image…** picker. Capturing
 and exporting an image does not require recording or a cloud account and does

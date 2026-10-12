@@ -13,6 +13,7 @@ struct AgentsWorkspaceView: View {
     @ObservedObject var web: WebAgents
     @Binding var showingComparison: Bool
     var newBlastRequest: UUID? = nil
+    var captureLayout: ChatCaptureLayout? = nil
     @State private var showingConnectionIntro = false
     @State private var signInProviders: [WebAgentID] = []
     @State private var editingAgents = false
@@ -65,7 +66,7 @@ struct AgentsWorkspaceView: View {
         .onChange(of: showingComparison) { _, value in if value { editingAgents = false } }
         .toolbar {
             if showingComparison {
-                ToolbarItem(placement: .primaryAction) { ChatShareButton(model: model, comparisonID: web.comparisonID) }
+                ToolbarItem(placement: .primaryAction) { ChatShareButton(model: model, comparisonID: web.comparisonID, captureLayout: captureLayout) }
             }
             if !showingComparison {
                 ToolbarItem(placement: .primaryAction) {

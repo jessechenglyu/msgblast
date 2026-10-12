@@ -171,6 +171,7 @@ struct MainView: View {
     @ObservedObject private var web: WebAgents
     private let updater: AppUpdater
     private enum DetailSelection { case agents, discover }
+    @StateObject private var captureLayout = ChatCaptureLayout()
     @State private var selection = DetailSelection.agents
     @State private var showingComparison = false
     @State private var newBlastRequest: UUID? = UUID()
@@ -186,7 +187,7 @@ struct MainView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $captureLayout.sidebarVisibility) {
             List {
                 Section {
                     Button { selection = .agents; showingComparison = false } label: {
@@ -246,7 +247,7 @@ struct MainView: View {
                     }
                 }
                 if model.usesMessages { MessagesAccessBanner(model: model) }
-                AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: newBlastRequest)
+                AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: newBlastRequest, captureLayout: captureLayout)
             }.navigationTitle("")
             }
         }
