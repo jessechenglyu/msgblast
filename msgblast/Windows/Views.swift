@@ -589,6 +589,7 @@ struct ComparisonWorkspace: View {
                         VStack(spacing: 12) {
                             RecipientPills(model: model, comparison: comparison)
                             SharedComposer(model: model, comparisonID: comparisonID, recipientIDs: recipients)
+                                .disabled(model.webBroadcastBusy)
                         }.padding(16).frame(maxWidth: .infinity).background(.bar)
                     }
                     .onChange(of: selection.selectedConversation) { _, memberID in
@@ -623,9 +624,31 @@ struct RecipientPills: View {
                         .accessibilityLabel("Recipient \(member.name)")
                         .accessibilityValue(included ? "Selected" : "Not selected")
                         .help(included ? "Exclude \(member.name) from this message" : "Include \(member.name) in this message")
-                        .disabled(model.busy)
+                        .disabled(model.busy || model.webBroadcastBusy)
                 }
-                ForEach(model.state.agents.filter { agent in !comparison.members.contains(where: { $0.id == agent.id }) }) { agent in
+                ForEach(model.recipientWebSessions(for: comparison), id: \.id) { session in
+                    let joined = comparison.resolvedWebAgentIDs.contains(session.id)
+                    Button {
+                        if joined { model.openWebComparison(comparison.id); return }
+                        model.webBroadcastBusy = true
+                        session.updateState { $0.selected = true }
+                        session.connect()
+                        Task { @MainActor in
+                            _ = await model.joinWebAgent(session, comparisonID: comparison.id)
+                            model.webBroadcastBusy = false
+                            if model.comparison(comparison.id)?.resolvedWebAgentIDs.contains(session.id) == true {
+                                model.openWebComparison(comparison.id)
+                            }
+                        }
+                    } label: {
+                        Label(session.name, systemImage: joined ? "bubble.left" : "plus.circle").font(.system(size: 13, weight: .medium))
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel(joined ? "Open \(session.name) conversation" : "Add \(session.name) to conversation")
+                        .help(joined ? "Open this conversation" : "Add \(session.name) with the original ask and shared follow-ups")
+                        .disabled(model.busy || model.webBroadcastBusy || !session.isEnabled)
+                }
+                ForEach(model.showcaseMessageAgents.filter { agent in !comparison.members.contains(where: { $0.id == agent.id }) }) { agent in
                     Button {
                         Task { await model.addAgent(agent, to: comparison.id); model.coordinator?.open(comparison.id) }
                     } label: {
@@ -634,7 +657,7 @@ struct RecipientPills: View {
                     }.buttonStyle(.plain)
                         .accessibilityLabel("Add \(agent.name) to conversation")
                         .help("Add \(agent.name) with the original ask and shared follow-ups")
-                        .disabled(model.busy || model.route(agent) == nil)
+                        .disabled(model.busy || model.webBroadcastBusy || model.route(agent) == nil)
                 }
             }
         }.scrollIndicators(.hidden).frame(height: 36)
