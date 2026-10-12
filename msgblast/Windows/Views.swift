@@ -365,11 +365,16 @@ struct TranscriptView: View {
     @ObservedObject var model: AppModel
     let comparison: Comparison
     let member: Member
+    @State private var followingBottom = true
+    @State private var atBottom = true
+    @State private var userIsScrolling = false
+    private var bottomID: String { "transcript-bottom-" + comparison.id.uuidString + member.id.uuidString }
     var body: some View {
         let transcript = model.transcript(comparison, member: member)
         GeometryReader { geometry in
         ScrollViewReader { proxy in
             ScrollView {
+                VStack(spacing: 0) {
                 LazyVStack(alignment: .leading, spacing: 3) {
                     if transcript.isEmpty {
                         Text(member.anchor == nil ? "Waiting for Messages…" : "History unavailable").foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.top, 30)
@@ -413,11 +418,33 @@ struct TranscriptView: View {
                         }.padding(.top, offset > 0 && transcript[offset - 1].outgoing != message.outgoing ? 6 : 0).id(message.id)
                     }
                 }.padding(.horizontal, 20).padding(.bottom, 10)
+                Color.clear.frame(height: 1).id(bottomID)
+                }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
+                    if followingBottom { proxy.scrollTo(bottomID, anchor: .bottom) }
+                }
             }
-            .onChange(of: transcript.last?.id) { _, id in
-                if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
+            .onScrollGeometryChange(for: Bool.self) { info in
+                info.contentOffset.y + info.containerSize.height >= info.contentSize.height - 2
+            } action: { _, value in
+                atBottom = value
+                if userIsScrolling { followingBottom = value }
             }
-            .onAppear { if let id = transcript.last?.id { proxy.scrollTo(id, anchor: .bottom) } }
+            .onScrollPhaseChange { _, phase in
+                userIsScrolling = phase == .interacting || phase == .decelerating
+                if userIsScrolling { followingBottom = atBottom }
+            }
+            .onChange(of: transcript.last?.id) { _, _ in
+                followingBottom = true
+                Task { @MainActor in
+                    await Task.yield()
+                    if followingBottom { proxy.scrollTo(bottomID, anchor: .bottom) }
+                }
+            }
+            .onChange(of: geometry.size.height) { _, _ in
+                if followingBottom { proxy.scrollTo(bottomID, anchor: .bottom) }
+            }
+            .onAppear { proxy.scrollTo(bottomID, anchor: .bottom) }
         }
         }
     }

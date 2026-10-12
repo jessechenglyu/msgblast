@@ -705,6 +705,7 @@ final class AppModel: ObservableObject {
         messages[chat.id, default: []].append(Message(id: demoRow, guid: "fixture-\(demoRow)", chatID: chat.id, text: text, outgoing: outgoing, replyTo: replyTo, attachments: attachments))
     }
     func scheduleDemoReply(_ id: UUID, memberID: UUID) {
+        if demo && ProcessInfo.processInfo.arguments.contains("--no-demo-replies") { return }
         guard let comparison = comparison(id), let member = comparison.members.first(where: { $0.id == memberID }), let anchor = member.anchor,
               let sent = messages[member.chat.id]?.last(where: { $0.outgoing }) else { return }
         let offset = comparison.members.firstIndex { $0.id == memberID } ?? 0
