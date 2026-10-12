@@ -159,7 +159,7 @@ class MacWorkerTests(unittest.TestCase):
 
     def test_suite_routing_failures_and_locks_without_native_tools(self):
         worker_source = (SCRIPT.parent / "mac_checks.sh").read_text()
-        for suite in ["core", "controllers", "updater", "all", "ui", "failed-core", "locked"]:
+        for suite in ["core", "controllers", "updater", "all", "ui", "empty-ui-run", "failed-ui-desktop", "failed-core", "locked"]:
             with self.subTest(suite=suite), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 scripts = root / "scripts"
@@ -173,17 +173,33 @@ class MacWorkerTests(unittest.TestCase):
                 xcode.write_text('#!/bin/bash\necho "xcodebuild $*" >> "$COMMAND_LOG"\nif [[ "$1" == -version ]]; then echo "Xcode 27.0 fixture"; exit 0; fi\nexit "${XCODE_FIXTURE_EXIT:-0}"\n')
                 xcode.chmod(0o700)
                 python = bin_path / "python3"
-                python.write_text('#!/bin/bash\necho "updater $*" >> "$COMMAND_LOG"\n')
+                python.write_text('#!/bin/bash\necho "updater $*" >> "$COMMAND_LOG"\nif [[ "$1" == scripts/check_ui_results.py ]]; then exec "$UI_RESULT_PYTHON" "$UI_RESULT_CHECKER" "$2"; fi\n')
                 python.chmod(0o700)
+                xcrun = bin_path / "xcrun"
+                xcrun.write_text('''#!/bin/bash
+echo "summary $*" >> "$COMMAND_LOG"
+if [[ "$UI_EMPTY_FIXTURE" == 1 ]]; then
+  echo '{"result":"Passed","totalTestCount":0,"passedTests":0,"failedTests":0,"skippedTests":0,"expectedFailures":0}'
+else
+  echo '{"result":"Passed","totalTestCount":34,"passedTests":34,"failedTests":0,"skippedTests":0,"expectedFailures":0}'
+fi
+''')
+                xcrun.chmod(0o700)
+                swift = bin_path / "swift"
+                swift.write_text('#!/bin/bash\necho "ui-desktop $*" >> "$COMMAND_LOG"\necho "UI desktop fixture"\nexit "${UI_DESKTOP_FIXTURE_EXIT:-0}"\n')
+                swift.chmod(0o700)
                 for fixture in ["web_comparisons", "configured_cli_conversations", "personal_agent_shutdown", "app_permissions"]:
                     (scripts / f"test_{fixture}.sh").write_text(f'echo "{fixture}" >> "$COMMAND_LOG"\n')
                 env = {**os.environ, "HOME": str(root / "account"), "PATH": str(bin_path) + ":/usr/bin:/bin", "COMMAND_LOG": str(commands), "MSGBLAST_REMOTE_TEST_WORKER": "1"}
+                env.update(UI_RESULT_PYTHON=sys.executable, UI_RESULT_CHECKER=str(SCRIPT.parent / "check_ui_results.py"), UI_EMPTY_FIXTURE="1" if suite == "empty-ui-run" else "0")
                 lock = Path(env["HOME"]) / "Library/Caches/msgblast-tests/native.lock"
                 if suite == "locked":
                     lock.mkdir(parents=True)
                 if suite == "failed-core":
                     env["XCODE_FIXTURE_EXIT"] = "8"
-                chosen = "core" if suite in ["failed-core", "locked"] else suite
+                if suite == "failed-ui-desktop":
+                    env["UI_DESKTOP_FIXTURE_EXIT"] = "3"
+                chosen = "core" if suite in ["failed-core", "locked"] else "ui" if suite in ["empty-ui-run", "failed-ui-desktop"] else suite
                 result = subprocess.run(["bash", str(worker), chosen, "a" * 40], env=env, capture_output=True, text=True)
                 recorded = commands.read_text() if commands.exists() else ""
                 if suite == "locked":
@@ -192,7 +208,17 @@ class MacWorkerTests(unittest.TestCase):
                     self.assertTrue(lock.exists(), "An active lock must remain owned by its existing run")
                     continue
                 self.assertFalse(lock.exists(), "Completed and failed runs must release their own lock")
+                if suite == "empty-ui-run":
+                    self.assertEqual(result.returncode, 2, "Xcode success with zero UI tests must fail verification")
+                    self.assertIn("total=0", result.stderr)
+                    continue
+                if suite == "failed-ui-desktop":
+                    self.assertEqual(result.returncode, 3)
+                    self.assertNotIn("xcodebuild -project", recorded, "Desktop preparation failure must stop before native tests")
+                    self.assertIn("UI desktop fixture", (root / "build/test-results/ui-desktop.log").read_text())
+                    continue
                 self.assertEqual(result.returncode, 8 if suite == "failed-core" else 0)
+                self.assertEqual("ui-desktop" in recorded, suite == "ui")
                 self.assertIn("-only-testing:msgblastUITests" if suite == "ui" else "-only-testing:msgblastTests", recorded)
                 for fixture in ["web_comparisons", "configured_cli_conversations", "personal_agent_shutdown", "app_permissions"]:
                     self.assertEqual(fixture in recorded, suite in ["controllers", "all"])

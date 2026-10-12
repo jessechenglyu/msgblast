@@ -24,7 +24,10 @@ trap 'rmdir "$test_lock"' EXIT
 printf '%s\n' "$test_revision" > "$test_results/source-revision.txt"
 xcodebuild -version | tee "$test_results/xcode.txt"
 test_selector='-only-testing:msgblastTests'
-if [[ "$test_suite" == ui ]]; then test_selector='-only-testing:msgblastUITests'; fi
+if [[ "$test_suite" == ui ]]; then
+    test_selector='-only-testing:msgblastUITests'
+    swift scripts/prepare_ui_desktop.swift 2>&1 | tee "$test_results/ui-desktop.log"
+fi
 xcodebuild -project msgblast.xcodeproj -scheme msgblast \
     -configuration Debug -derivedDataPath "$test_derived" \
     -destination 'platform=macOS,arch=arm64' \
@@ -32,6 +35,10 @@ xcodebuild -project msgblast.xcodeproj -scheme msgblast \
     MSGBLAST_APP_BUNDLE_IDENTIFIER=com.msgblast.remote-tests \
     ASSETCATALOG_COMPILER_APPICON_NAME=AppIconDemo \
     "$test_selector" test 2>&1 | tee "$test_results/native.log"
+if [[ "$test_suite" == ui ]]; then
+    xcrun xcresulttool get test-results summary --path "$test_results/native.xcresult" > "$test_results/ui-summary.json"
+    python3 scripts/check_ui_results.py "$test_results/ui-summary.json"
+fi
 if [[ "$test_suite" == controllers || "$test_suite" == all ]]; then
     bash scripts/test_web_comparisons.sh "$test_derived" 2>&1 | tee "$test_results/web-controllers.log"
     bash scripts/test_configured_cli_conversations.sh "$test_derived" 2>&1 | tee "$test_results/configured-cli.log"

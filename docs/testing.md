@@ -87,6 +87,11 @@ isolation without reading user data or requesting a real OS grant.
 ## Native UI tests and manual checks
 
 Use an authorized Mac with an interactive desktop and native runner permissions.
+Use a dedicated UI desktop with at least a 1440 × 900 display mode and 780 points
+of usable height. The explicit worker preparation checks that geometry and selects
+an available larger mode when needed; it does not grant or reset permissions.
+Keep UI work separate from updater/server fixtures, which can leave an unrelated
+Python local-network consent dialog over later input.
 The UI tests explicitly pass `--demo` and `--isolated-demo`; inspect the test when
 selecting a case. This example runs the existing menu fixture:
 
@@ -102,6 +107,10 @@ xcodebuild -project msgblast.xcodeproj -scheme msgblast \
 Select affected cases in `WorkflowTests` or `WebServiceWorkflowTests`. A compiled
 UI target, a locked desktop, or an automation-permission failure is not a passing
 interaction test. Do not bypass permissions or reset system grants for evidence.
+
+GitHub manual validation with `run_ui=true` runs UI tests on a fresh `xcode-27`
+worker in its own job, retaining the desktop log, test log, `.xcresult`, and
+assertion summaries. Core/updater/controller fixtures run on a different worker.
 
 Inspect the actual changed workflow in packaged **msgblast Demo**: keyboard
 navigation, focus, resizing/narrow windows, relevant light/dark appearance, draft
