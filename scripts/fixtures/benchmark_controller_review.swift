@@ -9,6 +9,25 @@ import msgblastCore
         defer { try? FileManager.default.removeItem(at: root) }
         func report(_ value: String) { print(value); fflush(nil) }
         let config = try BenchmarkAccountConfiguration(serviceURL: URL(string: "http://127.0.0.1:8787")!, issuer: URL(string: "https://fixture.invalid/")!, clientID: "fixture", audience: "fixture", callbackURL: URL(string: "com.msgblast.test:/benchmark")!, bundleIdentifier: "com.msgblast.test", profile: UUID().uuidString, demoFixture: true)
+        let damagedRoot = root.appendingPathComponent("damaged-startup")
+        let damagedPerformance = PerformanceController(directory: damagedRoot, fixture: true)
+        damagedPerformance.recorder!.enabled = true
+        damagedPerformance.capture { _ = try $0.beginTurn(comparisonID: "damaged-startup", agent: .init(id: "fixture", name: "Fixture", connection: .cli), text: "Synthetic private source to preserve", scope: .private) }
+        let journal = damagedRoot.appendingPathComponent("Benchmarks/uploads.json")
+        try FileManager.default.createDirectory(at: journal.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let damagedBytes = Data(#"{"selectedPrivateBytes":"Synthetic private outbox""#.utf8)
+        try damagedBytes.write(to: journal)
+        let source = damagedRoot.appendingPathComponent("Performance/events.jsonl")
+        let sourceBytes = try Data(contentsOf: source), sourceEvents = damagedPerformance.events
+        let damagedController = BenchmarkController(directory: damagedRoot, demo: true)
+        guard damagedController.client == nil, damagedController.error != nil else { throw ReviewFailure.failed("Damaged startup fixture did not reject outbox") }
+        damagedPerformance.beforeDeleteRecords = { try damagedController.clearLocalUploads() }
+        damagedPerformance.deleteAll()
+        let sourceAfterDelete = try? Data(contentsOf: source)
+        let journalAfterDelete = try Data(contentsOf: journal)
+        guard damagedPerformance.error != nil, damagedPerformance.events == sourceEvents, sourceAfterDelete == sourceBytes, journalAfterDelete == damagedBytes else { throw ReviewFailure.failed("Damaged startup outbox allowed local source deletion or changed original bytes") }
+        report("PASS: startup with damaged upload journal refuses source deletion and preserves both original files")
+        damagedController.shutdown()
         let http = ReviewHTTP(), tokens = ReviewTokens()
         tokens.token = .init(accessToken: "A", refreshToken: "refresh-A", expiresAt: http.now.addingTimeInterval(60), accountID: "A")
         let account = BenchmarkAccountSession(configuration: config, browser: ReviewBrowser(), transport: http, tokenStore: tokens, now: { http.now })

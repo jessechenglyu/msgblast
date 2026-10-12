@@ -81,8 +81,9 @@ struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local
     }
     func shutdown() { stopped = true; autoTask?.cancel(); autoTask = nil; client?.cancel() }
     func clearLocalUploads() throws {
-        autoTask?.cancel(); autoTask = nil; client?.cancel()
-        try client?.store.clearLocalUploads(); revision += 1
+        autoTask?.cancel(); autoTask = nil
+        guard let client else { throw BenchmarkSyncError.invalidJournal }
+        client.cancel(); try client.store.clearLocalUploads(); revision += 1
     }
     func pause() { autoTask?.cancel(); autoTask = nil; do { try client?.pause(); revision += 1; status = "Private sync paused. Saved retries are retained for this account." } catch { self.error = error.localizedDescription } }
     var futureSync: Bool { client?.store.futureOwner == account.account?.accountID && account.account != nil }
