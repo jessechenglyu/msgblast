@@ -9,6 +9,7 @@ let browser;
 try {
   const auth = await h.token();
   const longChat = structuredClone(projection);
+  longChat.participants.push({ ...longChat.participants[1], id: "agent-c", label: "Agent C" });
   const followUp = structuredClone(longChat.turns[0]);
   followUp.id = "fixture-follow-up";
   followUp.kind = "followUp";
@@ -34,7 +35,7 @@ try {
     .waitFor();
   await page.waitForTimeout(800);
   assert.equal(await page.evaluate(() => window.compromised), undefined);
-  assert.equal(await page.locator(".agent").count(), 2);
+  assert.equal(await page.locator(".agent").count(), 3);
   assert.equal(await page.locator(".agent").nth(1).isVisible(), true);
   assert.equal(
     await page.evaluate(
@@ -48,6 +49,14 @@ try {
   assert.equal(await page.getByText(/Dispatch to observed reply/).count(), 0);
   assert.equal(await page.locator(".transcript").first().evaluate((el) => el.scrollHeight > el.clientHeight), true);
   await page.screenshot({ path: dir + "/reader-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 740, height: 900 });
+  const transcriptBox = await page.locator(".transcript").first().boundingBox();
+  await page.mouse.move(transcriptBox.x + 80, transcriptBox.y + 80);
+  await page.mouse.wheel(400, 0);
+  await page.waitForTimeout(400);
+  assert.equal(await page.locator(".agents").evaluate((el) => el.scrollLeft > 0), true);
+  await page.screenshot({ path: dir + "/reader-horizontal.png" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('[data-message="extra-1-follow-up"]').scrollIntoViewIfNeeded();
   await page.waitForTimeout(800);
   const mobile = await browser.newContext({

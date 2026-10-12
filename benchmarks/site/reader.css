@@ -43,7 +43,7 @@ h1 { font-size: 16px; line-height: 1.4; margin: 0; font-weight: 650; overflow: h
 .agent-color-4 .avatar { background: #e778a5; }
 .agent-color-5 .avatar { background: #629fd8; }
 .agent-header h2 { display: inline-block; margin: 0; padding: 5px 14px; background: var(--tint); border-radius: 20px; font-size: 14px; font-weight: 600; }
-.transcript { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 20px 32px; scrollbar-width: thin; }
+.transcript { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; padding: 12px 20px 32px; scrollbar-width: thin; }
 .transcript:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 .exchange + .exchange { margin-top: 28px; }
 .message { position: relative; }
