@@ -65,7 +65,7 @@ struct AgentsWorkspaceView: View {
         .onChange(of: showingComparison) { _, value in if value { editingAgents = false } }
         .toolbar {
             if showingComparison {
-                ToolbarItem(placement: .primaryAction) { ChatShareButton(model: model, comparisonID: web.comparisonID).disabled(showingConnectionIntro) }
+                ToolbarItem(placement: .primaryAction) { ChatShareButton(model: model, comparisonID: web.comparisonID) }
             }
             if !showingComparison {
                 ToolbarItem(placement: .primaryAction) {

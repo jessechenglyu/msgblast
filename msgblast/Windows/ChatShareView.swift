@@ -1,37 +1,26 @@
 import SwiftUI
-import WebKit
+import ScreenCaptureKit
 import UniformTypeIdentifiers
 import msgblastCore
 
-/// Captures only the bound app window. WebKit draws out of process, so its
-/// visible viewport is composited separately over the native window image.
+/// WindowServer captures the complete composited window, including SwiftUI and
+/// out-of-process website surfaces. Enumerate only content available to this
+/// process without screen-recording consent, then bind the exact app window.
 @MainActor enum ChatWindowCapture {
     static func capture(_ window: NSWindow) async throws -> NSImage {
-        guard let view = window.contentView,
-              let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+        let content = try await SCShareableContent.currentProcess
+        guard let target = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
             throw CaptureError.unavailable
         }
-        view.layoutSubtreeIfNeeded()
-        view.cacheDisplay(in: view.bounds, to: bitmap)
-        let image = NSImage(size: view.bounds.size)
-        image.addRepresentation(bitmap)
-        func webViews(_ node: NSView) -> [WKWebView] {
-            if let web = node as? WKWebView { return [web] }
-            return node.subviews.flatMap(webViews)
-        }
-        for web in webViews(view) where !web.isHiddenOrHasHiddenAncestor && !web.visibleRect.isEmpty {
-            let configuration = WKSnapshotConfiguration()
-            configuration.rect = web.visibleRect
-            let snapshot = try await web.takeSnapshot(configuration: configuration)
-            // AppKit's image context has an upward Y axis; the hosting view may
-            // be flipped. Clip to the current viewport, never the whole page.
-            var rect = view.convert(web.visibleRect, from: web)
-            if view.isFlipped { rect.origin.y = view.bounds.height - rect.maxY }
-            image.lockFocus()
-            snapshot.draw(in: rect, from: .zero, operation: .copy, fraction: 1)
-            image.unlockFocus()
-        }
-        return image
+        let configuration = SCStreamConfiguration()
+        configuration.width = Int(target.frame.width * window.backingScaleFactor)
+        configuration.height = Int(target.frame.height * window.backingScaleFactor)
+        configuration.showsCursor = false
+        configuration.ignoreShadowsSingleWindow = true
+        configuration.captureResolution = .best
+        let captured = try await SCScreenshotManager.captureImage(
+            contentFilter: SCContentFilter(desktopIndependentWindow: target), configuration: configuration)
+        return NSImage(cgImage: captured, size: target.frame.size)
     }
     enum CaptureError: LocalizedError {
         case unavailable
