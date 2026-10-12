@@ -1,0 +1,5 @@
+{"action":"Finalize original native prefix; explicitly select contribution","HTTP":202,"cloudRevision":1,"headSequence":7,"headHash":"548a27eaaaeae4292a26d8445d243233cdb5f2d444a97506d48ea592afa0504d","contributionRevision":1,"fixture":"ineligible for benchmark credit"}
+{"action":"Open private continuation; established validation remains available","HTTP":201,"cloudRevision":2,"compatibilityCompleteness":"complete","oldPublication":"unchanged"}
+{"action":"Finalize later private feedback; previous selections stay pinned","HTTP":202,"cloudRevision":2,"headSequence":8,"oldSnapshot":"immutable","contributionStillRevision":1,"oldPublicationBytesUnchanged":true}
+{"action":"Explicitly select newer snapshot, then withdraw","contributionRevision":2,"status":"ineligible","lineageCredit":"one comparison; fixture credit zero"}
+{"action":"Revoke publication and delete private lineage","publicPageHTTP":404,"privateReadHTTP":404,"cleanup":"tombstoned immediately; asynchronous content cleanup"}
