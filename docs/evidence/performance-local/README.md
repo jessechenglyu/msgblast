@@ -28,6 +28,8 @@ playback without time edits. The comparison video shows submission and observed
 replies; the window grows during native layout, so its rightmost edge is clipped
 in part of that recording. Full-pane screenshots complement it. The Settings
 video shows Benchmarks, My Stats, opening the local favorite and returning.
+`tracking-and-feedback.mp4` shows enabling tracking and changing/clearing local
+star/thumbs-down preferences in saved replies; it does not send a provider reaction.
 XCTest UI automation timed out before execution; these are actual computer-use
 checks, not an XCTest UI pass or proof of today's authenticated provider layouts.
 
@@ -69,3 +71,5 @@ These fixture checks do not prove live accounts or production TCC behavior.
 - `my-stats-relaunch.png` and `favorite-relaunch.png`: retention and hidden controls.
 - `comparison-feedback.mp4`: comparison submission/observed timing interaction.
 - `stats-tabs-and-favorites.mp4`: Settings and saved favorite interaction.
+
+- `tracking-and-feedback.mp4`: actual tracking toggle and local preference changes.

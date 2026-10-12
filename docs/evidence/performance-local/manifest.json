@@ -56,6 +56,24 @@
         }
       }
     },
+    "tracking-and-feedback.mp4": {
+      "sha256": "d218ed90da5f7b050797b0d806aa56d9227cc396a761b3b4a4ae6b03d98e0896",
+      "bytes": 1686403,
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1400,
+            "height": 1362
+          }
+        ],
+        "format": {
+          "duration": "65.025000"
+        }
+      }
+    },
     "comparison-follow-up.png": {
       "sha256": "f883084bd9e37907179662241c2f10b4b85adffe5925a41739393e0b9f0a8034",
       "bytes": 682133
