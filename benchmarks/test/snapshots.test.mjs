@@ -65,6 +65,11 @@ test("explicit continuation retains native chains, freezes contribution and publ
       .request(path + "/revisions", "POST", next, a)
       .then((r) => r.json());
     assert.equal(opened.revision, 2);
+    const duringContinuation = await h
+      .request(path + "/validation", "GET", undefined, a)
+      .then((r) => r.json());
+    assert.equal(duringContinuation.snapshot, first.snapshotID);
+    assert.equal(duringContinuation.metrics.preferences.favorite, 1);
     assert.deepEqual(
       await h
         .request(path + "/revisions", "POST", next, a)
@@ -195,6 +200,23 @@ test("explicit continuation retains native chains, freezes contribution and publ
       404,
     );
     assert.equal((await h.request(pub.path)).status, 404);
+    const { processJob } = await import("../dist/support/jobs.mjs");
+    const deletion = await h.db
+      .prepare("SELECT id FROM outbox WHERE kind='deleteSession' AND target=?")
+      .bind(x.s.id)
+      .first();
+    await processJob(await h.mf.getBindings("benchmarks-fixture"), deletion.id);
+    for (const table of [
+      "snapshot_validations",
+      "snapshots",
+      "session_revisions",
+      "legacy_feedback_baselines",
+    ]) {
+      const row = await h.db
+        .prepare(`SELECT count(*) AS n FROM ${table}`)
+        .first();
+      assert.equal(row.n, 0, table + " retains private session data");
+    }
   } finally {
     await h.close();
   }

@@ -294,14 +294,14 @@ async function route(
     }
     if (parts.length === 5 && parts[4] === "validation" && method === "GET") {
       const v = await env.DB.prepare(
-        "SELECT v.*,p.session FROM snapshots p JOIN snapshot_validations v ON v.snapshot=p.id WHERE p.session=? AND p.revision=(SELECT current_revision FROM sessions WHERE id=p.session)",
+        "SELECT v.*,p.session FROM snapshots p JOIN snapshot_validations v ON v.snapshot=p.id WHERE p.session=? AND p.revision=(SELECT max(revision) FROM snapshots WHERE session=p.session)",
       )
         .bind(sid)
         .first();
       const job = await env.DB.prepare(
-        "SELECT blocked_reason FROM outbox WHERE kind='validate' AND target IN(SELECT id FROM snapshots WHERE session=? AND revision=?)",
+        "SELECT blocked_reason FROM outbox WHERE kind='validate' AND target=(SELECT id FROM snapshots WHERE session=? ORDER BY revision DESC LIMIT 1)",
       )
-        .bind(sid, s.current_revision)
+        .bind(sid)
         .first<{ blocked_reason: string | null }>();
       return json(
         v

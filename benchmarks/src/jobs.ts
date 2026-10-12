@@ -170,6 +170,9 @@ export async function processJob(env: Env, jid: string) {
       env.DB.prepare("DELETE FROM feedback_revisions WHERE session=?").bind(
         job.target,
       ),
+      env.DB.prepare(
+        "DELETE FROM legacy_feedback_baselines WHERE session=?",
+      ).bind(job.target),
       env.DB.prepare("DELETE FROM snapshots WHERE session=?").bind(job.target),
       env.DB.prepare("DELETE FROM session_revisions WHERE session=?").bind(
         job.target,
@@ -220,6 +223,9 @@ export async function processJob(env: Env, jid: string) {
         ).bind(job.target),
         env.DB.prepare(
           "DELETE FROM feedback_revisions WHERE session IN(SELECT id FROM sessions WHERE owner=?)",
+        ).bind(job.target),
+        env.DB.prepare(
+          "DELETE FROM legacy_feedback_baselines WHERE session IN(SELECT id FROM sessions WHERE owner=?)",
         ).bind(job.target),
         env.DB.prepare(
           "DELETE FROM snapshots WHERE session IN(SELECT id FROM sessions WHERE owner=?)",

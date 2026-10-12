@@ -6,6 +6,7 @@ export async function harness({
   queueDelay = 0,
   bindings = {},
   outbound,
+  jwksOutbound,
   beforeMigration,
 } = {}) {
   const { publicKey, privateKey } = await generateKeyPair("RS256");
@@ -45,7 +46,9 @@ export async function harness({
       },
       outboundService: async (request) => {
         if (request.url === "https://fixture.invalid/.well-known/jwks.json")
-          return Response.json({ keys: [jwk] });
+          return jwksOutbound
+            ? jwksOutbound(request, { keys: [jwk] })
+            : Response.json({ keys: [jwk] });
         if (outbound) return outbound(request);
         throw new Error("Unexpected network request");
       },
