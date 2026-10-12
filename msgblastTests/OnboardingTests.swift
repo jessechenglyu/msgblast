@@ -2,6 +2,58 @@ import XCTest
 @testable import msgblastCore
 
 final class OnboardingTests: XCTestCase {
+    func testMessagesReviewPreservesConnectionsAndReturnsToContactList() throws {
+        var setup = OnboardingState()
+        setup.chooseConnector(.messages)
+        setup.selected = [.fo, .otherMessages]
+        setup.completed = [.fo]
+        setup.skipped = [.otherMessages]
+        setup.stage = .finished
+        setup.messagesDiscoveryReviewed = true
+        setup.reviewMessages(prerequisitesReady: true)
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        XCTAssertEqual(restored.messagesDiscoveryReviewed, false)
+        XCTAssertEqual(restored.prerequisitesCompleted, true)
+        XCTAssertEqual(restored.completed, [.fo])
+        setup.resume()
+        XCTAssertEqual(setup.connectorStartCompleted, false, "General resume must never open the empty Messages chooser")
+        XCTAssertEqual(setup.completed, [.fo])
+    }
+
+    func testReminderUsesActualContactsAndIgnoresConnectedOrDeselectedRows() {
+        let fo = Agent(contactID: "fo", name: "Fo", handles: ["fo@example.test"])
+        let tiny = Agent(contactID: "tiny", name: "tinyNature", handles: ["tiny@example.test"])
+        var setup = OnboardingState()
+        setup.selected = [.fo, .otherMessages]
+        setup.skipped = [.otherMessages]
+        setup.messageAgentIDs = ["fo": fo.id, "otherMessages": fo.id]
+        setup.discoveredMessageAgentIDs = [fo.id, tiny.id]
+        let chats = [Chat(id: "fo-chat", handle: fo.handles[0], lastActivity: 1)]
+        XCTAssertEqual(setup.unresolvedMessageAgents(in: [fo, tiny], chats: chats).map(\.name), ["tinyNature"])
+        setup.excludedDiscoveredMessageAgentIDs = [tiny.id]
+        XCTAssertTrue(setup.unresolvedMessageAgents(in: [fo, tiny], chats: chats).isEmpty, "Stale Other Messages skip for connected Fo is not an unresolved agent")
+        setup.excludedDiscoveredMessageAgentIDs = []
+        XCTAssertTrue(setup.unresolvedMessageAgents(in: [fo, tiny], chats: chats + [Chat(id: "tiny-chat", handle: tiny.handles[0], lastActivity: 2)]).isEmpty)
+    }
+
+    func testDeselectingRepresentativeKeepsOnlySameCategoryReplacement() throws {
+        let first = Agent(contactID: "first", name: "Fo", handles: ["first@example.test"])
+        let second = Agent(contactID: "second", name: "Fo", handles: ["second@example.test"])
+        let tiny = Agent(contactID: "tiny", name: "tinyNature", handles: ["tiny@example.test"])
+        var setup = OnboardingState()
+        setup.selected = [.fo, .otherMessages]; setup.completed = [.fo, .otherMessages]
+        setup.messageAgentIDs = ["fo": second.id, "otherMessages": tiny.id]
+        setup.discoveredMessageAgentIDs = [first.id, second.id, tiny.id]
+        setup.excludeDiscoveredMessageAgent(second.id, agents: [first, second, tiny], availableIDs: [first.id, second.id, tiny.id])
+        XCTAssertEqual(setup.messageAgentIDs["fo"], first.id)
+        XCTAssertTrue(setup.completed.contains(.fo))
+        XCTAssertTrue(setup.selectedMessageAgentIDs.contains(first.id))
+        setup.excludeDiscoveredMessageAgent(tiny.id, agents: [first, second, tiny], availableIDs: [first.id])
+        XCTAssertNil(setup.messageAgentIDs["otherMessages"], "Other Messages must not steal a Fo contact as its representative")
+        XCTAssertEqual(setup.selected, [.fo])
+        let restored = try JSONDecoder().decode(OnboardingState.self, from: JSONEncoder().encode(setup))
+        XCTAssertEqual(restored.selectedMessageAgentIDs, [first.id])
+    }
     func testConnectorStartPersistsAndRoutesEachCategory() throws {
         for connector in OnboardingConnector.allCases {
             var setup = OnboardingState()

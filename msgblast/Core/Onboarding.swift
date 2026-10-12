@@ -108,6 +108,42 @@ public struct OnboardingState: Codable, Equatable, Sendable {
         Set(pendingChoices.compactMap(\.provider).filter { !$0.usesNativeConversation })
     }
     public var isFinished: Bool { stage == .finished }
+    public var selectedMessageAgentIDs: Set<UUID> {
+        Set(selected.filter(\.isMessages).compactMap { messageAgentIDs[$0.rawValue] } + (discoveredMessageAgentIDs ?? []))
+            .subtracting(excludedDiscoveredMessageAgentIDs ?? [])
+    }
+    public func unresolvedMessageAgents(in agents: [Agent], chats: [Chat]) -> [Agent] {
+        agents.filter { selectedMessageAgentIDs.contains($0.id) && ChatResolver.resolve(agent: $0, chats: chats) == nil }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+    public mutating func excludeDiscoveredMessageAgent(_ id: UUID, agents: [Agent], availableIDs: Set<UUID>) {
+        excludedDiscoveredMessageAgentIDs = Array(Set(excludedDiscoveredMessageAgentIDs ?? []).union([id]))
+        discoveredMessageAgentIDs?.removeAll { $0 == id }
+        for choice in OnboardingChoice.allCases where messageAgentIDs[choice.rawValue] == id {
+            messageAgentIDs.removeValue(forKey: choice.rawValue)
+            selected.remove(choice); completed.remove(choice); skipped.remove(choice)
+            let included = Set(discoveredMessageAgentIDs ?? []).subtracting(excludedDiscoveredMessageAgentIDs ?? [])
+            let replacement = agents.filter { agent in
+                let category = OnboardingChoice.allCases.first { !$0.contactSuggestions(in: [agent]).isEmpty } ?? .otherMessages
+                return included.contains(agent.id) && category == choice
+            }.sorted { lhs, rhs in
+                if availableIDs.contains(lhs.id) != availableIDs.contains(rhs.id) { return availableIDs.contains(lhs.id) }
+                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            }.first
+            if let replacement {
+                messageAgentIDs[choice.rawValue] = replacement.id
+                selected.insert(choice)
+                if availableIDs.contains(replacement.id) { completed.insert(choice) }
+            }
+        }
+    }
+    public mutating func reviewMessages(prerequisitesReady: Bool) {
+        connector = .messages
+        connectorStartCompleted = true
+        prerequisitesCompleted = prerequisitesReady
+        messagesDiscoveryReviewed = false
+        stage = .choosing
+    }
     public var hasConnectedAgent: Bool {
         completed.intersection(selected).contains { $0.provider != nil || $0.isMessages }
     }
@@ -179,6 +215,7 @@ public struct OnboardingState: Codable, Equatable, Sendable {
     public mutating func resume() {
         skipped.removeAll()
         stage = .choosing
+        connectorStartCompleted = false
     }
     private mutating func finishIfResolved() {
         if stage == .connecting && pendingSteps.isEmpty {

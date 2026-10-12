@@ -348,6 +348,11 @@ final class CoreTests: XCTestCase {
         let first = Chat(id: "one", handle: "business-one", lastActivity: 10, displayName: "Poke", businessConversation: true)
         let second = Chat(id: "two", handle: "business-two", lastActivity: 20, displayName: "Poke", businessConversation: true)
         XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [first, second]))
+        let ordinary = Chat(id: "old-phone", handle: poke.handles[0], lastActivity: 100)
+        XCTAssertNil(ChatResolver.conversation(agent: poke, chats: [first, second, ordinary]), "Ambiguity must not fall back to either phone number")
+        XCTAssertNil(ChatResolver.resolve(agent: poke, chats: [first, second, ordinary]))
+        XCTAssertEqual(ChatResolver.status(agent: poke, chats: [first, second, ordinary]), "Multiple Business conversations found · sending unavailable")
+        XCTAssertEqual(ChatResolver.resolve(agent: poke, chats: [ordinary])?.id, ordinary.id, "Ordinary Poke chats still work when no Business identity exists")
         XCTAssertNil(ChatResolver.conversation(agent: Agent(name: "Alex Poke", handles: poke.handles), chats: [first]))
         var missingHandle = first; missingHandle.handle = ""
         var anotherMissing = second; anotherMissing.handle = ""

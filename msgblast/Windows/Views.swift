@@ -232,16 +232,16 @@ struct MainView: View {
             } else {
             VStack(spacing: 0) {
                 if model.demo { demoControls }
-                if let setup = model.state.onboarding {
-                    let unresolved = setup.skipped.filter { choice in
-                        guard let agent = model.onboarding.candidate(for: choice) else { return true }
-                        return model.conversation(agent)?.businessConversation != true
-                    }
+                if model.state.onboarding != nil {
+                    let unresolved = model.onboarding.setupReminderNames
                     if !unresolved.isEmpty {
                     HStack {
-                        Text("\(unresolved.count) \(unresolved.count == 1 ? "agent still needs" : "agents still need") setup.").foregroundStyle(.secondary)
+                        Text("Finish connecting \(unresolved.joined(separator: ", ")).").foregroundStyle(.secondary)
                         Spacer()
-                        Button("Finish setup") { model.onboarding.resume() }
+                        Button("Connect agents") {
+                            if !model.onboarding.unresolvedMessageAgents.isEmpty { model.onboarding.reviewMessagesAgents() }
+                            else { model.onboarding.resume() }
+                        }
                     }.padding(18).background(.bar)
                     }
                 }
@@ -265,6 +265,14 @@ struct MainView: View {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
         .toolbar {
+            if selection == .agents {
+                ToolbarItem {
+                    Button("Add Messages agents", systemImage: "plus") {
+                        if model.state.onboarding != nil { model.onboarding.reviewMessagesAgents() }
+                        else { selection = .discover }
+                    }.disabled(model.busy || model.webBroadcastBusy)
+                }
+            }
             if selection == .discover {
                 ToolbarItem(placement: .navigation) {
                     Button {

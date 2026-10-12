@@ -78,7 +78,10 @@ final class OnboardingController: ObservableObject {
     func back() {
         invalidateCheck()
         model.accessGuide.cancel()
-        edit { $0.chooseAgain() }
+        edit {
+            if $0.connector == .messages { $0.reviewMessages(prerequisitesReady: $0.prerequisitesCompleted == true) }
+            else { $0.chooseAgain() }
+        }
     }
 
     func skip() {
@@ -95,7 +98,25 @@ final class OnboardingController: ObservableObject {
     }
 
     func resume() {
-        edit { $0.resume(); $0.completed = [] }
+        invalidateCheck()
+        edit { $0.resume() }
+    }
+
+    var unresolvedMessageAgents: [Agent] { state.unresolvedMessageAgents(in: model.state.agents, chats: model.chats) }
+    var setupReminderNames: [String] {
+        let other = state.skipped.intersection(state.selected).filter { choice in
+            if choice.isMessages { return candidate(for: choice) == nil }
+            if let provider = choice.provider { return !isReady(session(for: provider)) }
+            return true
+        }.map { $0 == .otherMessages ? "Messages contact" : $0.name }
+        return Array(Set(unresolvedMessageAgents.map(\.name) + other)).sorted()
+    }
+
+    func reviewMessagesAgents() {
+        invalidateCheck()
+        model.refresh()
+        let ready = model.databaseAvailable && model.contactsAvailable
+        edit { $0.reviewMessages(prerequisitesReady: ready) }
     }
 
     func chooseBrowser(_ source: BrowserLoginSource) {
@@ -312,22 +333,8 @@ final class OnboardingController: ObservableObject {
             let choice = OnboardingChoice.allCases.first { !$0.contactSuggestions(in: [saved]).isEmpty } ?? .otherMessages
             await connectDiscoveredMessage(saved, choice: choice)
         } else {
-            edit { next in
-                next.excludedDiscoveredMessageAgentIDs = (next.excludedDiscoveredMessageAgentIDs ?? []) + [saved.id]
-                next.discoveredMessageAgentIDs?.removeAll { $0 == saved.id }
-                for choice in OnboardingChoice.allCases where next.messageAgentIDs[choice.rawValue] == saved.id {
-                    next.messageAgentIDs.removeValue(forKey: choice.rawValue)
-                    next.selected.remove(choice)
-                    next.completed.remove(choice)
-                    if choice == .otherMessages, let replacement = (next.discoveredMessageAgentIDs ?? []).compactMap({ id in
-                        model.state.agents.first { $0.id == id }
-                    }).sorted(by: { (model.route($0) != nil) && (model.route($1) == nil) }).first {
-                        next.messageAgentIDs[choice.rawValue] = replacement.id
-                        next.selected.insert(choice)
-                        if model.route(replacement) != nil { next.completed.insert(choice) }
-                    }
-                }
-            }
+            let available = Set(model.state.agents.filter { model.route($0) != nil }.map(\.id))
+            edit { $0.excludeDiscoveredMessageAgent(saved.id, agents: model.state.agents, availableIDs: available) }
         }
     }
 
@@ -402,8 +409,7 @@ final class OnboardingController: ObservableObject {
             let selected = session.id.instance == nil && connected.contains { $0.provider == session.provider }
             if session.state.selected != selected { session.updateState { $0.selected = selected } }
         }
-        let selectedIDs = Set(state.selected.filter(\.isMessages).compactMap { state.messageAgentIDs[$0.rawValue] } + (state.discoveredMessageAgentIDs ?? []))
-            .subtracting(state.excludedDiscoveredMessageAgentIDs ?? [])
+        let selectedIDs = state.selectedMessageAgentIDs
         model.state.selection = Set(model.state.agents.filter { selectedIDs.contains($0.id) && model.route($0) != nil }.map(\.id))
     }
 }

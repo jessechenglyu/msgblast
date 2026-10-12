@@ -720,7 +720,8 @@ private struct OnboardingDiscoveredMessagesView: View {
                 }.buttonStyle(.plain).foregroundStyle(.secondary)
                 Button("Continue setup") {
                     setup.edit { $0.reviewMessagesDiscovery() }
-                    setup.begin()
+                    if setup.state.hasConnectedAgent { setup.begin() }
+                    else { setup.edit { $0.connectorStartCompleted = false } }
                 }
                     .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
                     .disabled(loading || model.busy || setup.state.selected.isEmpty)

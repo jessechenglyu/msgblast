@@ -95,6 +95,34 @@ final class OnboardingWorkflowTests: XCTestCase {
     }
 
     @MainActor
+    func testAddingMessagesAgentsReopensDiscoveryAndPreservesDeselection() {
+        let app = launch()
+        defer { app.terminate() }
+        choose("Messages", in: app)
+        app.buttons["Continue setup"].click()
+        XCTAssertTrue(app.buttons["Deselect Fo"].waitForExistence(timeout: 5))
+        app.buttons["Deselect Fo"].click()
+        app.buttons["Continue setup"].click()
+        XCTAssertTrue(app.buttons["Start chatting"].waitForExistence(timeout: 5))
+        app.buttons["Back"].click()
+        XCTAssertTrue(app.staticTexts["Agents we found"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Select Fo"].exists)
+        app.buttons["Continue setup"].click()
+        app.buttons["Start chatting"].click()
+        XCTAssertTrue(app.buttons["Add Messages agents"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Fo"].exists)
+        app.buttons["Add Messages agents"].click()
+        XCTAssertTrue(app.staticTexts["Agents we found"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Select Fo"].exists)
+        app.buttons["Select Fo"].click()
+        app.buttons["Continue setup"].click()
+        app.buttons["Start chatting"].click()
+        XCTAssertTrue(app.buttons["Fo"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Fo"].value as? String, "Selected")
+        XCTAssertFalse(app.buttons["Connect agents"].exists)
+    }
+
+    @MainActor
     func testPokeBusinessFixtureIsMatchedWithoutAChooserAndSelectedForSending() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo", "--onboarding-preview", "--business-messages-preview"]
