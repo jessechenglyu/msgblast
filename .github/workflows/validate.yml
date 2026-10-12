@@ -143,6 +143,7 @@ jobs:
           set -o pipefail
           mkdir -p build
           swift scripts/prepare_ui_desktop.swift 2>&1 | tee build/ui-desktop.log
+          swift scripts/prepare_ui_desktop.swift --check-only 2>&1 | tee -a build/ui-desktop.log
 
       - name: Exercise isolated native UI workflows on request
         run: |

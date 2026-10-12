@@ -89,7 +89,9 @@ isolation without reading user data or requesting a real OS grant.
 Use an authorized Mac with an interactive desktop and native runner permissions.
 Use a dedicated UI desktop with at least a 1440 × 900 display mode and 780 points
 of usable height. The explicit worker preparation checks that geometry and selects
-an available larger mode when needed; it does not grant or reset permissions.
+an available larger mode for the worker's login session when needed. A second
+process verifies that the size survives preparation; saved display preferences
+are unchanged. Preparation does not grant or reset permissions.
 Keep UI work separate from updater/server fixtures, which can leave an unrelated
 Python local-network consent dialog over later input.
 The UI tests explicitly pass `--demo` and `--isolated-demo`; inspect the test when

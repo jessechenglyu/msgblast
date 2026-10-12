@@ -351,11 +351,11 @@ final class WorkflowTests: XCTestCase {
         app.typeKey("1", modifierFlags: .command)
         let pending = app.buttons["pending@example.com"]
         XCTAssertTrue(pending.waitForExistence(timeout: 5))
-        XCTAssertEqual(pending.value as? String, "Not selected")
+        XCTAssertEqual(pending.value as? String, "No supported conversation found")
         pending.click()
         XCTAssertTrue(app.staticTexts["Open an existing Messages conversation with this agent, then return to msgblast."].waitForExistence(timeout: 5))
         app.buttons["Done setting up pending@example.com"].click()
-        XCTAssertEqual(pending.value as? String, "Not selected", "Opening setup cannot select an unbound account")
+        XCTAssertEqual(pending.value as? String, "No supported conversation found", "Opening setup cannot bind an unsupported account")
         let prompt = app.textViews["Shared prompt"]
         prompt.click(); prompt.typeKey("a", modifierFlags: .command); prompt.typeText("Pending contact regression fixture")
         app.buttons["Send & compare"].click()

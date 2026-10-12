@@ -27,6 +27,7 @@ test_selector='-only-testing:msgblastTests'
 if [[ "$test_suite" == ui ]]; then
     test_selector='-only-testing:msgblastUITests'
     swift scripts/prepare_ui_desktop.swift 2>&1 | tee "$test_results/ui-desktop.log"
+    swift scripts/prepare_ui_desktop.swift --check-only 2>&1 | tee -a "$test_results/ui-desktop.log"
 fi
 xcodebuild -project msgblast.xcodeproj -scheme msgblast \
     -configuration Debug -derivedDataPath "$test_derived" \
