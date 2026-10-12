@@ -24,6 +24,7 @@ public enum WebSendStatus: String, Codable, Sendable {
 }
 
 public struct WebSendAttempt: Codable, Equatable, Identifiable, Sendable {
+    public var performanceScope: PerformanceScope?
     public var id = UUID()
     public var created = Date()
     public var text: String
@@ -172,6 +173,7 @@ public struct WebPageMessage: Codable, Equatable, Identifiable, Sendable {
 }
 
 public struct WebPageSnapshot: Decodable, Equatable, Sendable {
+    public var generating: Bool?
     public var url = ""
     public var ready = false
     // Unknown while loading or when the account markup cannot be recognized.

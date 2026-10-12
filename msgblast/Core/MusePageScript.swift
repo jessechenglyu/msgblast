@@ -8,8 +8,13 @@ enum MusePageScript {
     const editor = () => unique('textarea[aria-label="Message"]');
     const buttons = label => [...document.querySelectorAll('button')].filter(e => visible(e) && e.getAttribute('aria-label') === label);
     const normalized = s => s.replace(/\s+/g, ' ').trim();
-    const messages = () => [...document.querySelectorAll('[data-message-item][data-message-id][data-message-role]')].map(e => {
+    const performanceVisible = e => visible(e) && !e.closest('[hidden],[aria-hidden="true"]') && getComputedStyle(e).display !== 'none' && getComputedStyle(e).opacity !== '0';
+    const messages = (visibleOnly=false) => [...document.querySelectorAll('[data-message-item][data-message-id][data-message-role]')].filter(e=>!visibleOnly || performanceVisible(e)).map(e => {
         const copy = e.cloneNode(true);
+        if (visibleOnly) {
+            const original=[...e.querySelectorAll('*')],cloned=[...copy.querySelectorAll('*')];
+            original.forEach((node,i)=>{if(!performanceVisible(node) || node.matches('script,style,template,noscript'))cloned[i]?.remove();});
+        }
         copy.querySelectorAll('button,[role="button"],time').forEach(n => n.remove());
         return {id:e.getAttribute('data-message-id'),role:e.getAttribute('data-message-role'),text:normalized(copy.textContent || '').replace(/^You:\s*/, '')};
     });
