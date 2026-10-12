@@ -10,12 +10,22 @@ import LocalAuthentication
 
 /// This account boundary deliberately has no file or UserDefaults fallback.
 @MainActor public final class BenchmarkKeychainTokenStore: BenchmarkTokenStore {
-    public init() {}
+    /// Provisioned signatures use access-group isolation. The supported ad-hoc
+    /// distribution uses the encrypted macOS login Keychain and its code ACL.
+    /// Selection occurs before any operation, never after a storage failure.
+    public let usesDataProtection: Bool
+    public init() {
+        if let task = SecTaskCreateFromSelf(nil) {
+            let identifier = SecTaskCopyValueForEntitlement(task, "com.apple.application-identifier" as CFString, nil) as? String
+            let groups = SecTaskCopyValueForEntitlement(task, "keychain-access-groups" as CFString, nil) as? [String]
+            usesDataProtection = identifier?.isEmpty == false || groups?.isEmpty == false
+        } else { usesDataProtection = false }
+    }
     private func query(_ scope: String) -> [String: Any] {
         let context = LAContext(); context.interactionNotAllowed = true
         return [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: scope,
-         kSecAttrAccount as String: "benchmark-session", kSecUseDataProtectionKeychain as String: true,
-         kSecUseAuthenticationContext as String: context]
+         kSecAttrAccount as String: "benchmark-session", kSecUseDataProtectionKeychain as String: usesDataProtection,
+         kSecUseAuthenticationContext as String: context, kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail]
     }
     public func read(scope: String) throws -> BenchmarkAccountTokens? {
         var query = query(scope); query[kSecReturnData as String] = true; query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -35,7 +45,7 @@ import LocalAuthentication
         if status == errSecItemNotFound {
             var item = query
             item[kSecValueData as String] = bytes
-            item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            if usesDataProtection { item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly }
             let added = SecItemAdd(item as CFDictionary, nil)
             guard added == errSecSuccess else { throw BenchmarkAccountError.secureStorage(added) }
         } else if status != errSecSuccess { throw BenchmarkAccountError.secureStorage(status) }

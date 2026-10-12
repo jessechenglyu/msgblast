@@ -2,9 +2,10 @@ import Foundation
 import CryptoKit
 
 public enum BenchmarkAccountError: Error, LocalizedError, Equatable {
-    case unconfigured, invalidConfiguration, invalidCallback, cancelled, authenticationFailed, invalidResponse, signedOut, accountMismatch, secureStorage(Int32), http(Int)
+    case unconfigured, invalidConfiguration, invalidCallback, cancelled, authenticationFailed, invalidResponse, signedOut, accountMismatch, secureStorage(Int32), http(Int), quota
     public var errorDescription: String? {
         switch self {
+        case .quota: return "The cloud storage limit was reached. Sync is paused; delete cloud records before resuming."
         case .unconfigured: return "Benchmark accounts are not configured."
         case .invalidConfiguration: return "The benchmark account configuration is invalid."
         case .invalidCallback: return "The sign-in callback could not be verified."
@@ -41,9 +42,9 @@ public struct BenchmarkAccountConfiguration: Sendable {
         let loopback = ["localhost", "127.0.0.1", "::1", "[::1]"].contains(serviceURL.host ?? "")
         guard (serviceURL.scheme == "https" || (demoFixture && loopback && serviceURL.scheme == "http")),
               serviceURL.host != nil, serviceURL.user == nil, serviceURL.password == nil,
-              serviceURL.query == nil, serviceURL.fragment == nil,
+              serviceURL.query == nil, serviceURL.fragment == nil, ["", "/"].contains(serviceURL.path),
               issuer.scheme == "https", issuer.host != nil, issuer.user == nil, issuer.password == nil,
-              issuer.query == nil, issuer.fragment == nil,
+              issuer.query == nil, issuer.fragment == nil, ["", "/"].contains(issuer.path),
               let callbackScheme = callbackURL.scheme, callbackScheme.contains("."),
               callbackScheme != "https", callbackScheme != "http", callbackURL.query == nil, callbackURL.fragment == nil,
               callbackURL.user == nil, callbackURL.password == nil,

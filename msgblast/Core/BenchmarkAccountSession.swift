@@ -104,6 +104,10 @@ import Combine
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let result = try await transport.send(request)
         try check(expected)
+        if result.1.statusCode == 429, result.0.count <= 4096,
+           let body = try? JSONSerialization.jsonObject(with: result.0) as? [String: Any],
+           let code = body["error"] as? String,
+           ["session_quota", "account_quota", "snapshot_quota", "publication_quota", "session_event_limit", "revision_limit", "chunk_conflict_or_quota"].contains(code) { throw BenchmarkAccountError.quota }
         guard (200..<300).contains(result.1.statusCode) else { throw BenchmarkAccountError.http(result.1.statusCode) }
         return result
     }
