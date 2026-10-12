@@ -1,14 +1,15 @@
 {
-  "source_revision": "de052a541194ee3bd4801dbc43b69993da75274b",
-  "fixture": "com.msgblast.release070.evidence.de052a5",
-  "fixture_inputs": "Fictional contacts; synthetic UUID Business conversation; simulated permissions; simulated send. No real messages or Contacts writes.",
-  "video": "Continuous native window recording, trimmed to first38seconds and resized; no audio; original timing retained. Shows connector, checklist, discovery and deselection. Workspace and saved-comparison result are separate screenshots.",
-  "screenshots": {
-    "04-contribution.png": "92d3ae7c5e0f7500a2fd42922da50d3c45934356c3361d1ac34ef48c80e3b968",
-    "03-discovery.png": "6870f4e0aa36f52434c932db3a9a6efbcaa31c11b7f07414b16dfbf0c18ac777",
-    "01-connectors.png": "2ba04f6e2c772c885a44ac75546655d941c8a0e2ba7fec645020897dd30b4d57",
-    "02-checklist.png": "f67cf1f7fd79f743c9e839e577267c632ba3f8d80531523dadfcdc651b887c0a",
-    "06-saved-conversation.png": "c15f59ca292c698c00c329498e78693231533ab5dcf49269c1d2f3e587ce8858",
-    "05-workspace.png": "947e59816b7fcbd676421950fc383c0d26c090392f3b7ec5b948034bdb57e9d1"
+  "source_revision": "34bc81ece5be1ed2c297e39db27f7bd179311ecc",
+  "app": "com.msgblast.release070.evidence.34bc81e",
+  "fixture": "Synthetic contacts, UUID Business destination, permissions and send. No live messages, accounts or Contacts writes.",
+  "video": "Continuous 25-second native window recording showing connector choice, checklist, automatic Business discovery; resized, original timing, no audio. Screenshots separately show deselection, contribution, unchecked workspace and New Blast after simulated comparison.",
+  "files": {
+    "01-connectors.png": "dd882293b499cee9f9bd98c9cf40928661dd81562819e50a85971502eee7b51b",
+    "02-checklist.png": "d1ab72a8adbff0e46603c1edbe4f3c83e4e083d4434dfe61d3033c19a1066eb8",
+    "03-discovery.png": "09e470821c7739baec3e70f2db31da35c8b902a6c8a0e6b36a342ff08c411a75",
+    "04-contribution.png": "c7b6d45477d5b1356c20ef1ac894dfdf57bfff7a73bd94d6d4f6f1cbd3427299",
+    "05-workspace.png": "bff2b4d30b3fc0175e0050ef5a6a3e9a19f88e3b8c72eeddc1ad84ecad60b0db",
+    "06-saved-conversation.png": "fb04e9a0b53c79245406043e802963649b874a6b31be90cd2c044789a238a5e6",
+    "onboarding.mp4": "8f28721403f1b23c6fe7e3290ef439688af2dc32a469cc7681534d9e70800055"
   }
 }

@@ -1,5 +1,5 @@
-PR #52 source34bc81ece5be1ed2c297e39db27f7bd179311ecc.
+PR #52 evidence from final source 34bc81ece5be1ed2c297e39db27f7bd179311ecc.
 
-UIcaptured fromde052a541194ee3bd4801dbc43b69993da75274b; msgblast appsourceandresourcesarebyte-identical atfinalsource. Finaldeltaonlystrengthensscripts/test_updates.py toseedexplicitrecipientandverifyexactUUIDpreservation. ActualfiveSparklefixturecheckresultsatfinalrevisionareinupdater-results.json.
+Actual native Demo captures use synthetic contacts, a Business destination, permissions and send; no live user data. The continuous 25-second recording shows connector choice, checklist and automatic Business discovery, resized at original speed with no audio. Screenshots separately show deselection, contribution, initially unchecked agents and saved history after a simulated request. Mobile layout does not apply.
 
-NativeDemo:syntheticcontacts,Businessdestination,permissionsandsend;noliveuserdata. Continuousonboardingrecordingtrimmedtofirst38secondsandresizedatoriginalspeed;noaudio. Workspacescreenshotsseparatelyshowuncheckedconfiguredagentsandhistoryafterasimulatedrequest. No mobilelayout.
+updater-results.json contains actual results of all five isolated real Sparkle fixture cases, including exact explicit recipient preservation. These are local ad-hoc fixtures, not production notarization or live data.
