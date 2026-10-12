@@ -1,7 +1,14 @@
 {
-  "sourceSHA": "91508623e577d6a1fb2f0f9e17c487edade048b6",
+  "sourceSHA": "9013295a4b27aa2895f25bbc512f4d6c0ac2d41a",
   "fixture": true,
   "steps": [
+    {
+      "action": "Publish reviewed projection before private upload",
+      "publicPageHTTP": 200,
+      "privateSessions": 0,
+      "projectionHash": "762c9a3fad44e8221bd13a6d949ec2493eff9d674bfbf19a46fbc5d7b95cf9ae",
+      "association": "private owner/comparison metadata; absent from public projection"
+    },
     {
       "action": "Finalize original native prefix; explicitly select contribution",
       "HTTP": 202,
@@ -35,7 +42,9 @@
     },
     {
       "action": "Revoke publication and delete private lineage",
-      "publicPageHTTP": 404,
+      "publishBeforeUploadPageHTTP": 404,
+      "associatedLinkRevocation": "immediate on cloud comparison deletion",
+      "explicitlyRevokedAfterUploadPageHTTP": 404,
       "privateReadHTTP": 404,
       "cleanup": "tombstoned immediately; asynchronous content cleanup"
     }
