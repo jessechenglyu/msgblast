@@ -122,10 +122,12 @@ final class OnboardingWorkflowTests: XCTestCase {
         app.textViews["Shared prompt"].click()
         app.textViews["Shared prompt"].typeText("Local fixture recipient check")
         app.buttons["Send & compare"].click()
+        XCTAssertTrue(app.textViews["Private reply to Instinct"].waitForExistence(timeout: 10))
+        app.typeKey("w", modifierFlags: .command)
         XCTAssertTrue(app.buttons["New Blast"].waitForExistence(timeout: 10))
         app.buttons["New Blast"].click()
         XCTAssertTrue(app.buttons["Edit agents"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["New Blast"].exists)
+        XCTAssertTrue(app.buttons["New Blast"].exists, "A saved conversation makes New Blast available")
         XCTAssertFalse(app.buttons["Connect agents"].exists)
     }
 

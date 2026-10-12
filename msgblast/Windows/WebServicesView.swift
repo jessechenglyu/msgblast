@@ -71,7 +71,7 @@ struct AgentsWorkspaceView: View {
                         .disabled(busy)
                 }
             }
-            if showingComparison { ToolbarItem(placement: .navigation) {
+            if !model.state.comparisons.isEmpty { ToolbarItem(placement: .navigation) {
                 Button {
                     showingConnectionIntro = false
                     showingComparison = false
