@@ -886,9 +886,9 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
     }
 
     @discardableResult
-    public func send(_ text: String, comparisonID: UUID? = nil, scope: PerformanceScope = .unknown) async -> WebSendAttempt? {
-        if provider == .grokbot { return await sendGrokBot(text, comparisonID: comparisonID, scope: scope) }
-        if provider.personalAgentProvider != nil { return await sendNative(text, comparisonID: comparisonID, scope: scope) }
+    public func send(_ text: String, comparisonID: UUID? = nil, scope: PerformanceScope = .unknown, requestGroup: PerformanceRequestGroup? = nil) async -> WebSendAttempt? {
+        if provider == .grokbot { return await sendGrokBot(text, comparisonID: comparisonID, scope: scope, requestGroup: requestGroup) }
+        if provider.personalAgentProvider != nil { return await sendNative(text, comparisonID: comparisonID, scope: scope, requestGroup: requestGroup) }
         guard !isSending, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         guard !storageFailed else { error = "Repair web session storage before sending."; return nil }
         await refresh()
@@ -901,6 +901,7 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
         attempt.comparisonID = id
         var submissionWasPossible = false
         attempt.performanceScope = performanceObservationEnabled ? scope : nil
+        attempt.performanceGroup = performanceObservationEnabled ? requestGroup ?? (scope == .private ? PerformanceRequestGroup(id: UUID().uuidString, targetAgentIDs: [self.id.id]) : nil) : nil
         state.attempts.insert(attempt, at: 0)
         if performanceObservationEnabled { onPerformanceSignal?(.request(attempt)) }
         do {
@@ -1126,7 +1127,7 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
         storageURL.deletingLastPathComponent().appendingPathComponent("local-conversations/\(provider.localConversationDirectoryName)/\(id.uuidString)", isDirectory: true)
     }
 
-    private func sendNative(_ text: String, comparisonID: UUID?, scope: PerformanceScope) async -> WebSendAttempt? {
+    private func sendNative(_ text: String, comparisonID: UUID?, scope: PerformanceScope, requestGroup: PerformanceRequestGroup?) async -> WebSendAttempt? {
         guard isEnabled, !shuttingDown, !isSending, !storageFailed, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let id = comparisonID ?? state.comparisonID ?? UUID()
         guard !hasIncompleteNativeRequest(for: id) else {
@@ -1141,6 +1142,7 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
         attempt.comparisonID = id
         updateState { $0.comparisonID = id }
         attempt.performanceScope = performanceObservationEnabled ? scope : nil
+        attempt.performanceGroup = performanceObservationEnabled ? requestGroup ?? (scope == .private ? PerformanceRequestGroup(id: UUID().uuidString, targetAgentIDs: [self.id.id]) : nil) : nil
         state.attempts.insert(attempt, at: 0)
         if performanceObservationEnabled { onPerformanceSignal?(.request(attempt)) }
         var started = false
@@ -1496,7 +1498,7 @@ extension WebAgentSession {
             throw error
         }
     }
-    private func sendGrokBot(_ text: String, comparisonID: UUID?, scope: PerformanceScope) async -> WebSendAttempt? {
+    private func sendGrokBot(_ text: String, comparisonID: UUID?, scope: PerformanceScope, requestGroup: PerformanceRequestGroup?) async -> WebSendAttempt? {
         guard isEnabled, !shuttingDown, !isSending, !configuringGrokBot, !storageFailed, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let comparisonID = comparisonID ?? state.comparisonID ?? UUID()
         guard !hasIncompleteNativeRequest(for: comparisonID) else { error = "Wait for Grok Bot's previous reply or stop waiting before sending another request."; return nil }
@@ -1504,6 +1506,7 @@ extension WebAgentSession {
         defer { isSending = false; updateNativeSnapshot() }
         var attempt = WebSendAttempt(text: text); attempt.comparisonID = comparisonID
         attempt.performanceScope = performanceObservationEnabled ? scope : nil
+        attempt.performanceGroup = performanceObservationEnabled ? requestGroup ?? (scope == .private ? PerformanceRequestGroup(id: UUID().uuidString, targetAgentIDs: [self.id.id]) : nil) : nil
         state.attempts.insert(attempt, at: 0)
         if performanceObservationEnabled { onPerformanceSignal?(.request(attempt)) }
         var submitted = false

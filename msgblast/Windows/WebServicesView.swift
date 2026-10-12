@@ -223,7 +223,7 @@ struct AgentsWorkspaceView: View {
             // Save membership before sending so an interrupted join is never automatically repeated.
             model.state.comparisons[i].setWebAgents(saved.resolvedWebAgentIDs + [session.id])
             try model.save()
-            let attempt = await session.send(saved.joiningPrompt(), comparisonID: comparisonID, scope: .shared)
+            let attempt = await session.send(saved.joiningPrompt(), comparisonID: comparisonID, scope: .shared, requestGroup: model.performance.enabled ? PerformanceRequestGroup(id: UUID().uuidString, targetAgentIDs: [session.id.id]) : nil)
             if attempt == nil || attempt?.status == .notSent {
                 model.state.comparisons[i].setWebAgents(model.state.comparisons[i].resolvedWebAgentIDs.filter { $0 != session.id })
                 try model.save()
@@ -294,19 +294,21 @@ struct AgentsWorkspaceView: View {
                 Set(comparison.resolvedWebAgentIDs) == Set(sessions.map(\.id)) && Set(comparison.members.map(\.id)) == recipients
             } ?? false
             let followUpID = UUID()
+            let recordingGroup = model.performance.enabled ? PerformanceRequestGroup(id: existingID == nil ? comparisonID.uuidString : followUpID.uuidString,
+                targetAgentIDs: sessions.map { $0.id.id } + recipients.map(\.uuidString)) : nil
             let result = await AgentBroadcast.send(draft: originalDraft, currentDraft: { model.state.draft }, clearDraft: {
                 model.setSharedDraft("")
             }, web: { text in
-                await WebAgents.send(text, to: sessions, comparisonID: comparisonID, scope: allRecipients ? .shared : .private)
+                await WebAgents.send(text, to: sessions, comparisonID: comparisonID, scope: allRecipients ? .shared : .private, requestGroup: recordingGroup)
             }, messages: { text in
                 guard !recipients.isEmpty else { return nil }
                 if existingID != nil {
                     guard let i = model.index(comparisonID) else { return nil }
                     model.state.comparisons[i].allDraft = text
-                    await model.followUp(comparisonID, recipients: Array(recipients), newAttemptID: followUpID, recordingScope: allRecipients ? .shared : .private)
+                    await model.followUp(comparisonID, recipients: Array(recipients), newAttemptID: followUpID, recordingScope: allRecipients ? .shared : .private, recordingGroup: recordingGroup)
                     return model.comparison(comparisonID)?.followUps.contains(where: { $0.id == followUpID }) == true ? comparisonID : nil
                 }
-                await model.submit(comparisonID, retry: false)
+                await model.submit(comparisonID, retry: false, recordingGroup: recordingGroup)
                 return comparisonID
             })
             if existingID != nil, allRecipients,
@@ -343,7 +345,7 @@ struct AgentsWorkspaceView: View {
             }
             do { try model.save() } catch { model.error = error.localizedDescription; return }
             showingComparison = true
-            _ = await session.send(text, comparisonID: id, scope: existingID == nil ? .shared : .private)
+            _ = await session.send(text, comparisonID: id, scope: existingID == nil ? .shared : .private, requestGroup: model.performance.enabled ? PerformanceRequestGroup(id: existingID == nil ? id.uuidString : UUID().uuidString, targetAgentIDs: [session.id.id]) : nil)
             web.setComparison(id)
         }
     }

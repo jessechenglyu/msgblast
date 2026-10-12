@@ -74,3 +74,27 @@ unchanged. Both hashes have companion `.sha256` files.
 Reply `method` values from the current adapters begin with `web-`, `messages-`,
 `cli-`, or `bot-`, with explicit cadence/final-output/unsupported details. These
 are observation capability definitions, not model quality or token timestamps.
+
+## Authoritative request groups (additive v1)
+
+`turnStarted` may have optional `requestGroupID` and `targetAgentIDs`. These are
+app-orchestration metadata, never inferred from prompt text, timing, or per-agent
+turn position. The initial action uses Comparison.id; shared/targeted follow-ups
+use the actual FollowUp.id/broadcast action UUID. Target IDs are the exact saved
+configured agent IDs selected for that action, deduplicated and sorted; they are
+not contact handles, chat database IDs, account subjects, or provider cookies.
+Private native sends get an explicit single-target action ID. Joined-context
+replay gets its own single-target group. Manual/legacy actions with unobservable
+groups omit both fields and must remain labeled unaligned.
+
+A private turn can advance one agent's turnPosition without advancing another's.
+Repeated shared prompt text can identify different actions. Publication must use
+explicit request groups and selected targets to distinguish 'not asked' from a
+missing reply, preserving per-agent turn IDs and distinct response messages.
+These client declarations do not establish independent witnessing.
+
+`sample-upload-request-groups-v1.json` is native-produced by
+`scripts/fixtures/performance_request_groups.swift`. It contains an initial
+four-agent action, an interleaved private CLI turn, a repeated-text shared
+follow-up, a subset follow-up, and an explicitly unaligned manual observation.
+Original v1/provider fixture bytes remain unchanged and decodable.

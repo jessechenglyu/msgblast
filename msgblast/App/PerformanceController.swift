@@ -104,7 +104,7 @@ final class PerformanceController: ObservableObject {
             case .request(let attempt):
                 guard let comparison = attempt.comparisonID else { return }
                 attempts[attempt.id] = .init(attempt: attempt, agentID: agent.id)
-                turns[attempt.id] = try recorder.beginTurn(comparisonID: comparison.uuidString, agent: agent, text: attempt.text, scope: attempt.performanceScope ?? .unknown, at: pendingActions.removeValue(forKey: agent.id) ?? .now)
+                turns[attempt.id] = try recorder.beginTurn(comparisonID: comparison.uuidString, agent: agent, text: attempt.text, scope: attempt.performanceScope ?? .unknown, requestGroup: attempt.performanceGroup, at: pendingActions.removeValue(forKey: agent.id) ?? .now)
                 let key = agent.id + ":" + comparison.uuidString
                 baseline[key] = Set(session.snapshot.messages.map(\.id))
             case .status(let attempt):
@@ -184,7 +184,7 @@ final class PerformanceController: ObservableObject {
             }
         }
     }
-    func beginMessages(comparisonID: UUID, member: Member, text: String, scope: PerformanceScope, requestID: UUID, followUpID: UUID? = nil) {
+    func beginMessages(comparisonID: UUID, member: Member, text: String, scope: PerformanceScope, requestID: UUID, followUpID: UUID? = nil, requestGroup: PerformanceRequestGroup? = nil) {
         guard enabled else { return }
         capture { recorder in
             let key = member.id.uuidString + ":" + comparisonID.uuidString
@@ -193,7 +193,7 @@ final class PerformanceController: ObservableObject {
                 !recorder.events.contains { $0.turnID == attempt.turnID && ($0.kind == .replyObserved || ($0.kind == .outcome && $0.reason == "failed")) }
             }
             let agent = PerformanceAgent(id: member.id.uuidString, name: member.name, connection: .messages)
-            guard let turn = try recorder.beginTurn(comparisonID: comparisonID.uuidString, agent: agent, text: text, scope: scope, at: pendingActions.removeValue(forKey: agent.id) ?? .now) else { return }
+            guard let turn = try recorder.beginTurn(comparisonID: comparisonID.uuidString, agent: agent, text: text, scope: scope, requestGroup: requestGroup, at: pendingActions.removeValue(forKey: agent.id) ?? .now) else { return }
             turns[requestID] = turn
             messagesTurns[key, default: []].append(.init(turnID: turn, followUpID: followUpID, text: text, baselineRowID: messagesRows[key] ?? 0))
             if !pending.isEmpty {

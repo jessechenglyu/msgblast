@@ -392,8 +392,9 @@ import msgblastCore
         model.setPerformanceTracking(true)
         let id = await model.prepareWebComparison("Synthetic recording fixture", recipientIDs: [recipient.id], agents: [web.id, native.id, bot.id])!
         _ = await model.webAgents.prepareComparison(id, for: [web, native, bot])
-        await model.submit(id, retry: false)
-        let results = await WebAgents.send("Synthetic recording fixture", to: [web, native, bot], comparisonID: id, scope: .shared)
+        let initialGroup = PerformanceRequestGroup(id: id.uuidString, targetAgentIDs: [recipient.id.uuidString, web.id.id, native.id.id, bot.id.id])
+        await model.submit(id, retry: false, recordingGroup: initialGroup)
+        let results = await WebAgents.send("Synthetic recording fixture", to: [web, native, bot], comparisonID: id, scope: .shared, requestGroup: initialGroup)
         precondition(results.count == 3)
         await bot.refresh()
         for _ in 0..<30 {
@@ -423,6 +424,36 @@ import msgblastCore
             let captured = model.performance.replies.last { $0.messageID == firstReply.guid }!
             precondition(captured.turnID != nil, "Unambiguous ordinary incoming replies use the owned outgoing receipt")
         }
+        let repeated = "Synthetic recording fixture"
+        let sharedActionID = UUID()
+        let sharedGroup = PerformanceRequestGroup(id: sharedActionID.uuidString, targetAgentIDs: initialGroup.targetAgentIDs)
+        _ = await AgentBroadcast.send(draft: repeated, currentDraft: { repeated }, clearDraft: {}, web: { text in
+            await WebAgents.send(text, to: [web, native, bot], comparisonID: id, scope: .shared, requestGroup: sharedGroup)
+        }, messages: { text in
+            model.state.comparisons[model.index(id)!].allDraft = text
+            await model.followUp(id, recipients: [recipient.id], newAttemptID: sharedActionID, recordingScope: .shared, recordingGroup: sharedGroup)
+            return id
+        })
+        await bot.refresh()
+        let sharedTurns = model.performance.events.filter { $0.kind == .turnStarted && $0.requestGroupID == sharedGroup.id }
+        precondition(sharedTurns.count == 4 && sharedTurns.allSatisfy { $0.targetAgentIDs == initialGroup.targetAgentIDs })
+        precondition(Set(sharedTurns.compactMap(\.agent?.id)) == Set(initialGroup.targetAgentIDs))
+        precondition(sharedGroup.id != initialGroup.id && sharedTurns.allSatisfy { $0.text == repeated })
+        let positions = sharedTurns.compactMap { $0.turnPosition }
+        precondition(Set(positions).count > 1, "Private turns must not be used to align shared follow-ups by per-agent position")
+        let subsetActionID = UUID()
+        let subsetGroup = PerformanceRequestGroup(id: subsetActionID.uuidString, targetAgentIDs: [recipient.id.uuidString, web.id.id, native.id.id])
+        _ = await AgentBroadcast.send(draft: repeated, currentDraft: { repeated }, clearDraft: {}, web: { text in
+            await WebAgents.send(text, to: [web, native], comparisonID: id, scope: .private, requestGroup: subsetGroup)
+        }, messages: { text in
+            model.state.comparisons[model.index(id)!].allDraft = text
+            await model.followUp(id, recipients: [recipient.id], newAttemptID: subsetActionID, recordingScope: .private, recordingGroup: subsetGroup)
+            return id
+        })
+        let subsetTurns = model.performance.events.filter { $0.kind == .turnStarted && $0.requestGroupID == subsetGroup.id }
+        precondition(subsetTurns.count == 3 && subsetTurns.allSatisfy { $0.targetAgentIDs == subsetGroup.targetAgentIDs })
+        precondition(!subsetTurns.contains { $0.agent?.id == bot.id.id } && !subsetGroup.targetAgentIDs.contains(bot.id.id))
+        print("PASS: actual broadcast hooks preserve shared action identity after private turns and repeated text; target IDs exclude the Bot from a later subset action without guessing by text or position.")
         let comparisonIndex = model.index(id)!
         model.state.comparisons[comparisonIndex].allDraft = "Synthetic actual Messages follow-up"
         await model.followUp(id, recipients: [recipient.id], recordingScope: .private)

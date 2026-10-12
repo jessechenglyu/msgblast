@@ -6,7 +6,7 @@ or paid provider request was performed. Native account integration belongs to th
 separate cloud stream.
 
 - Full Xcode native core suite: 343 tests, zero failures.
-- Focused performance suite: ten tests, zero failures. Covers old state off,
+- Focused performance suite: eleven tests, zero failures. Covers old state off,
   selected turn cohorts, separate initial/follow-up samples, unavailable Messages
   completion, clock/gap boundaries and per-agent versus global gaps, feedback revisions, corruption preservation,
   permissions, distinct providers/copies, and stale-writer rejection.
@@ -69,3 +69,12 @@ initial and follow-up timing are demonstrated against the correct synthetic
 source membership. The agent-local navigation-gap regression reproduced an
 unavailable Beta measurement before the fix and preserves its 60 ms afterward;
 nil-agent global gaps still invalidate both agents.
+
+
+Authoritative optional requestGroupID/targetAgentIDs metadata is captured through
+actual shared orchestration. The controller fixture repeats the same prompt after
+an interleaved private CLI turn and verifies common action identity across four
+intended agents despite different per-agent turn positions. A later subset action
+excludes the Bot from its target vector. Private native groups remain single-target;
+manual/legacy groups remain absent and unaligned. A third native-produced fixture
+pins these optional v1 fields without changing either older fixture's bytes.

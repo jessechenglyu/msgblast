@@ -78,3 +78,9 @@ empty record. This bounds each write independently of retained journal size.
 My Stats does not show raw configured UUIDs; provider names and configured names
 identify separate rows. Messages completion is explicitly unavailable; CLI/Bot
 latencies are labeled final output/callback observations, with streaming absent.
+
+Shared action membership uses optional app-generated requestGroupID and exact
+configured targetAgentIDs, carried through existing broadcast/follow-up hooks.
+Private/manual interleaving and repeated prompt text cannot align sessions by
+text, timestamps or agent turnPosition. Unknown legacy/manual groups are unaligned;
+publication must distinguish selected targets from agents not asked in that action.

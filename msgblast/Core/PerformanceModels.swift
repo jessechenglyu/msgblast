@@ -7,6 +7,13 @@ public enum PerformanceFeedback: String, Codable, Sendable { case favorite, nega
 public enum PerformanceEventKind: String, Codable, Sendable {
     case segmentStarted, turnStarted, dispatched, submitted, replyObserved, completed, outcome, feedback, gap, observationState, segmentEnded
 }
+public struct PerformanceRequestGroup: Codable, Equatable, Sendable {
+    public var id: String
+    public var targetAgentIDs: [String]
+    public init(id: String, targetAgentIDs: [String]) {
+        self.id = id; self.targetAgentIDs = Array(Set(targetAgentIDs)).sorted()
+    }
+}
 public struct PerformanceAgent: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
@@ -42,6 +49,8 @@ public struct PerformanceEvent: Codable, Equatable, Identifiable, Sendable {
     public var agent: PerformanceAgent?
     public var turnID: String?
     public var turnPosition: Int?
+    public var requestGroupID: String?
+    public var targetAgentIDs: [String]?
     public var scope: PerformanceScope?
     public var messageID: String?
     public var text: String?

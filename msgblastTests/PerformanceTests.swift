@@ -2,6 +2,31 @@ import XCTest
 @testable import msgblastCore
 
 final class PerformanceTests: XCTestCase {
+    func testRequestGroupFixtureAlignsRepeatedSharedActionsAfterPrivateTurns() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixture = root.appendingPathComponent("docs/performance/sample-upload-request-groups-v1.json")
+        let bytes = try Data(contentsOf: fixture)
+        let chunk = try JSONDecoder().decode(PerformanceUploadChunk.self, from: bytes)
+        XCTAssertEqual(try PerformanceCanonical.bytes(chunk), bytes)
+        let digest = try String(contentsOf: fixture.deletingPathExtension().appendingPathExtension("sha256"), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertEqual(PerformanceCanonical.hash(bytes), digest)
+        let turns = chunk.events.filter { $0.kind == .turnStarted }
+        let initial = turns.filter { $0.requestGroupID == "synthetic-group-comparison" }
+        let repeated = turns.filter { $0.requestGroupID == "synthetic-shared-follow-up" }
+        XCTAssertEqual(initial.count, 4)
+        XCTAssertEqual(repeated.count, 4)
+        XCTAssertEqual(Set(repeated.compactMap(\.agent?.id)), ["web-a", "cli-b", "messages-c", "bot-d"])
+        XCTAssertEqual(Set(repeated.compactMap(\.turnPosition)), [1, 2])
+        XCTAssertEqual(Set(repeated.compactMap(\.text)), Set(initial.compactMap(\.text)))
+        let subset = turns.filter { $0.requestGroupID == "synthetic-targeted-follow-up" }
+        XCTAssertEqual(subset.count, 2)
+        XCTAssertTrue(subset.allSatisfy { $0.targetAgentIDs == ["messages-c", "web-a"] })
+        XCTAssertFalse(subset.contains { $0.agent?.id == "bot-d" })
+        let unaligned = turns.first { $0.text == "Manual unaligned request" }!
+        XCTAssertNil(unaligned.requestGroupID)
+        XCTAssertNil(unaligned.targetAgentIDs)
+    }
+
     func testAgentNavigationGapDoesNotInvalidateAnotherAgentButGlobalGapDoes() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

@@ -34,7 +34,7 @@ public final class PerformanceRecorder {
         return projectedReplies
     }
     @discardableResult
-    public func record(_ kind: PerformanceEventKind, comparisonID: String, agent: PerformanceAgent? = nil, turnID: String? = nil, scope: PerformanceScope? = nil, messageID: String? = nil, text: String? = nil, sourceMS: Int64? = nil, method: String? = nil, reason: String? = nil, at stamp: PerformanceStamp = .now) throws -> PerformanceEvent? {
+    public func record(_ kind: PerformanceEventKind, comparisonID: String, agent: PerformanceAgent? = nil, turnID: String? = nil, scope: PerformanceScope? = nil, messageID: String? = nil, text: String? = nil, sourceMS: Int64? = nil, method: String? = nil, reason: String? = nil, requestGroup: PerformanceRequestGroup? = nil, at stamp: PerformanceStamp = .now) throws -> PerformanceEvent? {
         guard enabled else { return nil }
         if segments[comparisonID] == nil {
             let segment = UUID().uuidString; segments[comparisonID] = segment
@@ -42,13 +42,13 @@ public final class PerformanceRecorder {
             _ = try store.append(.init(sequence: 0, comparisonID: comparisonID, segmentID: segment, kind: .segmentStarted, stamp: stamp, fixture: fixture, reason: partial ? "resumed-partial" : "recording-started"))
         }
         let position = kind == .turnStarted ? events.filter { $0.comparisonID == comparisonID && $0.agent?.id == agent?.id && $0.kind == .turnStarted }.count : nil
-        return try store.append(.init(sequence: 0, comparisonID: comparisonID, segmentID: segments[comparisonID]!, kind: kind, stamp: stamp, fixture: fixture, agent: agent, turnID: turnID, turnPosition: position, scope: scope, messageID: messageID, text: text, sourceMS: sourceMS, method: method, reason: reason))
+        return try store.append(.init(sequence: 0, comparisonID: comparisonID, segmentID: segments[comparisonID]!, kind: kind, stamp: stamp, fixture: fixture, agent: agent, turnID: turnID, turnPosition: position, requestGroupID: requestGroup?.id, targetAgentIDs: requestGroup?.targetAgentIDs, scope: scope, messageID: messageID, text: text, sourceMS: sourceMS, method: method, reason: reason))
     }
     @discardableResult
-    public func beginTurn(comparisonID: String, agent: PerformanceAgent, text: String, scope: PerformanceScope, at stamp: PerformanceStamp = .now) throws -> String? {
+    public func beginTurn(comparisonID: String, agent: PerformanceAgent, text: String, scope: PerformanceScope, requestGroup: PerformanceRequestGroup? = nil, at stamp: PerformanceStamp = .now) throws -> String? {
         guard enabled else { return nil }
         let turn = UUID().uuidString
-        _ = try record(.turnStarted, comparisonID: comparisonID, agent: agent, turnID: turn, scope: scope, text: text, at: stamp)
+        _ = try record(.turnStarted, comparisonID: comparisonID, agent: agent, turnID: turn, scope: scope, text: text, requestGroup: requestGroup, at: stamp)
         return turn
     }
     public func reply(comparisonID: String, agent: PerformanceAgent, messageID: String, text: String, turnID: String?, sourceMS: Int64? = nil, method: String = "native-observation", at stamp: PerformanceStamp = .now) throws {

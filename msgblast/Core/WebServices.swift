@@ -25,6 +25,7 @@ public enum WebSendStatus: String, Codable, Sendable {
 
 public struct WebSendAttempt: Codable, Equatable, Identifiable, Sendable {
     public var performanceScope: PerformanceScope?
+    public var performanceGroup: PerformanceRequestGroup?
     public var id = UUID()
     public var created = Date()
     public var text: String

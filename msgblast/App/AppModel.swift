@@ -522,7 +522,7 @@ final class AppModel: ObservableObject {
         let available = demo ? chats : try database?.chats() ?? []
         guard available.contains(where: { $0.id == chat.id && $0.eligible && ChatResolver.normalize($0.handle) == ChatResolver.normalize(chat.handle) }) else { throw AppFailure.blocked("The saved destination is no longer an eligible one-to-one Messages chat. Nothing was sent.") }
     }
-    func submit(_ id: UUID, retry: Bool, only memberID: UUID? = nil) async {
+    func submit(_ id: UUID, retry: Bool, only memberID: UUID? = nil, recordingGroup: PerformanceRequestGroup? = nil) async {
         guard let i = index(id), !busy else { return }
         do { try RecipientSet.validate(state.comparisons[i].members) } catch { self.error = error.localizedDescription; return }
         busy = true; defer { busy = false; refresh() }
@@ -532,7 +532,9 @@ final class AppModel: ObservableObject {
             guard retry ? member.submission.canRetry : member.submission == .ready else { continue }
             let recordingRequest = UUID()
             performance.seedMessages(comparison: state.comparisons[i], member: member, transcript: transcript(state.comparisons[i], member: member))
-            performance.beginMessages(comparisonID: id, member: member, text: state.comparisons[i].prompt, scope: .shared, requestID: recordingRequest)
+            performance.beginMessages(comparisonID: id, member: member, text: state.comparisons[i].prompt, scope: .shared, requestID: recordingRequest,
+                requestGroup: recordingGroup ?? PerformanceRequestGroup(id: memberID == nil ? id.uuidString : UUID().uuidString,
+                    targetAgentIDs: memberID == nil ? state.comparisons[i].members.map { $0.id.uuidString } + state.comparisons[i].resolvedWebAgentIDs.map(\.id) : [member.id.uuidString]))
             defer {
                 let status = state.comparisons[i].members[j].submission
                 performance.messagesStatus(comparisonID: id, member: member, requestID: recordingRequest, kind: status == .submitted ? .submitted : .outcome, reason: status == .failed ? "failed" : status == .uncertain ? "uncertain" : nil)
@@ -627,7 +629,7 @@ final class AppModel: ObservableObject {
         }
         if changed { try save() }
     }
-    func followUp(_ id: UUID, only memberID: UUID? = nil, recipients recipientIDs: [UUID]? = nil, retry attemptID: UUID? = nil, resumeUnsent: Bool = false, newAttemptID: UUID? = nil, recordingScope: PerformanceScope? = nil) async {
+    func followUp(_ id: UUID, only memberID: UUID? = nil, recipients recipientIDs: [UUID]? = nil, retry attemptID: UUID? = nil, resumeUnsent: Bool = false, newAttemptID: UUID? = nil, recordingScope: PerformanceScope? = nil, recordingGroup: PerformanceRequestGroup? = nil) async {
         guard let i = index(id), !busy, memberID == nil || !webBroadcastBusy else { return }
         do { try freezeSharedContext(id) } catch { self.error = error.localizedDescription; return }
         let comparison = state.comparisons[i]
@@ -675,7 +677,7 @@ final class AppModel: ObservableObject {
                 guard status == .ready || status == .failed else { continue }
                 let recordingRequest = UUID()
                 let follow = state.comparisons[i].followUps[k]
-                performance.beginMessages(comparisonID: id, member: member, text: follow.text, scope: recordingScope ?? (follow.sharedWithAll == true ? .shared : .private), requestID: recordingRequest, followUpID: follow.id)
+                performance.beginMessages(comparisonID: id, member: member, text: follow.text, scope: recordingScope ?? (follow.sharedWithAll == true ? .shared : .private), requestID: recordingRequest, followUpID: follow.id, requestGroup: recordingGroup ?? PerformanceRequestGroup(id: follow.id.uuidString, targetAgentIDs: follow.memberIDs.map(\.uuidString)))
                 defer {
                     let status = state.comparisons[i].followUps[k].states[key]
                     performance.messagesStatus(comparisonID: id, member: member, requestID: recordingRequest, kind: status == .submitted ? .submitted : .outcome, reason: status == .failed ? "failed" : status == .uncertain ? "uncertain" : nil)
