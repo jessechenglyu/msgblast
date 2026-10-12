@@ -15,6 +15,19 @@ final class ComparisonPublicationTests: XCTestCase {
               requestGroupID: kind == .turnStarted ? group : nil, targetAgentIDs: kind == .turnStarted ? targets : nil,
               scope: scope, messageID: message, text: text)
     }
+    func testManualRedactionOnlyMasksLiteralCapturedText() throws {
+        let source = [event(.turnStarted, 1, text: "Keep secret\n  indentation."), event(.replyObserved, 2, message: "reply", text: "Literal .* secret\n\nUnchanged answer.")]
+        let originalBytes = try PerformanceCanonical.bytes(source)
+        var publication = try ComparisonPublicationBuilder.build(events: source, comparisonID: "c")
+        publication.redactLiteral("secret")
+        XCTAssertEqual(publication.turns[0].prompt, "Keep [redacted]\n  indentation.")
+        XCTAssertEqual(publication.turns[0].replies[0].messages[0].text, "Literal .* [redacted]\n\nUnchanged answer.")
+        publication.redactLiteral(".*")
+        XCTAssertEqual(publication.turns[0].replies[0].messages[0].text, "Literal [redacted] [redacted]\n\nUnchanged answer.")
+        let masked = try publication.previewBytes(); publication.redactLiteral("")
+        XCTAssertEqual(try publication.previewBytes(), masked)
+        XCTAssertEqual(try PerformanceCanonical.bytes(source), originalBytes)
+    }
     func testNativeRequestFixturePreservesActionsDespitePrivateInterleaveAndRepeatedText() throws {
         let chunk = try fixture(), originals = try PerformanceCanonical.bytes(chunk.events)
         let p = try ComparisonPublicationBuilder.build(events: chunk.events, comparisonID: chunk.sessionID)

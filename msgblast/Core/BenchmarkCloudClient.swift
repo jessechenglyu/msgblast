@@ -81,6 +81,13 @@ public enum BenchmarkCloudRetry {
     public func validation(sessionID: String, snapshotID: String, owner: String) async throws -> Data {
         try await send("sessions/\(sessionID)/snapshots/\(snapshotID)/validation", owner: owner)
     }
+    public func contributeSelected(sessionID: String, snapshotID: String, owner: String) async throws -> Data {
+        struct History: Decodable { let history: [BenchmarkContributionHistoryEntry] }
+        let data = try await send("contributions", owner: owner)
+        let history = try JSONDecoder().decode(History.self, from: data).history
+        let revision = try BenchmarkContributionSelection.revision(sessionID: sessionID, snapshotID: snapshotID, history: history)
+        return try await contribute(sessionID: sessionID, snapshotID: snapshotID, contributionRevision: revision, owner: owner)
+    }
     public func contribute(sessionID: String, snapshotID: String, contributionRevision: Int, owner: String) async throws -> Data {
         try await send("sessions/\(sessionID)/contribution", method: "POST", value: ["consent": true, "revision": contributionRevision, "snapshotID": snapshotID], owner: owner)
     }

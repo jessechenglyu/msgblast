@@ -62,6 +62,11 @@ public struct ComparisonPublication: Codable, Equatable, Sendable {
     }
     public func previewBytes() throws -> Data { try PerformanceCanonical.bytes(self) }
     public func previewHash() throws -> String { PerformanceCanonical.hash(try previewBytes()) }
+    /// Manual transcript controls can only mask exact captured text.
+    public mutating func redactLiteral(_ term: String) {
+        guard !term.isEmpty else { return }
+        redactText { $0.replacingOccurrences(of: term, with: "[redacted]", options: .literal) }
+    }
     /// Applies owner redactions without flattening whitespace or altering IDs/timing.
     public mutating func redactText(_ transform: (String) -> String) {
         title = transform(title)

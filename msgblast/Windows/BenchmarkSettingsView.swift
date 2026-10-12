@@ -17,7 +17,7 @@ struct BenchmarkSettingsView: View {
     @State private var publishConsent = false
     @State private var contributionConsent = false
     @State private var evidenceConsent = false
-    @State private var contributionRevision = 1
+    @State private var redactionTerm = ""
     @State private var confirmDeleteAccount = false
     @State private var previewError: String?
     @State private var selectArtifact = false
@@ -65,14 +65,14 @@ struct BenchmarkSettingsView: View {
             if controller.account.configuration?.demoFixture == true {
                 Text("Synthetic Demo: OAuth browser and credential storage are simulated. Cloud requests use a loopback Worker.").foregroundStyle(.secondary)
             }
-            if let identity = controller.account.account {
-                Text("Connected account: \(identity.accountID.prefix(12))").textSelection(.enabled)
+            if controller.account.account != nil {
+                Text("Signed in")
                 Button("Sign out") { controller.signOut() }
             } else {
                 Text("My Stats stays on this Mac. A benchmark account is optional.")
                 Button("Sign in with browser") { Task { await controller.signIn() } }
                     .disabled(!controller.account.isConfigured || controller.account.isWorking)
-                if !controller.account.isConfigured { Text("Managed sign-in is not configured in this build. Deployment requires an OIDC native client, API audience, callback and service URL.").foregroundStyle(.secondary) }
+                if !controller.account.isConfigured { Text("Cloud sign-in is unavailable in this build.").foregroundStyle(.secondary) }
             }
             Text("Private sync, direct-link publication, and benchmark contribution are separate choices. Signing in does not upload recordings.").foregroundStyle(.secondary)
         }
@@ -108,7 +108,7 @@ struct BenchmarkSettingsView: View {
                 Button("Resume saved selections") { Task { await controller.resumeSaved() } }.disabled(controller.working)
             }
             if let lineage = selectedLineage {
-                Text("Revision \(lineage.revision) · selected through event \(lineage.selectedSequenceEnd) · \(lineage.finalized ? "finalized" : "saved retry")")
+                Text(lineage.finalized ? "Selected snapshot uploaded" : "Selected upload saved for retry")
                 Button("Delete selected cloud record", role: .destructive) { Task { await controller.delete(lineage) } }.disabled(controller.working)
             }
         }
@@ -123,6 +123,9 @@ struct BenchmarkSettingsView: View {
             Button("Prepare redacted preview") { preparePreview() }.disabled(selected.isEmpty || controller.working)
             if publication != nil {
                 publicationEditor
+                TextField("Exact text to redact", text: $redactionTerm)
+                Button("Redact this text throughout the preview") { publication?.redactLiteral(redactionTerm); redactionTerm = ""; publishConsent = false }.disabled(redactionTerm.isEmpty)
+                Text("Captured prompts and replies are read-only. Redaction masks matching text with [redacted]; originals stay on this Mac.").foregroundStyle(.secondary)
                 Button("Select a text, PNG, or JPEG artifact for this preview") { selectArtifact = true }
                 Text("Artifacts are uploaded exactly as selected. Inspect images for private content; filenames are replaced with a generic public label.").foregroundStyle(.secondary)
                 Toggle("I reviewed the exact preview and approve publishing these bytes", isOn: $publishConsent)
@@ -149,16 +152,16 @@ struct BenchmarkSettingsView: View {
                 }
                 ForEach(p.turns.indices, id: \.self) { i in
                     Text("\(turnLabel(p.turns[i].kind)) · \(p.turns[i].scope.rawValue)").font(.headline)
-                    TextEditor(text: Binding(get: { publication?.turns[i].prompt ?? "" }, set: { publication?.turns[i].prompt = $0; publishConsent = false })).frame(minHeight: 70)
+                    Text(p.turns[i].prompt).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                     ForEach(p.turns[i].replies.indices, id: \.self) { j in
                         Text("\(p.participants.first(where: { $0.id == p.turns[i].replies[j].agentID })?.label ?? "Agent"): \(outcomeLabel(p.turns[i].replies[j].outcome))")
                         ForEach(p.turns[i].replies[j].messages.indices, id: \.self) { k in
-                            TextEditor(text: Binding(get: { publication?.turns[i].replies[j].messages[k].text ?? "" }, set: { publication?.turns[i].replies[j].messages[k].text = $0; publishConsent = false })).frame(minHeight: 100)
+                            Text(p.turns[i].replies[j].messages[k].text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                             Text(p.turns[i].replies[j].messages[k].timingLabel).font(.caption)
                             if let revisions = p.turns[i].replies[j].messages[k].revisions {
                                 ForEach(revisions.indices, id: \.self) { r in
                                     Text("Earlier observed revision \(r + 1)").font(.caption)
-                                    TextEditor(text: Binding(get: { publication?.turns[i].replies[j].messages[k].revisions?[r].text ?? "" }, set: { publication?.turns[i].replies[j].messages[k].revisions?[r].text = $0; publishConsent = false })).frame(minHeight: 70)
+                                    Text(revisions[r].text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
                                 }
                             }
 
@@ -194,18 +197,17 @@ struct BenchmarkSettingsView: View {
                 Task { await controller.prepareContribution(events: model.performance.events, comparisonID: selected, context: context); evidenceConsent = false }
             }.disabled(selected.isEmpty || !evidenceConsent || controller.working)
             if let lineage = selectedLineage, lineage.snapshotID != nil {
-                Text("Selected finalized private snapshot: revision \(lineage.revision), event \(lineage.finalizedSequenceEnd)")
-                Stepper("Contribution revision \(contributionRevision)", value: $contributionRevision, in: 1...10000)
+                Text("Ready to contribute the selected finalized snapshot")
                 Toggle("Contribute this finalized snapshot to benchmark statistics", isOn: $contributionConsent)
                 Button("Request contribution") {
-                    Task { await controller.contribute(lineage, contributionRevision: contributionRevision); contributionConsent = false }
+                    Task { await controller.contribute(lineage); contributionConsent = false }
                 }.disabled(!contributionConsent || controller.working)
                 Button("Withdraw this lineage's contribution", role: .destructive) { Task { await controller.withdraw(lineage) } }
             } else { Text("Upload and finalize a selected snapshot before contributing it.") }
             ForEach(controller.contributionSummaries) { item in
                 VStack(alignment: .leading) {
-                    Text("Contribution revision \(item.revision): \(item.status)").font(.headline)
-                    Text("Snapshot \(item.snapshotID.prefix(12)) · \(item.completeness ?? "validation pending")")
+                    Text("Contribution: \(item.status)").font(.headline)
+                    Text(item.completeness ?? "Validation pending")
                     ForEach(item.reasons, id: \.self) { Text($0).foregroundStyle(.secondary) }
                 }
             }
@@ -216,7 +218,7 @@ struct BenchmarkSettingsView: View {
         Section("Cloud records and deletion") {
             Button("Refresh cloud records and contribution history") { Task { await controller.refreshRecords() } }.disabled(controller.working)
             ForEach(controller.remoteRecords) { record in
-                HStack { Text("Comparison \(record.local_id.prefix(12)): \(record.status)\(record.fixture == 1 ? " · fixture" : "")"); Button("Delete cloud record", role: .destructive) { Task { await controller.deleteRemoteRecord(record) } } }
+                HStack { Text("\(recordLabel(record)): \(record.status)\(record.fixture == 1 ? " · fixture" : "")"); Button("Delete cloud record", role: .destructive) { Task { await controller.deleteRemoteRecord(record) } } }
             }
             ForEach(controller.remotePublications.filter { $0.revoked_at == nil }) { record in
                 HStack { Text("Publication created \(record.created_at)"); Button("Revoke publication", role: .destructive) { Task { await controller.revoke(record.id) } } }
@@ -226,11 +228,14 @@ struct BenchmarkSettingsView: View {
             Button("Check account deletion status") { Task { await controller.deletionStatus() } }.disabled(controller.working)
         }
     }
+    private func recordLabel(_ record: BenchmarkOwnedRecord) -> String {
+        model.performance.events.first { $0.comparisonID == record.local_id && $0.kind == .turnStarted }?.text.map { String($0.prefix(60)) } ?? "Saved comparison"
+    }
     private func turnLabel(_ kind: String) -> String { kind == "initial" ? "Initial prompt" : kind == "followUp" ? "Follow-up" : "Unaligned request" }
     private func outcomeLabel(_ outcome: String) -> String {
         ["observedCompletion": "Answer completion observed", "observedReply": "Reply observed", "missing": "No reply observed", "timeout": "Timed out", "failed": "Failed", "canceled": "Canceled", "uncertain": "Outcome uncertain"][outcome] ?? "Outcome unknown"
     }
-    private func clearPreview() { evidenceConsent = false; contributionConsent = false; uploadConsent = false; publication = nil; publishConsent = false; previewError = nil }
+    private func clearPreview() { redactionTerm = ""; evidenceConsent = false; contributionConsent = false; uploadConsent = false; publication = nil; publishConsent = false; previewError = nil }
     private func preparePreview() {
         do {
             var options = ComparisonPublicationOptions(); options.includePrivate = includePrivate; options.includeUnknownScope = includeUnknown

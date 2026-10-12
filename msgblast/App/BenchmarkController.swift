@@ -4,9 +4,6 @@ import msgblastCore
 
 struct BenchmarkOwnedPublication: Decodable, Identifiable { let id: String; let created_at: String; let revoked_at: String? }
 struct BenchmarkOwnedRecord: Decodable, Identifiable { let id: String; let local_id: String; let status: String; let fixture: Int }
-struct BenchmarkContributionSummary: Decodable, Identifiable {
-    var id: String { session }; let session: String; let revision: Int; let snapshotID: String; let status: String; let reasons: [String]; let completeness: String?
-}
 @MainActor final class BenchmarkController: ObservableObject {
     let account: BenchmarkAccountSession
     private(set) var client: BenchmarkCloudClient?
@@ -17,7 +14,7 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
     @Published private(set) var publicationLinks: [(id: String, url: URL)] = []
     @Published private(set) var remotePublications: [BenchmarkOwnedPublication] = []
     @Published private(set) var remoteRecords: [BenchmarkOwnedRecord] = []
-    @Published private(set) var contributionSummaries: [BenchmarkContributionSummary] = []
+    @Published private(set) var contributionSummaries: [BenchmarkContributionHistoryEntry] = []
     @Published private(set) var contributionHistory = "No contribution history loaded."
     @Published private(set) var cloudSessions = "No private records loaded."
     private weak var performance: PerformanceController?
@@ -139,8 +136,8 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
             let wasPaused = client.store.paused
             try client.resume()
             defer { if wasPaused { try? client.pause() } }
-            let snapshot = try await client.upload(comparisonID: comparisonID, owner: owner)
-            status = "Private snapshot \(snapshot.revision) uploaded. Validation is pending; no contribution was requested."
+            _ = try await client.upload(comparisonID: comparisonID, owner: owner)
+            status = "Selected private snapshot uploaded. Validation is pending; no contribution was requested."
         }
     }
     func resumeSaved() async {
@@ -179,15 +176,15 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
             _ = try client.store.prepare(events: events, comparisonID: comparisonID, owner: owner, context: context, purpose: "contribution")
-            let snapshot = try await client.upload(comparisonID: comparisonID, owner: owner, contributionSelection: true)
-            status = "Selected contribution evidence snapshot \(snapshot.revision) uploaded privately for validation. Private sync remains \(client.store.paused ? "paused" : "enabled"). Contribution still requires the separate final choice."
+            _ = try await client.upload(comparisonID: comparisonID, owner: owner, contributionSelection: true)
+            status = "Selected contribution evidence uploaded privately for validation. Private sync remains \(client.store.paused ? "paused" : "enabled"). Contribution still requires the separate final choice."
         }
     }
-    func contribute(_ lineage: BenchmarkSyncLineage, contributionRevision: Int) async {
+    func contribute(_ lineage: BenchmarkSyncLineage) async {
         await action {
             guard let client, let owner = account.account?.accountID, owner == lineage.owner, let session = lineage.sessionID, let snapshot = lineage.snapshotID else { throw BenchmarkSyncError.ownerMismatch }
-            _ = try await client.contribute(sessionID: session, snapshotID: snapshot, contributionRevision: contributionRevision, owner: owner)
-            status = "Contribution requested for snapshot \(lineage.revision). Validation determines eligibility; this lineage counts once."
+            _ = try await client.contributeSelected(sessionID: session, snapshotID: snapshot, owner: owner)
+            status = "Contribution requested for the selected snapshot. Validation determines eligibility; this comparison counts once."
             try await loadHistory(owner: owner)
         }
     }
@@ -206,7 +203,7 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
     private func loadHistory(owner: String) async throws {
         guard let client else { return }
         let data = try await client.list("contributions", owner: owner)
-        struct History: Decodable { let history: [BenchmarkContributionSummary] }
+        struct History: Decodable { let history: [BenchmarkContributionHistoryEntry] }
         contributionSummaries = try JSONDecoder().decode(History.self, from: data).history
         contributionHistory = try readable(data)
     }
@@ -238,14 +235,21 @@ struct BenchmarkContributionSummary: Decodable, Identifiable {
     func deleteAccount() async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
-            let data = try await client.deleteAccount(owner: owner); status = try readable(data)
+            _ = try await client.deleteAccount(owner: owner)
+            status = "Account deletion requested. Links and contributions are disabled; cloud content and identity cleanup are pending."
             publicationLinks = []; contributionHistory = "Account deletion requested."
         }
     }
     func deletionStatus() async {
         await action {
             guard let client, let owner = account.account?.accountID else { throw BenchmarkAccountError.signedOut }
-            status = try readable(await client.list("account/deletion", owner: owner))
+            let data = try await client.list("account/deletion", owner: owner)
+            let value = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            guard let deletion = value?["deletion"] as? [String: Any] else { status = "No account deletion requested."; return }
+            if deletion["completed_at"] is String { status = "Account deletion completed." }
+            else if deletion["content_cleaned_at"] is String {
+                status = deletion["blocked_reason"] is String ? "Cloud content removed. Identity deletion needs service configuration." : "Cloud content removed. Identity deletion is still pending or retrying."
+            } else { status = "Account deletion requested. Cloud content cleanup is pending." }
         }
     }
 }

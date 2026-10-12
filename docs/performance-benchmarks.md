@@ -17,14 +17,15 @@ The Benchmarks tab provides separate choices:
 - **Publication:** creates an independently reviewed projection. Default preview
   excludes private/unknown-scope turns, earlier uncollected history, attachments
   and earlier streaming revisions. Captured private/unknown turns and revisions
-  have separate inclusion controls. Public labels and text are editable. Selected
+  have separate inclusion controls. Public title and agent aliases are editable; captured prompts/replies are read-only.
+  Manual redaction only replaces exact selected text with `[redacted]` masks. Selected
   text/PNG/JPEG artifacts are shown as their actual bytes. Inspect images and text
   before approval; automatic redaction is incomplete. The exact preview bytes and
   hash determine the publication. Sharing works with private sync paused.
 - **Contribution:** explicit evidence selection can upload while private sync stays
   paused. A separate final choice binds a finalized snapshot. Later private
-  replies or feedback do not change that selection. Explicit higher contribution
-  revisions supersede the same lineage, which counts once. Withdrawal removes its
+  replies or feedback do not change that selection. A freshly approved new snapshot supersedes the same lineage, which counts once. Revision numbers are computed from verified owner history;
+  active identical retries retain their binding. Withdrawal removes its
   current aggregate influence. Fixtures never receive accepted benchmark credit.
 
 Private snapshots pin the original global event/chunk sequence and hash prefix.
