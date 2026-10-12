@@ -30,6 +30,7 @@ final class OutgoingDeliveryTests: XCTestCase {
         var excluded = Set<String>()
         var validationError: Error?
         var sendError: Error?
+        var waitError: Error?
         var failingWrites = Set<Int>()
         var onWait: (() -> Void)?
         var onSend: ((OutgoingPart) -> Void)?
@@ -59,7 +60,11 @@ final class OutgoingDeliveryTests: XCTestCase {
                 didReadHistory: { _ in self.observedHistories += 1 },
                 reportError: { _ in self.reportedErrors += 1 },
                 now: { self.date },
-                waitForReceipt: { self.waits += 1; self.onWait?() })
+                waitForReceipt: {
+                    self.waits += 1
+                    self.onWait?()
+                    if let error = self.waitError { throw error }
+                })
         }
 
         func restored() throws -> OutgoingPayload {
@@ -218,5 +223,36 @@ final class OutgoingDeliveryTests: XCTestCase {
         XCTAssertEqual(try harness.restored().parts.map(\.state), [.uncertain, .ready])
         _ = await harness.run(try harness.restored())
         XCTAssertEqual(harness.sends.count, 1, "Unavailable history cannot authorize another send")
+    }
+
+    func testInitialHistoryReadFailurePreservesTheDurableDraftWithoutSubmission() async throws {
+        let harness = Harness(date: date)
+        let original = payload
+        let savedDraft = try JSONEncoder().encode(original)
+        harness.saved = savedDraft
+        harness.failingHistoryReads = [1]
+        let result = await harness.run(original)
+        XCTAssertTrue(harness.sends.isEmpty)
+        XCTAssertEqual(result.parts.map(\.id), original.parts.map(\.id))
+        XCTAssertEqual(result.parts.map(\.state), [.ready, .ready])
+        XCTAssertEqual(result.parts[1].attachment, original.parts[1].attachment)
+        XCTAssertEqual(try XCTUnwrap(harness.saved), savedDraft, "Unreadable history must not replace the persisted draft")
+        XCTAssertEqual(harness.reportedErrors, 1)
+    }
+
+    func testCanceledReceiptWaitDurablyQuarantinesAcceptanceAndPreventsDuplicateSubmission() async throws {
+        let harness = Harness(date: date)
+        let original = payload
+        harness.waitError = CancellationError()
+        let result = await harness.run(original)
+        XCTAssertEqual(harness.sends.map(\.id), [original.parts[0].id])
+        XCTAssertEqual(result.parts.map(\.state), [.uncertain, .ready])
+        XCTAssertNil(result.parts[0].anchor)
+        XCTAssertEqual(result.parts[0].attemptedAt, date)
+        let restored = try harness.restored()
+        XCTAssertEqual(restored.parts.map(\.state), [.uncertain, .ready])
+        XCTAssertEqual(restored.parts[1].attachment, original.parts[1].attachment)
+        _ = await harness.run(restored)
+        XCTAssertEqual(harness.sends.map(\.id), [original.parts[0].id], "Cancellation cannot authorize repeating an accepted part or sending the next part")
     }
 }
