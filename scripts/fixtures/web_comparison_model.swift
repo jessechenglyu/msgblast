@@ -97,6 +97,85 @@ import msgblastCore
         print("PASS: actual joined ComparisonWorkspace displays the bottom of a private send after a late tapback changes its height, without manual scrolling or waiting for a reply.")
         scrollModel.webAgents.beginShutdown()
         await scrollModel.webAgents.cancelAndWait()
+        let lifecycleModel = AppModel()
+        lifecycleModel.timer?.invalidate()
+        let lifecycleAgent = lifecycleModel.state.agents[0]
+        lifecycleModel.state.selection = [lifecycleAgent.id]
+        lifecycleModel.state.draft = "Conversation lifecycle fixture"
+        lifecycleModel.coordinator = WindowCoordinator(model: lifecycleModel)
+        await lifecycleModel.start(recipientIDs: [lifecycleAgent.id])
+        let lifecycleID = lifecycleModel.state.comparisons[0].id
+        let window = NSApp.windows.first { $0.identifier?.rawValue == lifecycleID.uuidString + ":connected" }!
+        let originalFrame = window.frame
+        let originalNumber = window.windowNumber
+        lifecycleModel.state.comparisons[0].allDraft = "Retained shared draft"
+        lifecycleModel.state.comparisons[0].privateDrafts[lifecycleAgent.id.uuidString] = "Retained private draft"
+        await lifecycleModel.addAgent(lifecycleModel.state.agents[1], to: lifecycleID)
+        lifecycleModel.coordinator?.open(lifecycleID)
+        precondition(window.windowNumber == originalNumber && window.frame == originalFrame && window.isVisible)
+        precondition(lifecycleModel.comparison(lifecycleID)!.members.count == 2)
+        let lifecycleWeb = lifecycleModel.webAgents.session(for: .chatgpt)!
+        lifecycleModel.coordinator?.prepareJoiningWebAgent(lifecycleID)
+        lifecycleWeb.updateState { $0.selected = true }
+        lifecycleWeb.connect()
+        try await waitUntil { lifecycleWeb.snapshot.ready }
+        let joinedLifecycleWeb = await lifecycleModel.joinWebAgent(lifecycleWeb, comparisonID: lifecycleID)
+        precondition(joinedLifecycleWeb)
+        lifecycleModel.coordinator?.open(lifecycleID)
+        precondition(window.windowNumber == originalNumber && window.frame == originalFrame && window.isVisible)
+        precondition(lifecycleModel.state.draft == "Retained shared draft")
+        precondition(lifecycleModel.comparison(lifecycleID)!.privateDrafts[lifecycleAgent.id.uuidString] == "Retained private draft")
+        let otherID = await lifecycleModel.prepareWebComparison("Different conversation", recipientIDs: [], agents: [lifecycleWeb.id])!
+        lifecycleModel.openWebComparison(otherID)
+        try await Task.sleep(for: .milliseconds(300))
+        window.contentView?.layoutSubtreeIfNeeded()
+        precondition(window.identifier?.rawValue == lifecycleID.uuidString + ":connected")
+        precondition(window.contentView.flatMap { transcriptText("Conversation lifecycle fixture", in: $0) } != nil)
+        lifecycleModel.coordinator?.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: window))
+        precondition(lifecycleModel.webAgents.comparisonID == lifecycleID)
+        precondition(lifecycleModel.state.draft == "Retained shared draft")
+        let lifecycleMember = lifecycleModel.comparison(lifecycleID)!.members[0]
+        lifecycleModel.appendDemo("Before ending", chat: lifecycleMember.chat, outgoing: false)
+        precondition(lifecycleModel.endConversation(lifecycleID))
+        let savedEnded = try lifecycleModel.local.load().comparisons.first { $0.id == lifecycleID }!
+        precondition(savedEnded.endedAt != nil)
+        let kept = lifecycleModel.transcript(savedEnded, member: lifecycleMember).map(\.text)
+        lifecycleModel.appendDemo("Late response", chat: lifecycleMember.chat, outgoing: false)
+        precondition(lifecycleModel.transcript(savedEnded, member: lifecycleMember).map(\.text) == kept)
+        precondition(lifecycleModel.messages[lifecycleMember.chat.id]!.last!.text == "Late response")
+        let webHistory = savedEnded.endedWebHistory![lifecycleWeb.id.id]!
+        _ = await lifecycleWeb.send("Agent history continues", comparisonID: lifecycleID)
+        precondition(lifecycleModel.comparison(lifecycleID)!.endedWebHistory![lifecycleWeb.id.id]! == webHistory)
+        precondition(lifecycleWeb.snapshot.messages.contains { $0.text == "Agent history continues" })
+        let beforeEndedSend = lifecycleModel.comparison(lifecycleID)!.followUps.count
+        await lifecycleModel.followUp(lifecycleID)
+        precondition(lifecycleModel.comparison(lifecycleID)!.followUps.count == beforeEndedSend)
+        precondition(lifecycleModel.coordinator!.windowShouldClose(window))
+        window.close()
+        lifecycleModel.webAgents.beginShutdown()
+        await lifecycleModel.webAgents.cancelAndWait()
+        print("PASS: membership updates keep the exact NSWindow and frame, shared/private drafts and conversation ID; persisted ending keeps history and excludes late Messages/web replies without stopping agent history.")
+        let reopenModel = AppModel()
+        reopenModel.coordinator = WindowCoordinator(model: reopenModel)
+        let reopenID = await reopenModel.prepareWebComparison("Reopened workspace fixture", recipientIDs: [], agents: [])!
+        let mainWindow = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 900, height: 650), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+        mainWindow.contentView = NSHostingView(rootView: AgentsWorkspaceView(model: reopenModel, web: reopenModel.webAgents, showingComparison: .constant(true)))
+        mainWindow.orderBack(nil)
+        try await waitUntil { reopenModel.coordinator?.workspaceWindow === mainWindow }
+        precondition(reopenModel.endConversation(reopenID))
+        let reopenCutoff = reopenModel.comparison(reopenID)!.endedAt
+        mainWindow.performClose(nil)
+        precondition(!mainWindow.isVisible)
+        precondition(reopenModel.coordinator!.reopenWorkspace())
+        precondition(mainWindow.isVisible)
+        mainWindow.performClose(nil)
+        reopenModel.coordinator?.open(reopenID)
+        precondition(mainWindow.isVisible)
+        precondition(reopenModel.comparison(reopenID)?.endedAt == reopenCutoff)
+        mainWindow.orderOut(nil)
+        reopenModel.webAgents.beginShutdown()
+        await reopenModel.webAgents.cancelAndWait()
+        print("PASS: closed main workspace reopens through both app reopen and comparison menu without changing its cutoff or replacing its NSWindow.")
         let migrationStore = LocalStore(demo: true, isolated: true)
         let migrationDirectory = migrationStore.url.deletingLastPathComponent()
         defer { try? FileManager.default.removeItem(at: migrationDirectory) }

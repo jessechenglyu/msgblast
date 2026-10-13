@@ -1,0 +1,23 @@
+{
+  "source_revision": "9fe98c81ba1bce7abaa9c3a26f3da1109e821c02",
+  "fixture": true,
+  "video_duration_seconds": 28,
+  "files": [
+    {
+      "name": "README.md",
+      "sha256": "eb424eef065505fe23e34e0f6d4f54a86e5c64b4122b75ddc3ba3299455bcdf8"
+    },
+    {
+      "name": "two-choice-dialog.png",
+      "sha256": "271aa9b2db9df69936bfd96147465d5136215085cbe4ec7a697b0c43a52d15a3"
+    },
+    {
+      "name": "two-choice-ended.png",
+      "sha256": "35f58c84e3555e9cbc2189e812a416287050bfafe6d7740711cdf81b684eb612"
+    },
+    {
+      "name": "workflow.mp4",
+      "sha256": "681d601042acdab77184de7f13db168d98e660508f0624ef35b779ccb7fc6ac7"
+    }
+  ]
+}

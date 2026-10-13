@@ -347,11 +347,12 @@ struct ConversationView: View {
                 } else {
                     TranscriptView(model: model, comparison: comparison, member: member)
                 }
-                MessageInput(text: privateDraft, attachments: model.attachmentDraft(comparisonID: comparisonID, memberID: memberID), addAttachments: { await model.addAttachments($0, comparisonID: comparisonID, memberID: memberID) }, removeAttachment: { id in model.setAttachmentDraft(model.attachmentDraft(comparisonID: comparisonID, memberID: memberID).filter { $0.id != id }, comparisonID: comparisonID, memberID: memberID) }, placeholder: "Message", accessibilityName: "Private reply to \(member.name)", sendLabel: "Send privately", disabled: model.busy || model.webBroadcastBusy || member.anchor == nil) {
+                MessageInput(text: privateDraft, attachments: model.attachmentDraft(comparisonID: comparisonID, memberID: memberID), addAttachments: { await model.addAttachments($0, comparisonID: comparisonID, memberID: memberID) }, removeAttachment: { id in model.setAttachmentDraft(model.attachmentDraft(comparisonID: comparisonID, memberID: memberID).filter { $0.id != id }, comparisonID: comparisonID, memberID: memberID) }, placeholder: "Message", accessibilityName: "Private reply to \(member.name)", sendLabel: "Send privately", disabled: comparison.endedAt != nil || model.busy || model.webBroadcastBusy || member.anchor == nil) {
                     Task { await model.followUp(comparisonID, only: memberID) }
                 }.padding(12)
                 FollowUpStatus(model: model, comparison: comparison, only: memberID)
             }.frame(minWidth: 320, minHeight: 320).background(Color(nsColor: .textBackgroundColor))
+                .disabled(comparison.endedAt != nil)
         }
     }
     private var privateDraft: Binding<String> {
@@ -565,7 +566,7 @@ struct SharedComposer: View {
             VStack(spacing: 8) {
                 MessageInput(text: Binding(get: { model.comparison(comparisonID)?.allDraft ?? "" }, set: { value in
                     if let i = model.index(comparisonID) { model.state.comparisons[i].allDraft = value; model.persist() }
-                }), attachments: model.attachmentDraft(comparisonID: comparisonID), addAttachments: { await model.addAttachments($0, comparisonID: comparisonID) }, removeAttachment: { id in model.setAttachmentDraft(model.attachmentDraft(comparisonID: comparisonID).filter { $0.id != id }, comparisonID: comparisonID) }, placeholder: recipientIDs == nil ? "Message all \(targets.count) agents" : targets.isEmpty ? "Message" : "Message \(scope)", accessibilityName: recipientIDs == nil ? "Follow-up to all agents" : "Universal message", sendLabel: recipientIDs == nil ? "Send to all" : "Send to \(scope)", disabled: model.busy || targets.isEmpty || targets.contains { $0.anchor == nil }) {
+                }), attachments: model.attachmentDraft(comparisonID: comparisonID), addAttachments: { await model.addAttachments($0, comparisonID: comparisonID) }, removeAttachment: { id in model.setAttachmentDraft(model.attachmentDraft(comparisonID: comparisonID).filter { $0.id != id }, comparisonID: comparisonID) }, placeholder: recipientIDs == nil ? "Message all \(targets.count) agents" : targets.isEmpty ? "Message" : "Message \(scope)", accessibilityName: recipientIDs == nil ? "Follow-up to all agents" : "Universal message", sendLabel: recipientIDs == nil ? "Send to all" : "Send to \(scope)", disabled: comparison.endedAt != nil || model.busy || targets.isEmpty || targets.contains { $0.anchor == nil }) {
                     Task { await model.followUp(comparisonID, recipients: recipientIDs) }
                 }
                 FollowUpStatus(model: model, comparison: comparison, universal: recipientIDs != nil)
@@ -616,7 +617,7 @@ struct ComparisonWorkspace: View {
                         }
                         Divider()
                         VStack(spacing: 12) {
-                            RecipientPills(model: model, comparison: comparison)
+                            RecipientPills(model: model, comparison: comparison).disabled(comparison.endedAt != nil)
                             SharedComposer(model: model, comparisonID: comparisonID, recipientIDs: recipients)
                                 .disabled(model.webBroadcastBusy)
                         }.padding(16).frame(maxWidth: .infinity).background(.bar)
@@ -658,7 +659,7 @@ struct RecipientPills: View {
                 ForEach(model.recipientWebSessions(for: comparison), id: \.id) { session in
                     let joined = comparison.resolvedWebAgentIDs.contains(session.id)
                     Button {
-                        model.openWebComparison(comparison.id)
+                        model.coordinator?.prepareJoiningWebAgent(comparison.id)
                         if joined { return }
                         model.webBroadcastBusy = true
                         session.updateState { $0.selected = true }

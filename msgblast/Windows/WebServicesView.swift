@@ -13,10 +13,12 @@ struct AgentsWorkspaceView: View {
     @ObservedObject var web: WebAgents
     @Binding var showingComparison: Bool
     var newBlastRequest: UUID? = nil
+    var preservesWindowFrame = false
+    var windowComparisonID: UUID? = nil
     @State private var showingConnectionIntro = false
     @State private var signInProviders: [WebAgentID] = []
     @State private var editingAgents = false
-    private var busy: Bool { model.busy || model.webBroadcastBusy || web.sessions.contains { $0.isSending } }
+    private var busy: Bool { (windowComparisonID != nil && web.comparisonID != windowComparisonID) || model.busy || model.webBroadcastBusy || web.sessions.contains { $0.isSending } }
     private var nativeRecipients: [Agent] {
         let ids = model.messageGridIDs
         let shown = Set(model.agentGridLayout.visibleIDs)
@@ -37,7 +39,7 @@ struct AgentsWorkspaceView: View {
     }
     private var canSend: Bool {
         let text = model.state.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !busy && !editingAgents && !showingConnectionIntro && (!selectedWebSessions.isEmpty || !nativeRecipients.isEmpty)
+        return nativeComparison?.endedAt == nil && !busy && !editingAgents && !showingConnectionIntro && (!selectedWebSessions.isEmpty || !nativeRecipients.isEmpty)
             && (selectedWebSessions.isEmpty || (!text.isEmpty && attachments.isEmpty))
             && selectedWebSessions.allSatisfy { $0.snapshot.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.draftRecoveryText == nil && !$0.hasUnresolvedSend(text) }
             && (nativeRecipients.isEmpty || (model.databaseAvailable && nativeRecipients.allSatisfy { model.route($0) != nil }))
@@ -59,6 +61,7 @@ struct AgentsWorkspaceView: View {
             composer
         }
         .background(Color(nsColor: .textBackgroundColor))
+        .background(ConversationCloseBridge(model: model, comparisonID: showingComparison ? nativeComparison?.id : nil))
         .overlay { if showingConnectionIntro { connectionIntro } }
         .task { web.connectSelected() }
         .onChange(of: newBlastRequest) { _, _ in showingConnectionIntro = false; editingAgents = false }
@@ -71,7 +74,7 @@ struct AgentsWorkspaceView: View {
                         .disabled(busy)
                 }
             }
-            if !model.state.comparisons.isEmpty { ToolbarItem(placement: .navigation) {
+            if windowComparisonID == nil && !model.state.comparisons.isEmpty { ToolbarItem(placement: .navigation) {
                 Button {
                     showingConnectionIntro = false
                     showingComparison = false
@@ -108,13 +111,22 @@ struct AgentsWorkspaceView: View {
         }
     }
 
-    private var nativeComparison: Comparison? { web.comparisonID.flatMap { model.comparison($0) } }
+    private var nativeComparison: Comparison? { (windowComparisonID ?? web.comparisonID).flatMap { model.comparison($0) } }
 
-    private var comparisonChatCount: Int { web.displayed.count + (nativeComparison?.members.count ?? 0) }
+    private var displayedSessions: [WebAgentSession] {
+        if let windowComparisonID, let comparison = model.comparison(windowComparisonID) {
+            let joined = comparison.resolvedWebAgentIDs.compactMap { web.session(for: $0) }
+            // Keep a joining agent's sign-in/preparation pane in this window too.
+            let preparing = web.comparisonID == windowComparisonID ? web.selected.filter { !comparison.resolvedWebAgentIDs.contains($0.id) } : []
+            return joined + preparing
+        }
+        return web.displayed
+    }
+    private var comparisonChatCount: Int { displayedSessions.count + (nativeComparison?.members.count ?? 0) }
 
     private var comparisonPanes: some View {
         chatColumns
-            .background(ChatWindowFrame(chatCount: comparisonChatCount))
+            .background(ChatWindowFrame(chatCount: comparisonChatCount, enabled: !preservesWindowFrame))
     }
 
     private var chatColumns: some View {
@@ -123,14 +135,14 @@ struct AgentsWorkspaceView: View {
             let width = max(320, (geometry.size.width - CGFloat(max(0, columns - 1))) / CGFloat(max(1, columns)))
             ScrollView(.horizontal) {
                 HStack(spacing: 0) {
-                    ForEach(web.displayed, id: \.id) { session in
-                        if session.id != web.displayed.first?.id { Divider() }
-                        WebAgentPane(session: session, account: model.personalAgent, busy: busy, sendNative: { sendDirect($0, to: session) })
+                    ForEach(displayedSessions, id: \.id) { session in
+                        if session.id != displayedSessions.first?.id { Divider() }
+                        WebAgentPane(session: session, account: model.personalAgent, busy: busy, endedMessages: archivedMessages(for: session), sendNative: { sendDirect($0, to: session) })
                             .frame(width: width).id(session.id.id)
                     }
                     if let comparison = nativeComparison {
                         ForEach(comparison.members) { member in
-                            if !web.displayed.isEmpty || member.id != comparison.members.first?.id { Divider() }
+                            if !displayedSessions.isEmpty || member.id != comparison.members.first?.id { Divider() }
                             ConversationView(model: model, comparisonID: comparison.id, memberID: member.id)
                                 .frame(width: width).id(member.id.uuidString)
                         }
@@ -138,6 +150,15 @@ struct AgentsWorkspaceView: View {
                 }.frame(height: geometry.size.height)
             }.scrollIndicators(.visible)
         }
+    }
+
+    private func archivedMessages(for session: WebAgentSession) -> [WebPageMessage]? {
+        guard let comparison = nativeComparison else { return nil }
+        if comparison.endedAt != nil { return comparison.endedWebHistory?[session.id.id] ?? [] }
+        if windowComparisonID != nil && session.state.comparisonID != comparison.id {
+            return session.messagesForComparison(comparison.id)
+        }
+        return nil
     }
 
     private var composer: some View {
@@ -172,11 +193,20 @@ struct AgentsWorkspaceView: View {
                             .help("Messages · \(agent.name)")
                     }
                 }
-            }.scrollIndicators(.hidden) }
+            }.scrollIndicators(.hidden).disabled(nativeComparison?.endedAt != nil) }
             if showingComparison, let comparison = nativeComparison {
                 FollowUpStatus(model: model, comparison: comparison, universal: true).disabled(busy)
             }
-            MessageInput(text: Binding(get: { model.state.draft }, set: { model.setSharedDraft($0) }),
+            MessageInput(text: Binding(get: {
+                if let windowComparisonID { return model.state.workspaceDrafts?[windowComparisonID.uuidString] ?? model.comparison(windowComparisonID)?.allDraft ?? "" }
+                return model.state.draft
+            }, set: { text in
+                if let windowComparisonID, web.comparisonID != windowComparisonID {
+                    if model.state.workspaceDrafts == nil { model.state.workspaceDrafts = [:] }
+                    model.state.workspaceDrafts?[windowComparisonID.uuidString] = text
+                    model.persist()
+                } else { model.setSharedDraft(text) }
+            }),
                          attachments: attachments, addAttachments: { await model.addAttachments($0, comparisonID: attachmentComparisonID) },
                          removeAttachment: { id in model.setAttachmentDraft(attachments.filter { $0.id != id }, comparisonID: attachmentComparisonID) },
                          placeholder: "Message", accessibilityName: "Shared prompt", sendLabel: "Send & compare",
@@ -249,7 +279,8 @@ struct AgentsWorkspaceView: View {
                 showingConnectionIntro = true
                 return
             }
-            guard await web.prepareComparison(existingID, for: sessions) else { return }
+            guard await web.prepareComparison(existingID, for: sessions),
+                  existingID.flatMap({ model.comparison($0)?.endedAt }) == nil else { return }
             let comparisonID: UUID
             if let existingID { comparisonID = existingID }
             else {
@@ -261,6 +292,7 @@ struct AgentsWorkspaceView: View {
                     guard await model.joinWebAgent(session, comparisonID: comparisonID) else { return }
                 }
             }
+            guard model.comparison(comparisonID)?.endedAt == nil else { return }
             if let i = model.index(comparisonID) {
                 let previous = model.state.comparisons[i].resolvedWebAgentIDs
                 model.state.comparisons[i].setWebAgents(previous + sessions.map(\.id))
@@ -310,6 +342,7 @@ struct AgentsWorkspaceView: View {
     }
 
     private func sendDirect(_ text: String, to session: WebAgentSession) {
+        guard nativeComparison?.endedAt == nil else { return }
         guard !busy, session.isEnabled, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let existingID = nativeComparison?.id
         model.webBroadcastBusy = true
@@ -531,6 +564,7 @@ private struct WebAgentPane: View {
     @ObservedObject var session: WebAgentSession
     @ObservedObject var account: PersonalAgentController
     let busy: Bool
+    var endedMessages: [WebPageMessage]? = nil
     let sendNative: (String) -> Void
     var body: some View {
         VStack(spacing: 0) {
@@ -577,7 +611,19 @@ private struct WebAgentPane: View {
                     }
                 }.padding(10)
             }
-            if session.provider.usesNativeConversation {
+            if let endedMessages {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        ForEach(endedMessages) { message in
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(message.role == "user" ? "You" : session.name).font(.caption.bold()).foregroundStyle(.secondary)
+                                Text(message.text).textSelection(.enabled)
+                            }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                                .background(message.role == "user" ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                    }.padding(12)
+                }
+            } else if session.provider.usesNativeConversation {
                 nativeConversation(session.provider.personalAgentProvider)
             } else if session.connected {
                 if session.provider == .dots {
@@ -595,7 +641,8 @@ private struct WebAgentPane: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(28)
             }
         }
-        .task { if session.provider.personalAgentProvider != nil { await account.discover() } }
+        .disabled(endedMessages != nil)
+        .task { if endedMessages == nil, session.provider.personalAgentProvider != nil { await account.discover() } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             if session.provider.personalAgentProvider != nil { session.reload() }
         }
@@ -695,8 +742,10 @@ private let localAccountIcons: [String: NSImage] = Dictionary(uniqueKeysWithValu
 // Resize only when the open-chat count changes; ordinary manual resizing stays intact.
 private struct ChatWindowFrame: NSViewRepresentable {
     let chatCount: Int
+    var enabled = true
     func makeNSView(context: Context) -> ChatWindowSizingView { ChatWindowSizingView() }
     func updateNSView(_ view: ChatWindowSizingView, context: Context) {
+        view.enabled = enabled
         guard view.chatCount != chatCount else { return }
         view.chatCount = chatCount
         view.needsLayout = true
@@ -705,10 +754,11 @@ private struct ChatWindowFrame: NSViewRepresentable {
 
 private final class ChatWindowSizingView: NSView {
     var chatCount = -1
+    var enabled = true
     private var appliedCount: Int?
     override func layout() {
         super.layout()
-        guard let window, bounds.width > 0, appliedCount != chatCount else { return }
+        guard enabled, chatCount > 0, let window, bounds.width > 0, appliedCount == nil else { return }
         let count = chatCount
         appliedCount = count
         DispatchQueue.main.async { [weak self, weak window] in
@@ -722,5 +772,56 @@ private final class ChatWindowSizingView: NSView {
             frame.origin.x = min(max(frame.minX, available.minX), available.maxX - width)
             window.setFrame(frame, display: true)
         }
+    }
+}
+
+// SwiftUI owns the main window delegate. Forward its lifecycle rather than replacing it.
+private struct ConversationCloseBridge: NSViewRepresentable {
+    @ObservedObject var model: AppModel
+    let comparisonID: UUID?
+    func makeNSView(context: Context) -> ConversationCloseView { ConversationCloseView() }
+    func updateNSView(_ view: ConversationCloseView, context: Context) {
+        view.owner = model.coordinator
+        view.comparisonID = comparisonID
+        view.install()
+    }
+    static func dismantleNSView(_ view: ConversationCloseView, coordinator: ()) { view.detach() }
+}
+
+private final class ConversationCloseView: NSView, NSWindowDelegate {
+    weak var owner: WindowCoordinator?
+    var comparisonID: UUID?
+    nonisolated(unsafe) weak var originalDelegate: (any NSWindowDelegate)?
+    weak var installedWindow: NSWindow?
+    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); install() }
+    func install() {
+        guard let window else { return }
+        // Dedicated windows already use the same confirmation owner.
+        if window.delegate === owner { return }
+        if installedWindow !== window {
+            detach()
+            originalDelegate = window.delegate
+            installedWindow = window
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+        }
+        owner?.workspaceWindow = window
+        owner?.workspaceComparisonID = comparisonID
+    }
+    func detach() {
+        if let installedWindow, installedWindow.delegate === self { installedWindow.delegate = originalDelegate }
+        installedWindow = nil
+    }
+    override func responds(to selector: Selector!) -> Bool {
+        super.responds(to: selector) || originalDelegate?.responds(to: selector) == true
+    }
+    override func forwardingTarget(for selector: Selector!) -> Any? {
+        originalDelegate?.responds(to: selector) == true ? originalDelegate : super.forwardingTarget(for: selector)
+    }
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard let owner else { return originalDelegate?.windowShouldClose?(sender) ?? true }
+        if let comparisonID, owner.confirmClose(sender, comparisonID: comparisonID) == false { return false }
+        owner.dismissConversationWindow(sender)
+        return false
     }
 }

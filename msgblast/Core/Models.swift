@@ -213,6 +213,14 @@ public struct Comparison: Codable, Identifiable, Sendable {
     public var allAttachmentsDraft: [MessageAttachment]?
     public var privateAttachmentDrafts: [String: [MessageAttachment]]?
     public var recipientSelection: ConversationRecipients?
+    // Optional fields keep older saved conversations active without a migration.
+    public var endedAt: Date?
+    public var endMessageRows: [String: Int64]?
+    public var endedWebHistory: [String: [WebPageMessage]]?
+    public func includes(_ message: Message) -> Bool {
+        guard let endedAt else { return true }
+        return message.date <= endedAt && message.id <= (endMessageRows?[message.chatID] ?? 0)
+    }
     public var summary: ComparisonSummary?
     public var webProviders: [WebProvider]?
     public var webAgentIDs: [WebAgentID]?
