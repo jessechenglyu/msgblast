@@ -58,6 +58,18 @@ class PermissionReceiptTests(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(json.loads(path.read_text()), {"private": "test data"})
 
+    def test_public_export_cannot_overwrite_private_configuration(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            config = root / "permission-testing.json"
+            original = json.dumps({"space": "test-space", "host_name": "test-host", "team_id": "TESTTEAM01", "source_sha": "a" * 40})
+            config.write_text(original); config.chmod(0o600)
+            with mock.patch.object(remote, "CONFIG_ROOT", root), mock.patch.object(sys, "argv", ["check", "--config", str(config), "--public-output", str(config)]), mock.patch.object(remote, "run") as run:
+                with self.assertRaises(SystemExit):
+                    remote.main()
+                run.assert_not_called()
+            self.assertEqual(config.read_text(), original)
+
     def test_failure_detail_is_saved_privately_and_not_printed(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
