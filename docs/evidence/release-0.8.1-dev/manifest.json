@@ -19,7 +19,7 @@
     },
     {
       "name": "workflow.mp4",
-      "sha256": "8ed1fee0840d4ae617fb5e0ea62ece4a15db44135c603571f4da8684e8a70b1e"
+      "sha256": "07c8590ad2831cc83c1901ab2cc36465b31fd80ca1d1a453587925e3619893f4"
     },
     {
       "name": "public-proof.json",
@@ -27,7 +27,7 @@
     },
     {
       "name": "README.md",
-      "sha256": "9e8f84b058b2c1be514f2e534123ef8d9f92f512cf1d0fe7a0a9e0c7c0649d5a"
+      "sha256": "506925ee41168435e48cef4eef947232caa9ac711e06bbed56d4d3de4a0978f4"
     }
   ]
 }
