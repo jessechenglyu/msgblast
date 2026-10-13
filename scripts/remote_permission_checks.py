@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check real Dev permissions through Cua in an already provisioned Remote Space.
+"""Check real Dev permissions through Cua in a privately configured isolated Space.
 
 Never grants/resets permissions, sends Messages, writes Contacts, or uses a local
 desktop fallback. A missing grant is a failed integration check, not a fixture.
@@ -17,6 +17,53 @@ import uuid
 
 RPC_TIMEOUT = 60
 EMPTY_CONTACT_RESULT = "No matching contact. Try a name, email, or full phone number."
+
+
+CONFIG_ROOT = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "msgblast"
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def private_path(path):
+    path = path.expanduser().resolve()
+    if path.is_relative_to(SOURCE_ROOT):
+        raise RuntimeError("Private configuration and receipts must be outside the source checkout")
+    return path
+
+
+def load_private_config(path):
+    path = private_path(path)
+    if path.stat().st_mode & 0o077:
+        raise RuntimeError("Private configuration must have owner-only permissions (chmod 600)")
+    data = json.loads(path.read_text())
+    for key in ("space", "host_name", "team_id", "source_sha"):
+        if not isinstance(data.get(key), str) or not data[key].strip():
+            raise RuntimeError("Private configuration requires space, host_name, team_id, and source_sha")
+    return data
+
+
+def write_private_json(path, data):
+    path = private_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o600)
+    with os.fdopen(descriptor, "w") as file:
+        os.fchmod(file.fileno(), 0o600)
+        json.dump(data, file, indent=2)
+        file.write("\n")
+
+
+def public_receipt(receipt):
+    """Allowlist public proof; never copy host IDs, source refs, paths, or free text."""
+    metadata = receipt["metadata"]
+    return {"schema": "public-permission-proof-v1", "source_verified": True,
+            "metadata": {key: metadata[key] for key in
+                         ("bundle_id", "team_id", "designated_requirement", "code_hash")},
+            "permissions": {key: receipt["permissions"][key] for key in
+                            ("Messages access", "Contacts", "Sending Messages")},
+            "contacts_api_search": receipt["contacts_api_search"],
+            "contacts_surface": receipt["contacts_surface"],
+            "rebuild_retention": receipt["rebuild_retention"],
+            "limits": "Read-only permission checks; no sends, Contacts writes, account login, or clean-machine prompt coverage"}
 
 
 class SpaceClient:
@@ -209,8 +256,8 @@ def run(options):
     try:
         spaces = client.tool("list_spaces", {})
         target = next((s for s in spaces if s["id"] == options.space), {})
-        if target.get("host_name") != os.environ.get("MSGBLAST_TEST_HOST", "") or not target.get("host"):
-            raise RuntimeError("Choose an isolated Space hosted by the privately configured host, never the host desktop")
+        if target.get("host_name") != options.host_name or not target.get("host"):
+            raise RuntimeError("Choose an isolated Space on the privately configured host, never the host desktop")
         metadata = client.bash_json('''import json, os, plistlib, subprocess
 from pathlib import Path
 app = Path.home() / 'Applications/msgblast Dev.app'
@@ -274,25 +321,47 @@ print(json.dumps({'exact_running_app': True}))
         receipt = {"space": options.space, "metadata": metadata, "permissions": states,
                    "contacts_api_search": "empty success", "contacts_surface": surface, "rebuild_retention": bool(options.previous_receipt),
                    "screenshot": screenshot, "limits": "No sends, Contacts writes, or account login; permission-only onboarding is not completed; no clean-machine prompt coverage"}
-        options.output.write_text(json.dumps(receipt, indent=2) + "\n")
-        print(json.dumps(receipt, indent=2))
+        write_private_json(options.output, receipt)
+        summary = public_receipt(receipt)
+        if options.public_output:
+            options.public_output.write_text(json.dumps(summary, indent=2) + "\n")
+        print(json.dumps(summary, indent=2))
     finally:
         client.close()
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--space", required=True)
-    parser.add_argument("--source-sha", required=True)
-    parser.add_argument("--team-id", required=True)
+    parser.add_argument("--config", type=Path, default=CONFIG_ROOT / "permission-testing.json")
+    parser.add_argument("--source-sha", help="Override the reviewed app source recorded in private configuration")
     parser.add_argument("--previous-receipt", type=Path)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path, default=CONFIG_ROOT / "permission-receipts/latest.json")
+    parser.add_argument("--public-output", type=Path, help="Explicitly export an allowlisted shareable proof")
     options = parser.parse_args()
-    if not re.fullmatch(r"[0-9a-f]{40}", options.source_sha):
-        parser.error("Use the full reviewed source SHA")
-    if not re.fullmatch(r"[A-Z0-9]{10}", options.team_id):
-        parser.error("Use the trusted ten-character Apple team ID")
-    run(options)
+    try:
+        config = load_private_config(options.config)
+        options.space = config["space"]
+        options.host_name = config["host_name"]
+        options.team_id = config["team_id"]
+        options.source_sha = options.source_sha or config["source_sha"]
+        options.output = private_path(options.output)
+        if options.previous_receipt:
+            options.previous_receipt = private_path(options.previous_receipt)
+        if not re.fullmatch(r"[0-9a-f]{40}", options.source_sha):
+            raise RuntimeError("Use the full reviewed source SHA")
+        if not re.fullmatch(r"[A-Z0-9]{10}", options.team_id):
+            raise RuntimeError("Use the trusted ten-character Apple team ID")
+        if options.public_output and options.public_output.expanduser().resolve() == options.output:
+            raise RuntimeError("Public proof and private receipt need separate output files")
+        run(options)
+    except Exception as error:
+        diagnostic = CONFIG_ROOT / "permission-receipts/last-error.json"
+        try:
+            write_private_json(diagnostic, {"error_type": type(error).__name__, "error": str(error)})
+        except Exception:
+            raise SystemExit("Permission check failed; the private diagnostic could not be saved") from None
+        raise SystemExit("Permission check failed; details are saved in the private diagnostic file") from None
+
 
 
 if __name__ == "__main__":

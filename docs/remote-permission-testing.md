@@ -1,7 +1,7 @@
-# Unattended permission checks on the dedicated test machine
+# Unattended permission checks on a dedicated Mac
 
-Routine integration checks use the persistent Cua Space
-a privately configured isolated Space on a dedicated host, not the active desktop. Its Dev app
+Routine integration checks use a privately configured persistent Cua Space
+on a dedicated host, not the active desktop. Its Dev app
 uses `com.msgblast.development`, the blue-green icon, and `msgblast-Dev` support
 data. Production updates and telemetry uploads are disabled in the signed
 maintainer preview. Demo remains a separate simulated-data app.
@@ -13,7 +13,7 @@ identity in a temporary GitHub Actions keychain. It signs nested code and the
 outer Dev app, verifies the Apple team and stable designated requirement,
 requires Accepted notarization, staples the ticket, and checks Gatekeeper. It
 uploads only the preview ZIP and public manifest. No private signing key is
-installed on the dedicated test machine. It does not reserve production build numbers or publish
+installed on the test machine. It does not reserve production build numbers or publish
 to the updater host.
 
 The workflow runs only from the default branch. An optional source SHA must be
@@ -39,7 +39,7 @@ never silently falls back to ad-hoc signing.
 Start the existing Space with `cua spaces start SPACE_ID --json`. A relay attach
 failure immediately after boot can require checking its state and retrying the
 start. Use Cua's `list_spaces`, `space_bash`, `upload`, and `call_tool` capabilities
-to reach the isolated guest. Do not fall back to the dedicated test machine host desktop.
+to reach the isolated guest. Do not fall back to the host desktop.
 
 Install only at `~/Applications/msgblast Dev.app`. Quit Dev before replacement,
 keep any previous binary as a ZIP backup, and preserve its support directory.
@@ -60,39 +60,62 @@ signing can require fresh grants. A new VM has its own consent state.
 
 ## Run without permission clicks
 
-On the authenticated Cua controller:
+On the authenticated Cua controller, keep machine-specific configuration outside
+all source checkouts at `~/.config/msgblast/permission-testing.json` (or under
+`XDG_CONFIG_HOME`). Create the file locally with these fields, replacing the
+placeholders with your own values:
 
-```sh
-python3 scripts/remote_permission_checks.py \
-  --space SPACE_ID --source-sha REVIEWED_FULL_SHA \
-  --team-id C4XLZBEPK8 --output /tmp/studio-permissions-first.json
+```json
+{
+  "space": "ISOLATED_SPACE_ID",
+  "host_name": "DEDICATED_HOST_NAME",
+  "team_id": "APPLE_TEAM_ID",
+  "source_sha": "REVIEWED_FULL_SHA"
+}
 ```
 
-The check requires an isolated guest hosted by the privately configured dedicated host, verifies the installed
-and running Dev identity/source/signature, and checks all three native Settings
-rows. Messages access is a fresh read of the protected history file; Automation
-uses the app's nonrequesting native status check. A harmless Contacts search
-must return an empty success result through the real Contacts API. The query is
-restored afterward. Before onboarding is complete, the checker opens the native
-Messages setup review and contact picker, then cancels the picker without adding
-an agent. It does not bypass the requirement to connect an agent before finishing
-onboarding. No messages are sent and no Contacts are written.
+Set the directory to mode `700` and the file to `600`. The checker refuses a
+config readable by other users and requires an explicitly configured hosted
+Space; it never chooses the host desktop or guesses a machine. Do not put
+machine names, relay IDs, raw receipts, VM usernames, local paths, or private
+configuration into commits, PR bodies, screenshots, videos, or Actions logs.
 
-Build a second signed preview, quit Dev, replace only its binary at the same
-path, and rerun with the prior receipt:
+```sh
+python3 scripts/remote_permission_checks.py
+```
+
+The check verifies the installed and running Dev identity/source/signature and
+all three native Settings rows. Messages access is a fresh protected-file read;
+Automation uses the nonrequesting native status check. A harmless Contacts query
+must complete successfully through the real Contacts API. Before onboarding is
+complete, the checker opens Messages setup review and the native contact picker,
+then restores the query and cancels without selecting a contact. Setup review
+can discover existing known-agent Contacts, so use a separate permission-only
+guest. The checker does not bypass the requirement to connect an agent before
+finishing onboarding. No messages are sent and no Contacts are written.
+
+Raw receipts are saved with owner-only access outside the checkout, by default
+under `~/.config/msgblast/permission-receipts/`. stdout contains only an
+allowlisted public proof: app signing identity, permission results, and test
+limits. It omits machine identifiers, paths, screenshots, and private source
+references. Failures save diagnostics privately instead of printing Cua details.
+Use `--public-output proof.json` only when you intend to export that sanitized
+proof. Review actual media before publishing it; JSON sanitization does not
+redact pixels. Never publish a raw receipt.
+
+Before replacing the app, retain the first private receipt at a separate path.
+After installing the next signed preview at the same app path, update the source
+SHA in private configuration and run:
 
 ```sh
 python3 scripts/remote_permission_checks.py \
-  --space SPACE_ID --source-sha REVIEWED_FULL_SHA \
-  --team-id C4XLZBEPK8 --previous-receipt /tmp/studio-permissions-first.json \
-  --output /tmp/studio-permissions-rebuild.json
+  --previous-receipt /PRIVATE_DIRECTORY/first.json
 ```
 
 This requires a different code hash, the same designated requirement, and working
 permissions after replacement. A missing grant fails the check; it is never
-reported as a simulated pass. Run one GUI controller at a time. Receipts contain
-only permission/signature results and the Space screenshot path, not Contacts
-or message content.
+reported as a simulated pass. Run one GUI controller at a time. Private receipts contain diagnostic metadata and a screenshot path. Public
+proof deliberately excludes that machine-specific metadata.
 
 ## Coverage and limits
 
@@ -101,7 +124,7 @@ request states with injected responses. `remote_permission_checks.py` proves
 real access and retention in the provisioned VM. Neither proves every clean
 machine's first-run permission-dialog interaction or message delivery.
 
-Guest management policy is configured privately. For automatically granting permissions
+For automatically granting permissions
 to newly created managed guests, Apple's PPPC profile can authorize Contacts,
 Full Disk Access, and the specific Dev-to-Messages AppleEvents relationship.
 That requires supported device-management enrollment and profile delivery; a
