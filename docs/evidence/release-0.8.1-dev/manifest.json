@@ -1,0 +1,33 @@
+{
+  "source_revision": "7d9dfcc87d330d7412b0865766b4e05064e3b662",
+  "files": [
+    {
+      "name": "before-add.png",
+      "sha256": "d60f9c305566ac8e3a2c822e2f085229ebebe9f7ff55c7749248ee4b5c8a9714"
+    },
+    {
+      "name": "after-add.png",
+      "sha256": "c1872c78fe2403067b5c4d4d3623dbab04aa2492bbd1f544439467b505f3fd14"
+    },
+    {
+      "name": "close-dialog.png",
+      "sha256": "347533a70cfe1227262e4374ba2291881a2114688c470855d805f6899ae6f97e"
+    },
+    {
+      "name": "ended-history.png",
+      "sha256": "e02403d6ee62043b576847fb9b4e92d875fccb03e97a946c465312f55f0e08d1"
+    },
+    {
+      "name": "workflow.mp4",
+      "sha256": "8ed1fee0840d4ae617fb5e0ea62ece4a15db44135c603571f4da8684e8a70b1e"
+    },
+    {
+      "name": "public-proof.json",
+      "sha256": "bf35839db021ce3e5be92745a5301c42b8c58af8772010ab36e707079c55d4b3"
+    },
+    {
+      "name": "README.md",
+      "sha256": "9e8f84b058b2c1be514f2e534123ef8d9f92f512cf1d0fe7a0a9e0c7c0649d5a"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "source_revision": "7d9dfcc87d330d7412b0865766b4e05064e3b662",
+  "build_channel": "development",
+  "bundle_identifier": "com.msgblast.development",
+  "demo": false,
+  "support_profile": "msgblast-Dev",
+  "production_updates": false,
+  "signing_mode": "ad-hoc",
+  "computer_use": "cua_repl",
+  "qa_sends": 2,
+  "qa_delivery_and_replies_observed": true,
+  "same_window_and_frame_after_agent_add": true,
+  "private_and_shared_drafts_retained": true,
+  "two_close_choices_only": true,
+  "escape_keeps_active_and_closes": true,
+  "return_ends_and_closes": true,
+  "ended_history_and_drafts_retained": true,
+  "ended_submission_disabled": true,
+  "ended_close_needs_no_confirmation": true,
+  "main_navigation_search_and_reopen_passed": true,
+  "production_app_replaced": false,
+  "limits": [
+    "Authorized live QA inputs, not Demo data",
+    "No claim of production permission retention or production notarization from this preview",
+    "Unpolled web content and long-history scrolling not exercised by this native Messages check"
+  ]
+}
