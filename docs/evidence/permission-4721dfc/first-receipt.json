@@ -1,0 +1,19 @@
+{
+  "schema": "public-permission-proof-v1",
+  "source_verified": true,
+  "metadata": {
+    "bundle_id": "com.msgblast.development",
+    "team_id": "C4XLZBEPK8",
+    "designated_requirement": "identifier \"com.msgblast.development\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = C4XLZBEPK8",
+    "code_hash": "e2e86608069f0a2d1db4cdd320bc9e3dde5aa29a"
+  },
+  "permissions": {
+    "Messages access": "Allowed",
+    "Contacts": "Allowed",
+    "Sending Messages": "Allowed"
+  },
+  "contacts_api_search": "empty success",
+  "contacts_surface": "onboarding contact picker",
+  "rebuild_retention": false,
+  "limits": "Read-only permission checks; no sends, Contacts writes, account login, or clean-machine prompt coverage"
+}
