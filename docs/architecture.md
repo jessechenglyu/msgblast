@@ -219,3 +219,20 @@ The app relaunches only after termination is approved and resumes the checklist.
 Completed agent setup is retained across launch; the final readiness check still
 runs before entering the workspace. Existing saved onboarding states without the
 optional checklist field resume their previous step.
+
+## Closing conversations
+
+Closing an active conversation window asks whether to end it or keep collecting
+replies. **End and Close** saves an explicit cutoff, retaining the Messages
+range through that time and observed row IDs plus a frozen web/CLI transcript.
+Underlying Messages delivery and agent session histories continue independently.
+**Keep Active and Close** only dismisses the window. Both choices close it;
+Return ends the conversation and Escape keeps it active.
+Ended conversations reopen as history and close without confirmation. Missing
+optional cutoff fields in older saved state mean the conversation remains active.
+
+Adding a participant updates the current conversation window. If the conversation
+uses separate panes, membership expansion reuses the originating pane as the
+joined window, preserving its frame and saved drafts. Window layout changes and
+app shutdown never end a conversation implicitly. Ending needs neither sharing
+nor a summary, and creates no toolbar toggle.

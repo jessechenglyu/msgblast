@@ -1,0 +1,24 @@
+{
+  "source": "8e60315e5a35af23cd00bf44e8dd6abd078eec08",
+  "comparison_id": "3B8B399C-362E-49A4-BAED-6D0F8B0FF0BB",
+  "window_id": 5126,
+  "cancel_kept_open": true,
+  "keep_active_hidden": true,
+  "keep_active_cutoff_absent": true,
+  "end_and_close_cutoff_saved": true,
+  "end_and_close_window_hidden": true,
+  "ended_at": 813539781.353041,
+  "end_message_rows": {
+    "demo-1": 119,
+    "demo-0": 117,
+    "demo-3": 121,
+    "demo-2": 118
+  },
+  "archived_web_messages": 2,
+  "ended_closes_without_prompt": true,
+  "relaunch_cutoff_unchanged": true,
+  "relaunch_archived_web_messages": 2,
+  "source_sha": "8e60315e5a35af23cd00bf44e8dd6abd078eec08",
+  "base_sha": "1d8d2ac158dfc5aed529d187e334d6d48a7e0786",
+  "native_fixture_restart_limit": "Demo reconstructs outgoing Messages only; live Messages history persistence was not tested"
+}

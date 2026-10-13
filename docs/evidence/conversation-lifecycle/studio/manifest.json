@@ -1,0 +1,31 @@
+{
+  "source_revision": "e2feef742c69ecfe85e7eaf8cadc31d7e75b0e5a",
+  "fixture": true,
+  "space": "dedicated test guest on the dedicated test Mac",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "395b0ab841787595abf70ccff26471baad8c396ec91a99f89ed54f79f299eb95"
+    },
+    {
+      "path": "lifecycle-added.png",
+      "sha256": "f35909b0fa17668efea1a27cf5af5e5bb302bfa56433f24fa89f532bf2f2bab3"
+    },
+    {
+      "path": "lifecycle-before.png",
+      "sha256": "ccd7393c27d527178e94b706abc3e1502abf08da980602c22363b308b7becea0"
+    },
+    {
+      "path": "lifecycle-ended.png",
+      "sha256": "f689dd8ea919986ecb5ab34f1f8d71e5a819363ae5d064d2aed57a21dc4faf94"
+    },
+    {
+      "path": "lifecycle-highlighted.png",
+      "sha256": "06e31e8ebee8bbff5205311fce0addee01e25d6e79bcb5c58a135d472e977479"
+    },
+    {
+      "path": "workflow.mp4",
+      "sha256": "fe61362b0eb994cac53da5c0e0e3e43d2ffad8bf3dcd2c637ffbe3d4a1eb2773"
+    }
+  ]
+}

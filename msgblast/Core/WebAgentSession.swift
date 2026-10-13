@@ -38,6 +38,20 @@ public final class WebAgentSession: NSObject, ObservableObject, WKNavigationDele
         activePage = page
         return page
     }
+    public func messagesForComparison(_ id: UUID) -> [WebPageMessage] {
+        if state.comparisonID == id { return snapshot.messages }
+        return pages[id.uuidString]?.snapshot.messages ?? state.localConversations[id.uuidString] ?? []
+    }
+    public func canArchiveComparison(_ id: UUID) -> Bool {
+        let submitted = state.attempts.contains { $0.comparisonID == id && $0.status.confirmsSubmission }
+        if provider.usesNativeConversation {
+            return !submitted || state.localConversations[id.uuidString] != nil
+        }
+        let historyExpected = state.conversationURLs[id.uuidString] != nil || submitted
+        if !historyExpected { return true }
+        guard let page = pages[id.uuidString], !page.loading else { return false }
+        return !page.snapshot.messages.isEmpty
+    }
     private func selectPage(previous: UUID?) {
         guard let old = activePage else { return }
         let key = state.comparisonID?.uuidString ?? "new"

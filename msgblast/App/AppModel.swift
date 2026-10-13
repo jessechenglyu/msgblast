@@ -462,7 +462,7 @@ final class AppModel: ObservableObject {
         } catch { self.error = error.localizedDescription; return nil }
     }
     func joinWebAgent(_ session: WebAgentSession, comparisonID: UUID) async -> Bool {
-        guard !busy, session.isEnabled, session.provider.supportsSharedSubmissions else { return false }
+        guard comparison(comparisonID)?.endedAt == nil, !busy, session.isEnabled, session.provider.supportsSharedSubmissions else { return false }
         if comparison(comparisonID)?.resolvedWebAgentIDs.contains(session.id) == true { return true }
         do {
             try freezeSharedContext(comparisonID)
@@ -472,7 +472,8 @@ final class AppModel: ObservableObject {
                 session.updateState { $0.selected = false }
                 return false
             }
-            guard await session.openComparison(comparisonID) else { return false }
+            guard await session.openComparison(comparisonID),
+                  comparison(comparisonID)?.endedAt == nil else { return false }
             // Save membership before sending so an interrupted join is never automatically repeated.
             state.comparisons[i].setWebAgents(saved.resolvedWebAgentIDs + [session.id])
             try save()
@@ -493,7 +494,7 @@ final class AppModel: ObservableObject {
         try save()
     }
     func addAgent(_ agent: Agent, to id: UUID) async {
-        guard let i = index(id), !busy, !state.comparisons[i].members.contains(where: { $0.id == agent.id }) else { return }
+        guard let i = index(id), state.comparisons[i].endedAt == nil, !busy, !state.comparisons[i].members.contains(where: { $0.id == agent.id }) else { return }
         do {
             try freezeSharedContext(id)
             var member = try validateMembers(prompt: state.comparisons[i].prompt, selectedIDs: [agent.id])[0]
@@ -503,16 +504,17 @@ final class AppModel: ObservableObject {
             do { try save() } catch { state.comparisons[i].members.removeLast(); throw error }
             state.selection.insert(agent.id)
             try save()
+            coordinator?.updateMembershipWindow(id)
             await submit(id, retry: false, only: agent.id)
         } catch { self.error = error.localizedDescription }
     }
-    func openWebComparison(_ id: UUID) {
+    func openWebComparison(_ id: UUID, present: Bool = true) {
         guard !webBroadcastBusy, let comparison = comparison(id) else { return }
         selectWorkspace(id)
         state.selection = Set(comparison.members.map(\.id))
         webAgents.restoreSelection(forAgentIDs: comparison.resolvedWebAgentIDs)
         webAgents.connectSelected()
-        webComparisonRequest = UUID()
+        if present { webComparisonRequest = UUID() }
         for session in webAgents.selected {
             Task {
                 guard webAgents.comparisonID == id else { return }
@@ -520,11 +522,40 @@ final class AppModel: ObservableObject {
             }
         }
     }
+    @discardableResult
+    func endConversation(_ id: UUID) -> Bool {
+        guard let i = index(id) else { return false }
+        if state.comparisons[i].endedAt != nil { return true }
+        let previous = state.comparisons[i]
+        guard previous.resolvedWebAgentIDs.allSatisfy({ webAgents.session(for: $0)?.canArchiveComparison(id) == true }) else {
+            self.error = "Open the saved agent chats and wait for their history to load before ending this conversation."
+            return false
+        }
+        // The normal poll is paused during sends. Read the cutoff independently
+        // so rows already received are retained even when a send is in flight.
+        do {
+            for member in previous.members { messages[member.chat.id] = try latest(member.chat) }
+        } catch {
+            self.error = "Could not retain conversation history before ending: " + error.localizedDescription
+            return false
+        }
+        state.comparisons[i].endedAt = Date()
+        state.comparisons[i].endMessageRows = Dictionary(uniqueKeysWithValues: previous.members.map {
+            ($0.chat.id, messages[$0.chat.id]?.map(\.id).max() ?? 0)
+        })
+        state.comparisons[i].endedWebHistory = Dictionary(uniqueKeysWithValues: previous.resolvedWebAgentIDs.map { agent in
+            (agent.id, webAgents.session(for: agent)?.messagesForComparison(id) ?? [])
+        })
+        do { try save(); return true }
+        catch { state.comparisons[i] = previous; self.error = error.localizedDescription; return false }
+    }
+
     func comparison(_ id: UUID) -> Comparison? { state.comparisons.first { $0.id == id } }
     func index(_ id: UUID) -> Int? { state.comparisons.firstIndex { $0.id == id } }
     func transcript(_ comparison: Comparison, member: Member) -> [Message] {
         guard let anchor = member.anchor else { return [] }
-        return ComparisonRange.messages(messages[member.chat.id] ?? [], anchor: anchor, next: ComparisonRange.nextAnchor(for: comparison, member: member, comparisons: state.comparisons))
+        let history = messages[member.chat.id] ?? []
+        return ComparisonRange.messages(comparison.endedAt == nil ? history : history.filter { comparison.includes($0) }, anchor: anchor, next: ComparisonRange.nextAnchor(for: comparison, member: member, comparisons: state.comparisons))
     }
     func latest(_ chat: Chat) throws -> [Message] {
         if demo { return messages[chat.id] ?? [] }
@@ -536,7 +567,7 @@ final class AppModel: ObservableObject {
         guard available.contains(where: { $0.id == chat.id && $0.eligible && ChatResolver.normalize($0.handle) == ChatResolver.normalize(chat.handle) }) else { throw AppFailure.blocked("The saved destination is no longer an eligible one-to-one Messages chat. Nothing was sent.") }
     }
     func submit(_ id: UUID, retry: Bool, only memberID: UUID? = nil) async {
-        guard let i = index(id), !busy else { return }
+        guard let i = index(id), state.comparisons[i].endedAt == nil, !busy else { return }
         let telemetryStarted = Date()
         let previouslySubmitted = Set(state.comparisons[i].members.filter { $0.submission == .submitted }.map(\.id))
         do { try RecipientSet.validate(state.comparisons[i].members) } catch { self.error = error.localizedDescription; return }
@@ -639,7 +670,7 @@ final class AppModel: ObservableObject {
         if changed { try save() }
     }
     func followUp(_ id: UUID, only memberID: UUID? = nil, recipients recipientIDs: [UUID]? = nil, retry attemptID: UUID? = nil, resumeUnsent: Bool = false, newAttemptID: UUID? = nil) async {
-        guard let i = index(id), !busy, memberID == nil || !webBroadcastBusy else { return }
+        guard let i = index(id), state.comparisons[i].endedAt == nil, !busy, memberID == nil || !webBroadcastBusy else { return }
         do { try freezeSharedContext(id) } catch { self.error = error.localizedDescription; return }
         let comparison = state.comparisons[i]
         let selected = recipientIDs.map(Set.init)

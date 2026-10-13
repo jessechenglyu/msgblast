@@ -1,6 +1,22 @@
 import XCTest
 @testable import msgblastCore
 final class CoreTests: XCTestCase {
+    func testEndedConversationCutoffSurvivesCodableAndRejectsLateLinkedReplies() throws {
+        var comparison = Comparison(prompt: "Original", members: [])
+        let cutoff = Date(timeIntervalSince1970: 100)
+        comparison.endedAt = cutoff
+        comparison.endMessageRows = ["chat": 5]
+        let restored = try JSONDecoder().decode(Comparison.self, from: JSONEncoder().encode(comparison))
+        let before = Message(id: 5, guid: "before", chatID: "chat", text: "Kept", outgoing: false, date: cutoff)
+        let late = Message(id: 6, guid: "late", chatID: "chat", text: "Late", outgoing: false, replyTo: "before", date: cutoff.addingTimeInterval(-1))
+        XCTAssertTrue(restored.includes(before))
+        XCTAssertFalse(restored.includes(late))
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(comparison)) as! [String: Any]
+        json.removeValue(forKey: "endedAt"); json.removeValue(forKey: "endMessageRows")
+        let legacy = try JSONDecoder().decode(Comparison.self, from: JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(legacy.endedAt)
+        XCTAssertTrue(legacy.includes(late))
+    }
     func testJoiningAgentReceivesOnlySharedContextAndKeepsItAfterMembershipChanges() throws {
         let members = ["A", "B"].map { Member(agentID: UUID(), name: $0, chat: Chat(id: $0, handle: $0, lastActivity: 0)) }
         var comparison = Comparison(prompt: "Original ask", members: members)

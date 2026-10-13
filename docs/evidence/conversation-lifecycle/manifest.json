@@ -1,0 +1,46 @@
+{
+  "built_source_sha": "8e60315e5a35af23cd00bf44e8dd6abd078eec08",
+  "fixture": true,
+  "video": {
+    "codec": "H.264",
+    "duration_seconds": 46.208333,
+    "sample_fps": 1,
+    "output_fps": 24,
+    "edited_intervals_seconds": [
+      [
+        0,
+        15
+      ],
+      [
+        35,
+        65
+      ]
+    ]
+  },
+  "files": {
+    "02-added.png": {
+      "sha256": "944847809ba4f54c6c3c3ff0da3e9b3170c1dbc964ecbd6adb3adcfa9bb11c14",
+      "bytes": 835275
+    },
+    "06-restored.png": {
+      "sha256": "61439b8df6ba2c41078d4061815a070305aa6508ddd3246538642768cd9f94b3",
+      "bytes": 981671
+    },
+    "workflow.mp4": {
+      "sha256": "d8858281d9e0cbcce85c3cca4ad4efc99a33e769b63bd475ad296e60085c0e1a",
+      "bytes": 535017
+    },
+    "04-close-confirmation.png": {
+      "sha256": "15634ca8c839064829553bcee62e75855802a9ceacb176a178c3d52852837bc9",
+      "bytes": 1118294
+    },
+    "05-ended-history.png": {
+      "sha256": "67e478c3f6e75c234135de615212e5766bc41aa4e880a1430d2f0d93eadfcb3e",
+      "bytes": 1067530
+    },
+    "01-before.png": {
+      "sha256": "78dfa5826fe3187e993f3884f851afc4a0816607eb6da895bcdcd135c1084a8a",
+      "bytes": 759209
+    }
+  }
+}

@@ -27,7 +27,7 @@ struct msgblastApp: App {
                         if model.needsSharingChoice { SharingChoiceView(model: model) }
                         else if model.needsOnboarding { OnboardingView(model: model) }
                         else { MainView(model: model, updater: updater) }
-                    }.onAppear { lifecycle.configure(model: model); updater.configure(delegate: lifecycle); if model.coordinator == nil { model.coordinator = WindowCoordinator(model: model) } }
+                    }.onAppear { lifecycle.configure(model: model); updater.configure(delegate: lifecycle); if model.coordinator == nil { model.coordinator = WindowCoordinator(model: model) }; lifecycle.reopenWorkspace = { [weak model] in model?.coordinator?.reopenWorkspace() ?? false } }
                 }
             }.background(InitialWindowFrame(size: preferredWindowSize))
         }.defaultSize(width: initialWindowSize.width, height: initialWindowSize.height).windowToolbarStyle(.unified)

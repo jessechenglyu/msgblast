@@ -1,0 +1,199 @@
+{
+  "review.json": {
+    "status": "complete",
+    "verdict": "Ready to merge",
+    "scope": {
+      "base": "origin/main",
+      "branch": "codex/conversation-lifecycle",
+      "head_sha": "1d8d2ac158dfc5aed529d187e334d6d48a7e0786",
+      "head_sha_role": "Checkout HEAD; reviewed tracked working-tree changes are uncommitted.",
+      "pr_url": null,
+      "files_changed": 9,
+      "reviewed_state": "Tracked dirty working tree against origin/main",
+      "diff_artifact": "/tmp/compound-engineering-501/ce-code-review/conversation-lifecycle-review/full.diff",
+      "diff_sha256": "f09b5dbc34cf33ba6ea89e4aaccc8dfb7e0caa579e90ab143aac8ffd9845d756"
+    },
+    "intent": "Adding agents preserves conversation window, frame, ID, history and shared/private drafts including native to mixed. Native active-window close offers End and Close, Keep Active and Close or Cancel. End persists cutoff excluding late responses while underlying agent histories continue; legacy Codable stays compatible.",
+    "intent_confidence": "explicit",
+    "reviewers": [
+      "correctness",
+      "project-standards",
+      "testing",
+      "maintainability",
+      "reliability",
+      "swift-ios",
+      "adversarial"
+    ],
+    "findings": [],
+    "actionable_findings": [],
+    "triage_groups": [],
+    "pre_existing_findings": [],
+    "requirements_completeness": null,
+    "learnings": [],
+    "agent_native_gaps": [],
+    "deployment_notes": [],
+    "residual_risks": [
+      "The web cutoff freezes the last observed WebPageSnapshot. A website reply that arrived before End but has not yet been polled may be absent from the archived transcript."
+    ],
+    "testing_gaps": [
+      "The controller fixture calls endConversation directly and checks windowShouldClose only after ending. Native interaction checks still need to verify End and Close persistence, Keep Active and Close retaining active state, Cancel keeping the window open, and the main-window close bridge.",
+      "The final controller fixture checks A's native transcript and shared draft after selecting B and manually invoking windowDidBecomeKey. It does not verify rendered browser history and recipient selection across real window activation or New Blast navigation.",
+      "No targeted fixture pauses web comparison preparation or join, ends the comparison, then resumes preparation and verifies that the new post-await guards prevent sending after End."
+    ],
+    "coverage": {
+      "depth": "full",
+      "reviewer_execution": "Seven persona lenses ran across two available leaf contexts in batches; these were not seven independent agents.",
+      "peer": "adversarial lens: in-process fallback (cross-model peer not run: shared transport unavailable before egress, npm ETARGET for acpx@0.19.4)",
+      "validator": {
+        "outcome": "empty-batch",
+        "selected": 0,
+        "confirmed": 0,
+        "rejected": 0,
+        "unresolved": 0,
+        "malformed": 0,
+        "failed": 0,
+        "shortcut_skipped": 0,
+        "reason": "No surviving primary findings required validation."
+      },
+      "suppressed_by_confidence": {},
+      "mode_aware_demotions": 0,
+      "first_evidence_backfilled": 0,
+      "quote_gate_demotions": 0,
+      "failed_reviewers": [],
+      "standards": [
+        {
+          "path": "AGENTS.md",
+          "files": [
+            "docs/architecture.md",
+            "msgblast/App/AppModel.swift",
+            "msgblast/Core/Models.swift",
+            "msgblast/Core/WebAgentSession.swift",
+            "msgblast/Windows/Views.swift",
+            "msgblast/Windows/WebServicesView.swift",
+            "msgblast/Windows/WindowCoordinator.swift",
+            "msgblastTests/CoreTests.swift",
+            "scripts/fixtures/web_comparison_model.swift"
+          ]
+        }
+      ],
+      "settlement_suppression": "Not evaluated; no matching plan discovered.",
+      "compound_packs": {
+        "roots": [],
+        "warnings": [],
+        "errors": []
+      },
+      "validation_limits": [
+        "Reviewers did not run the native test suite or control the GUI. Parent reported build-for-testing and synthetic controller fixtures green; this does not prove native close-sheet interactions.",
+        "Review covered final tracked working changes after parent fixes. Checkout HEAD identifies the starting commit; full.diff and its SHA-256 identify the reviewed uncommitted state.",
+        "Cross-model review did not run: shared transport failed before egress with npm ETARGET for acpx@0.19.4. An in-process adversarial fallback ran."
+      ],
+      "not_assessed": [
+        "security",
+        "performance",
+        "API contract",
+        "migration",
+        "agent-facing",
+        "previous comments",
+        "learnings"
+      ]
+    },
+    "verdict_reason": "No actionable defects remain in the reviewed state. Native close-sheet interactions and the listed async/navigation cases remain unverified.",
+    "artifact_path": "/tmp/compound-engineering-501/ce-code-review/conversation-lifecycle-review",
+    "run_id": "conversation-lifecycle-review"
+  },
+  "review-addendum.json": {
+    "status": "complete",
+    "verdict": "Ready to merge",
+    "type": "bounded-review-addendum",
+    "scope": {
+      "file": "msgblast/Windows/WebServicesView.swift",
+      "lines": [
+        116,
+        124
+      ],
+      "change": "displayedSessions retains joined members plus unjoined selected sessions only when the global comparison matches the fixed dedicated-window comparison",
+      "file_sha256": "636760663c7f68c6d47b69af62709805a30a0cb44a02e411aedf304ec870d349"
+    },
+    "findings": [],
+    "actionable_findings": [],
+    "coverage": [
+      "Inspected displayedSessions together with comparisonChatCount, archivedMessages, joinWebAgent, recipient selection and window conversion callers.",
+      "Confirmed preparing sessions are restricted to the same comparison, joined sessions are excluded from preparing to prevent duplicates, and fixed frame preservation remains active.",
+      "Read-only source review; no GUI or native suite run. Existing full review limits remain applicable."
+    ],
+    "artifact_path": "/tmp/compound-engineering-501/ce-code-review/conversation-lifecycle-review/review-addendum.json"
+  },
+  "reopen-addendum.json": {
+    "status": "complete",
+    "verdict": "Ready to merge",
+    "type": "bounded-review-addendum",
+    "scope": {
+      "base": "5023821",
+      "files": [
+        "msgblast/App/AppUpdater.swift",
+        "msgblast/App/msgblastApp.swift",
+        "msgblast/Windows/WebServicesView.swift",
+        "msgblast/Windows/WindowCoordinator.swift",
+        "scripts/fixtures/web_comparison_model.swift"
+      ],
+      "diff_sha256": "43fbf4df0af29bab4dcd5cee40d8b5f2520e19a0cf66dda0b317205f765f7695"
+    },
+    "findings": [],
+    "actionable_findings": [],
+    "residual_risks": [
+      "Strong workspaceWindow creates an ownership cycle through the hosting view and observed AppModel. The current app model and retained workspace are process-lived; explicit release would be needed for future model replacement or teardown. This review does not certify a cycle-free ownership graph."
+    ],
+    "coverage": [
+      "Return default is intentional user-directed behavior.",
+      "Reviewed direct close/reopen/menu-open paths, same-ID reuse, bridge delegate forwarding, lifecycle reopen callback and associated controller fixture.",
+      "The lifecycle reopen closure captures model weakly and adds no AppLifecycle closure cycle. Bridge owner/original delegate/installed window remain weak.",
+      "No source edits, GUI actions or native suite run. Parent reports updated build and synthetic controller fixtures green. Existing full-review limits remain applicable."
+    ],
+    "artifact_path": "/tmp/compound-engineering-501/ce-code-review/conversation-lifecycle-review/reopen-addendum.json"
+  },
+  "sizing-addendum.json": {
+    "status": "complete",
+    "verdict": "Ready to merge",
+    "type": "bounded-review-addendum",
+    "scope": {
+      "base": "HEAD",
+      "file": "msgblast/Windows/WebServicesView.swift",
+      "line": 750,
+      "diff_sha256": "ee3d7ae206ff7c78ad581aa2b50658ebc38b4c91da274a3692bf91e970355290"
+    },
+    "findings": [],
+    "actionable_findings": [],
+    "coverage": [
+      "chatCount > 0 prevents default -1 and zero-pane layout from consuming initial sizing; updateNSView still requests layout when the real pane count arrives.",
+      "Existing enabled and appliedCount guards continue preserving converted frames and later membership changes.",
+      "Read-only source review; parent owns native compilation and manual sizing verification. Existing full review limits remain applicable."
+    ],
+    "artifact_path": "/tmp/compound-engineering-501/ce-code-review/conversation-lifecycle-review/sizing-addendum.json"
+  },
+  "dismiss-addendum.json": {
+    "status": "complete",
+    "verdict": "Ready to merge",
+    "type": "bounded-review-addendum",
+    "scope": {
+      "base": "HEAD",
+      "diff_sha256": "9c6ab4f130e2312295f74df040510f4194cb77279614cc3864f5e10135439c35",
+      "files": [
+        "msgblast/Windows/WebServicesView.swift",
+        "msgblast/Windows/WindowCoordinator.swift",
+        "scripts/fixtures/web_comparison_model.swift"
+      ]
+    },
+    "findings": [],
+    "actionable_findings": [],
+    "resolved_findings": [
+      "P2 owner-nil close blocker resolved: absent owner forwards original delegate/default true; owned path confirms then dismisses."
+    ],
+    "coverage": [
+      "Owned main hides without tearing down hosting graph; dedicated windows still close normally.",
+      "End persists cutoff before dismissal; Keep Active preserves active state; Cancel unchanged.",
+      "Parent reports full controller performClose/reopen cutoff equality fixture passed; current native build pending.",
+      "Read-only source review; no edits/GUI/native suite by reviewer. Existing full-review limits remain applicable."
+    ],
+    "artifact_path": "/tmp/compound-engineering-501/ce-code-review/conversation-lifecycle-review/dismiss-addendum.json"
+  }
+}

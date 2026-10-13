@@ -114,6 +114,11 @@ private final class SidebarUpdateUserDriver: SPUStandardUserDriver {
 @MainActor
 final class AppLifecycle: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private weak var model: AppModel?
+    var reopenWorkspace: (() -> Bool)?
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag, reopenWorkspace?() == true { return false }
+        return true
+    }
     private weak var updateUI: AppUpdater?
     private let termination = UpdateTermination()
     private var busyObservation: AnyCancellable?

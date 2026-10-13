@@ -13,6 +13,104 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
     private var windows: [String: NSWindow] = [:]
     private var placing = false
     private var closingAll = false
+    var workspaceWindow: NSWindow?
+    var workspaceComparisonID: UUID?
+    private var confirming: Set<ObjectIdentifier> = []
+
+    @discardableResult
+    func reopenWorkspace() -> Bool {
+        guard let workspaceWindow else { return false }
+        workspaceWindow.makeKeyAndOrderFront(nil)
+        return true
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard !closingAll, let value = sender.identifier?.rawValue,
+              !value.hasSuffix(":report"), let id = UUID(uuidString: String(value.prefix(36))) else { return true }
+        return confirmClose(sender, comparisonID: id)
+    }
+
+    func confirmClose(_ window: NSWindow, comparisonID: UUID) -> Bool {
+        guard let comparison = model.comparison(comparisonID), comparison.endedAt == nil else { return true }
+        let key = ObjectIdentifier(window)
+        guard confirming.insert(key).inserted else { return false }
+        let alert = NSAlert()
+        alert.messageText = "End this conversation?"
+        alert.informativeText = "Keep the history and stop adding future replies to this conversation."
+        alert.addButton(withTitle: "End and Close")
+        alert.addButton(withTitle: "Keep Active and Close")
+        alert.buttons[0].keyEquivalent = "\r"
+        alert.buttons[1].keyEquivalent = "\u{1b}"
+        alert.beginSheetModal(for: window) { [weak self, weak window] response in
+            guard let self, let window else { return }
+            self.confirming.remove(key)
+            switch response {
+            case .alertFirstButtonReturn:
+                if self.model.endConversation(comparisonID) { self.dismissConversationWindow(window) }
+                else {
+                    let failure = NSAlert()
+                    failure.messageText = "Could not end this conversation"
+                    failure.informativeText = self.model.error ?? "The conversation remains active. Try again after its history loads."
+                    self.model.error = nil
+                    failure.addButton(withTitle: "OK")
+                    failure.beginSheetModal(for: window)
+                }
+            case .alertSecondButtonReturn: self.dismissConversationWindow(window)
+            default: break
+            }
+        }
+        return false
+    }
+
+    func dismissConversationWindow(_ window: NSWindow) {
+        // Closing a SwiftUI scene tears down its hosting graph. Retain the main
+        // workspace while dismissing its window so reopening remains interactive.
+        if window === workspaceWindow { window.orderOut(nil) }
+        else { window.close() }
+    }
+
+    func updateMembershipWindow(_ id: UUID) {
+        let prefix = id.uuidString + ":"
+        guard windows[prefix + "connected"] == nil else { return }
+        let candidates = windows.values.filter {
+            $0.identifier?.rawValue.hasPrefix(prefix) == true &&
+            $0.identifier?.rawValue.hasSuffix(":report") != true &&
+            $0.identifier?.rawValue.hasSuffix(":all") != true
+        }
+        guard let window = candidates.first(where: { $0.isKeyWindow }) ?? candidates.first else { return }
+        // Reuse the originating separate pane as the joined conversation window.
+        let obsolete = windows.filter { $0.key.hasPrefix(prefix) && !$0.key.hasSuffix(":report") }
+        for (key, existing) in obsolete {
+            windows.removeValue(forKey: key)
+            if existing !== window { existing.close() }
+        }
+        window.identifier = NSUserInterfaceItemIdentifier(prefix + "connected")
+        windows[prefix + "connected"] = window
+        window.contentView = NSHostingView(rootView: ComparisonWorkspace(model: model, comparisonID: id))
+    }
+
+    // Membership changes must never tear down or replace a conversation window.
+    func prepareJoiningWebAgent(_ id: UUID) {
+        updateMembershipWindow(id)
+        let dedicated = windows[id.uuidString + ":connected"]
+        let draft = model.comparison(id)?.allDraft ?? ""
+        let wasSelected = model.webAgents.comparisonID == id
+        let recipients = wasSelected ? model.state.selection : Set(model.comparison(id).map {
+            ($0.recipientSelection ?? ConversationRecipients()).recipientIDs(in: $0.members)
+        } ?? [])
+        let webRecipients = Set(model.webAgents.selected.map(\.id))
+        model.openWebComparison(id, present: dedicated == nil && workspaceComparisonID != id)
+        model.state.selection = recipients
+        if wasSelected {
+            for agent in model.comparison(id)?.resolvedWebAgentIDs ?? [] {
+                model.webAgents.session(for: agent)?.updateState { $0.selected = webRecipients.contains(agent) }
+            }
+        }
+        if let window = dedicated {
+            model.setSharedDraft(draft)
+            window.contentView = NSHostingView(rootView: AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: .constant(true), preservesWindowFrame: true, windowComparisonID: id))
+        }
+    }
 
     init(model: AppModel) { self.model = model }
 
@@ -109,8 +207,18 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
     }
 
     func open(_ id: UUID) {
+        if let window = windows[id.uuidString + ":connected"] {
+            if model.comparison(id)?.resolvedWebAgentIDs.isEmpty == false { model.openWebComparison(id, present: false) }
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        if workspaceComparisonID == id, let workspaceWindow {
+            workspaceWindow.makeKeyAndOrderFront(nil)
+            return
+        }
         if model.comparison(id)?.webProviders?.isEmpty == false {
             model.openWebComparison(id)
+            workspaceWindow?.makeKeyAndOrderFront(nil)
             NSApp.activate()
             return
         }
@@ -212,6 +320,15 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
             window.setFrameOrigin(NSPoint(x: screen.maxX - window.frame.width - 20, y: screen.minY + 320))
         }
         window.makeKeyAndOrderFront(nil)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              let key = window.identifier?.rawValue, key.hasSuffix(":connected"),
+              let id = UUID(uuidString: String(key.prefix(36))),
+              model.comparison(id)?.resolvedWebAgentIDs.isEmpty == false,
+              model.webAgents.comparisonID != id else { return }
+        model.openWebComparison(id, present: false)
     }
 
     func windowDidMove(_ notification: Notification) { recordChange(notification) }
