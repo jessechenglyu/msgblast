@@ -1,0 +1,27 @@
+{
+  "source_revision": "095ecc96acfab94ddb10f028e74f608066f680a4",
+  "base_revision": "cc0cf40592fdf3c0023c6af9cffe77dfcbc006d5",
+  "fixture": true,
+  "video": {
+    "source_clip_start_seconds": 15,
+    "duration_seconds": 6.7,
+    "crop": [
+      770,
+      260,
+      1660,
+      1756
+    ],
+    "output_size": [
+      960,
+      1016
+    ],
+    "speed": 1
+  },
+  "files": {
+    "04-messages.png": "86049c77e3c2987b6a20943662edf972f9be58dee3b3d32ccd8be34ae5a6b395",
+    "workflow.mp4": "aa81471557a5695eaec6ac19ffd8d2c1d2d3313a1f255714815cb25c9204a306",
+    "02-menu.png": "b501a79fa3cece5016d78fd5220acc0e88ca45d60691977d2836c6d1f6f78cf6",
+    "03-hidden.png": "2d4f28267dd565fd75e8945d7ebe4dd1387f31a07e93d46c820eb177a55ca578",
+    "01-before.png": "8b1fe85a6d28f3658ceb7a90d3addf34435689614f8a0448bd3cf9067cfd4c27"
+  }
+}
