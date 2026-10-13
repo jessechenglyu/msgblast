@@ -103,8 +103,14 @@ import msgblastCore
         gridModel.webAgents.setEnabled(true, for: .claudeCode)
         let savedAgentIDs = gridModel.state.agents.map { AgentGridID.messages($0.id) }
         precondition(gridModel.state.agentGrid == nil)
-        precondition(gridModel.agentGridLayout.visibleIDs == AgentGridLayout.featured + [.web(.claudeCode), .web(.hark)] + savedAgentIDs)
-        print("PASS: first-use grid preserves featured order, enabled optional providers, and every saved Messages agent.")
+        precondition(gridModel.agentGridLayout.visibleIDs == [.web(.claudeCode)] + savedAgentIDs)
+        precondition(!gridModel.agentGridLayout.visibleIDs.contains(.web(.muse)))
+        precondition(gridModel.telemetryAgentCounts["claudeCode"] == 1)
+        precondition(gridModel.telemetryAgentCounts["muse"] == nil)
+        let manuallyAdded = AgentGridLayout(visibleIDs: [.web(.chatgpt)])
+        precondition(gridModel.setAgentGrid(manuallyAdded))
+        precondition(gridModel.agentGridLayout.visibleIDs == [.web(.chatgpt)], "Explicit membership survives a signed-out website")
+        print("PASS: first-use grid excludes catalog suggestions, preserves configured providers and saved Messages agents, and keeps explicitly added signed-out agents.")
         let showcase = AppModel()
         let shown = showcase.state.agents[0]
         let hidden = showcase.state.agents[1]

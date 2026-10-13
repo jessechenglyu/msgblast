@@ -271,6 +271,7 @@ struct AgentsWorkspaceView: View {
                 Set(comparison.resolvedWebAgentIDs) == Set(sessions.map(\.id)) && Set(comparison.members.map(\.id)) == recipients
             } ?? false
             let followUpID = UUID()
+            let telemetryStarted = Date()
             let result = await AgentBroadcast.send(draft: originalDraft, currentDraft: { model.state.draft }, clearDraft: {
                 model.setSharedDraft("")
             }, web: { text in
@@ -286,6 +287,14 @@ struct AgentsWorkspaceView: View {
                 await model.submit(comparisonID, retry: false)
                 return comparisonID
             })
+            let webSubmitted = result.web.values.filter { $0.status.confirmsSubmission }.count
+            let messagesSubmitted = model.comparison(comparisonID).map { comparison in
+                existingID == nil ? comparison.members.filter { recipients.contains($0.id) && $0.submission == .submitted }.count :
+                comparison.followUps.first(where: { $0.id == followUpID })?.states.values.filter { $0 == .submitted }.count ?? 0
+            } ?? 0
+            if webSubmitted + messagesSubmitted > 0 {
+                model.recordMessageSubmission(kind: .shared, recipientCount: webSubmitted + messagesSubmitted, started: telemetryStarted, logicalID: existingID == nil ? comparisonID : followUpID)
+            } else { model.recordOperation(.send, success: false, started: telemetryStarted) }
             if existingID != nil, allRecipients,
                result.web.values.allSatisfy({ $0.status.confirmsSubmission }), result.web.count == sessions.count,
                let i = model.index(comparisonID) {
@@ -319,7 +328,11 @@ struct AgentsWorkspaceView: View {
             }
             do { try model.save() } catch { model.error = error.localizedDescription; return }
             showingComparison = true
-            _ = await session.send(text, comparisonID: id)
+            let telemetryStarted = Date()
+            let attempt = await session.send(text, comparisonID: id)
+            if let attempt, attempt.status.confirmsSubmission {
+                model.recordMessageSubmission(kind: .private, recipientCount: 1, started: telemetryStarted, logicalID: attempt.id)
+            } else { model.recordOperation(.send, success: false, started: telemetryStarted) }
             web.setComparison(id)
         }
     }

@@ -24,6 +24,8 @@
 	<string>Submit separate messages to your selected existing Messages conversations.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>msgblastTelemetryEndpoint</key>
+	<string>$(MSGBLAST_TELEMETRY_ENDPOINT)</string>
 	<key>SUFeedURL</key>
 	<string>$(SPARKLE_FEED_URL)</string>
 	<key>SUPublicEDKey</key>

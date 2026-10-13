@@ -15,6 +15,7 @@ struct OnboardingView: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var setup: OnboardingController
     @State private var selectedConnector: OnboardingConnector?
+    @State private var previousTelemetryScreen: TelemetryProperties.Screen?
 
     init(model: AppModel) {
         self.model = model
@@ -82,6 +83,39 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minWidth: 740, minHeight: 700)
         .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: telemetryScreenKey, initial: true) { _, _ in
+            var properties = TelemetryProperties()
+            properties.screen = telemetryScreen
+            properties.previousScreen = previousTelemetryScreen
+            if telemetryScreen == .providerConnection, case .agent(let provider) = setup.state.currentStep { properties.provider = provider.rawValue }
+            if telemetryScreen == .runtimeSetup, case .runtime(let runtime) = setup.state.currentStep { properties.provider = runtime.rawValue }
+            model.recordTelemetry(.onboardingScreenViewed, properties: properties)
+            previousTelemetryScreen = telemetryScreen
+        }
+    }
+
+    private var telemetryScreen: TelemetryProperties.Screen {
+        if setup.state.connectorStartCompleted == false { return .connectors }
+        if setup.state.prerequisitesCompleted == false { return .permissions }
+        if setup.state.messagesDiscoveryReviewed == false { return .messages }
+        switch setup.state.stage {
+        case .choosing: return .agents
+        case .importing: return .browserImport
+        case .feedback: return .feedback
+        default:
+            if case .runtime = setup.state.currentStep { return .runtimeSetup }
+            if case .messages = setup.state.currentStep { return .messages }
+            return .providerConnection
+        }
+    }
+    private var telemetryScreenKey: String {
+        let step: String
+        switch setup.state.currentStep {
+        case .agent(let provider) where telemetryScreen == .providerConnection: step = provider.rawValue
+        case .runtime(let runtime) where telemetryScreen == .runtimeSetup: step = runtime.rawValue
+        default: step = ""
+        }
+        return telemetryScreen.rawValue + ":" + step
     }
 
     private var connectorStart: some View {

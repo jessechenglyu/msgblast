@@ -720,6 +720,7 @@ struct AppSettingsView: View {
                     Text(updater.configuration.unavailableReason).foregroundStyle(.secondary)
                 }
             }
+            Section("Sharing") { SharingSettingsView(model: model) }
         }.formStyle(.grouped).padding(20).frame(width: 640, height: 650)
     }
 }

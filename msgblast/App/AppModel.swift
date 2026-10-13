@@ -45,6 +45,10 @@ final class AppModel: ObservableObject {
     let linkPreviews = LinkPreviewStore()
     let accessGuide = MessagesAccessGuide(defaults: ProcessInfo.processInfo.arguments.contains("--demo") ? UserDefaults(suiteName: "com.msgblast.demo-permissions") ?? .standard : .standard)
     let local: LocalStore
+    lazy var telemetry = TelemetryCollector(endpoint: TelemetryCollector.endpoint(demo: demo), queueURL: local.url.deletingLastPathComponent().appendingPathComponent("telemetry-queue.json"))
+    var lastTelemetryInventory: [String: Int]?
+    var lastTelemetryActivityDay: Int?
+    var telemetryTimer: Timer?
     lazy var webAgents = WebAgents(directory: local.url.deletingLastPathComponent(), fixture: demo && Bundle.main.object(forInfoDictionaryKey: "msgblastLiveWebPreview") as? Bool != true)
     var database: MessagesDatabase?
     var timer: Timer?
@@ -89,6 +93,10 @@ final class AppModel: ObservableObject {
         }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in Task { @MainActor in self?.refreshIfChanged() } }
+        Task { await telemetry.configure(storageLoadFailed ? nil : state.sharingConsent); telemetryHeartbeat() }
+        if TelemetryCollector.endpoint(demo: demo) != nil {
+            telemetryTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in Task { @MainActor in self?.telemetryHeartbeat() } }
+        }
     }
     func save() throws {
         guard !storageLoadFailed else { throw AppFailure.blocked("Saved state is unavailable. It will not be overwritten. You can quit or update after new drafts are saved separately in \(local.url.deletingLastPathComponent().appendingPathComponent("Recovery").path). Repair the saved state before sending.") }
@@ -528,6 +536,8 @@ final class AppModel: ObservableObject {
     }
     func submit(_ id: UUID, retry: Bool, only memberID: UUID? = nil) async {
         guard let i = index(id), !busy else { return }
+        let telemetryStarted = Date()
+        let previouslySubmitted = Set(state.comparisons[i].members.filter { $0.submission == .submitted }.map(\.id))
         do { try RecipientSet.validate(state.comparisons[i].members) } catch { self.error = error.localizedDescription; return }
         busy = true; defer { busy = false; refresh() }
         for j in state.comparisons[i].members.indices {
@@ -581,6 +591,11 @@ final class AppModel: ObservableObject {
                 persist()
             }
         }
+        if !webBroadcastBusy {
+            let submitted = state.comparisons[i].members.filter { $0.submission == .submitted && !previouslySubmitted.contains($0.id) }.count
+            if submitted > 0 { recordMessageSubmission(kind: .shared, recipientCount: submitted, started: telemetryStarted, logicalID: id) }
+            else { recordOperation(.send, success: false, started: telemetryStarted) }
+        }
     }
     func reconcile() throws {
         var changed = false
@@ -631,6 +646,7 @@ final class AppModel: ObservableObject {
         let text = (memberID.map { comparison.privateDrafts[$0.uuidString] ?? "" } ?? comparison.allDraft).trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = attachmentDraft(comparisonID: id, memberID: memberID)
         if attemptID == nil && text.isEmpty && attachments.isEmpty { return }
+        let telemetryStarted = Date()
         var k: Int
         do {
             try RecipientSet.validate(comparison.members)
@@ -663,6 +679,7 @@ final class AppModel: ObservableObject {
                 setAttachmentDraft([], comparisonID: id, memberID: memberID, saveNow: false)
                 try save()
             }
+            let previouslySubmitted = Set(state.comparisons[i].followUps[k].states.filter { $0.value == .submitted }.map(\.key))
             busy = true
             for member in targets where state.comparisons[i].followUps[k].memberIDs.contains(member.id) {
                 let key = member.id.uuidString
@@ -697,6 +714,11 @@ final class AppModel: ObservableObject {
             let completed = state.comparisons[i].followUps[k]
             state.comparisons[i].recordSharedFollowUp(completed)
             try save()
+            if !webBroadcastBusy {
+                let submitted = completed.states.filter { $0.value == .submitted && !previouslySubmitted.contains($0.key) }.count
+                if submitted > 0 { recordMessageSubmission(kind: memberID == nil ? .shared : .private, recipientCount: submitted, started: telemetryStarted, logicalID: completed.id) }
+                else { recordOperation(.send, success: false, started: telemetryStarted) }
+            }
         } catch { self.error = error.localizedDescription }
         busy = false; refresh()
     }

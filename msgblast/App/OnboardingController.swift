@@ -40,6 +40,7 @@ final class OnboardingController: ObservableObject {
             model.state.agentGrid = previousGrid
             self.error = "Could not save setup progress: \(error.localizedDescription)"
         }
+        model.telemetryHeartbeat()
     }
 
     func completePrerequisites(discoverMessages: Bool = false) {
@@ -209,6 +210,7 @@ final class OnboardingController: ObservableObject {
     }
 
     func finish() async {
+        let telemetryStarted = Date()
         guard state.stage == .feedback, !checking else { return }
         checking = true
         let generation = UUID()
@@ -245,6 +247,11 @@ final class OnboardingController: ObservableObject {
             return
         }
         edit { $0.finish() }
+        if state.isFinished {
+            model.recordTelemetry(.onboardingCompleted)
+            model.recordOperation(.setup, success: true, started: telemetryStarted)
+            model.telemetryHeartbeat()
+        }
         if state.isFinished { model.accessGuide.dismissCompletion() }
     }
 

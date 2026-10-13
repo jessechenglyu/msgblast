@@ -100,7 +100,7 @@ def retain_icon_diagnostic(output, variant, icns):
     return destination
 
 
-def package_variant(workspace, variant, source_revision, output):
+def package_variant(workspace, variant, source_revision, output, enable_dev_telemetry=False):
     derived = workspace / "derived" / variant["id"]
     if derived.exists():
         shutil.rmtree(derived)
@@ -127,6 +127,8 @@ def package_variant(workspace, variant, source_revision, output):
     except RuntimeError as error:
         raise SystemExit(f"{variant['id']} {error}") from error
     info = preview.configure_info(built_info, variant, source_revision)
+    if enable_dev_telemetry and variant["id"] == "development":
+        info["msgblastTelemetryEndpoint"] = "https://msgblast.app/api/telemetry"
     with info_path.open("wb") as file:
         plistlib.dump(info, file)
     with info_path.open("rb") as file:
@@ -201,6 +203,7 @@ def main():
     parser.add_argument("--sha", required=True)
     parser.add_argument("--run-url", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--enable-dev-telemetry", action="store_true", help="Enable consent-controlled real Dev statistics through Cloudflare; Demo remains disabled")
     args = parser.parse_args()
     if len(args.sha) < 12 or any(character not in "0123456789abcdef" for character in args.sha):
         parser.error("SHA must be a hex commit id")
@@ -214,7 +217,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="msgblast-preview-") as temporary:
         workspace = preview.copy_workspace(Path(temporary) / "src")
         for variant in preview.VARIANTS.values():
-            records.append(package_variant(workspace, variant, args.sha, output))
+            records.append(package_variant(workspace, variant, args.sha, output, args.enable_dev_telemetry))
     if len({record["compiled_icon_sha256"] for record in records}) != len(records):
         raise SystemExit("Compiled preview icons are identical, so artwork selection did not change the app")
     if len({record["compiled_icon"] for record in records}) != len(records):

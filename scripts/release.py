@@ -175,6 +175,7 @@ print(key.publicKey.rawRepresentation.base64EncodedString())
         "-derivedDataPath", str(output / "DerivedData"), "-archivePath", str(output / "msgblast.xcarchive"),
         "MARKETING_VERSION=" + options.version, "CURRENT_PROJECT_VERSION=" + str(options.build),
         "SPARKLE_FEED_URL=" + options.feed_url, "SPARKLE_PUBLIC_ED_KEY=" + options.public_key,
+        "MSGBLAST_TELEMETRY_ENDPOINT=https://msgblast.app/api/telemetry",
         *signing_settings, *archive_tail, "archive"]
     if ad_hoc:
         commands["export"] = ["ditto", str(output / "msgblast.xcarchive/Products/Applications/msgblast.app"), str(app)]

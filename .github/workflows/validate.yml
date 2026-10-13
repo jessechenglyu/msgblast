@@ -36,6 +36,9 @@ jobs:
           npm test
           npm run check
 
+      - name: Verify anonymous telemetry contract
+        run: node --test telemetry/worker.test.mjs
+
   native:
     runs-on: xcode-27
     timeout-minutes: 60

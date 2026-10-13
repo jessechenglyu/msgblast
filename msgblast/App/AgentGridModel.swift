@@ -58,12 +58,15 @@ extension AppModel {
             return AgentGridLayout(onboarding: setup, messageGridIDs: messageGridIDs)
         }
         let ids = messageGridIDs
-        let connected = webAgents.availableSessions.map { $0.id.gridID }
+        let connected = webAgents.sessions.filter {
+            $0.state.selected || $0.state.enabled == true || !$0.state.attempts.isEmpty ||
+                !$0.state.conversationURLs.isEmpty || !$0.state.draft.isEmpty
+        }.map { $0.id.gridID }
         let messages = state.agents.map { ids[$0.id] ?? .messages($0.id) }
         let local = LocalAgentRuntime.allCases.filter { runtime in
             state.onboarding?.completed.contains { $0.runtime == runtime } == true
         }.map(AgentGridID.runtime)
-        return AgentGridLayout(visibleIDs: AgentGridLayout.featured + connected + messages + local)
+        return AgentGridLayout(visibleIDs: connected + messages + local)
     }
 
     var agentGridLayout: AgentGridLayout { state.agentGrid ?? defaultAgentGrid }
@@ -90,6 +93,7 @@ extension AppModel {
                 session.updateState { $0.selected = false }
             }
         }
+        telemetryHeartbeat()
         return true
     }
 
