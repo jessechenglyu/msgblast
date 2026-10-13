@@ -147,6 +147,10 @@ Info.plist, entitlements, frameworks, resources, and helper.
   edit `scripts/generate_project.py` as needed and run
   `python3 scripts/generate_project.py`. Review/commit the generated project and
   shared scheme with the source change. See [Architecture](architecture.md).
+- The sharing screen uses `Resources/Onboarding/SharingAppIcon.png`, a native
+  macOS export of the canonical green `output/app-icons/msgblast.icon` artwork.
+  Refresh it with Icon Composer's `ictool --export-image` when that artwork
+  changes. It stays green in Dev and Demo; their Dock icons keep their preview colors.
 
 ## Accounts, permissions, and state
 
@@ -206,3 +210,5 @@ that separate volume without overwriting `/Applications/msgblast.app`; Demo has
 fixture mode, separate state and disabled updates. See
 [saved layout and regeneration](../scripts/installer-assets/README.md) and
 [animation commands and limits](../prototypes/remotion-onboarding/README.md).
+
+For authorized real-data telemetry checks, add `--enable-dev-telemetry` to the preview packager. Only Dev receives the Cloudflare endpoint. Sharing still requires saved consent; events are marked `buildChannel=development`. Demo remains upload-disabled.

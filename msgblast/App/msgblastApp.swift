@@ -8,7 +8,7 @@ struct msgblastApp: App {
     private var model: AppModel? { startup.model }
     @StateObject private var updater = AppUpdater()
     private var preferredWindowSize: NSSize {
-        if model?.needsOnboarding == true {
+        if model?.needsOnboarding == true || model?.needsSharingChoice == true {
             let compact = model?.state.onboarding?.stage == .choosing || model?.state.onboarding?.currentStep == .messages
             return NSSize(width: 840, height: compact ? 760 : 860)
         }
@@ -24,7 +24,8 @@ struct msgblastApp: App {
                 if startup.needsInstallation { InstallationView() }
                 else if let model {
                     Group {
-                        if model.needsOnboarding { OnboardingView(model: model) }
+                        if model.needsSharingChoice { SharingChoiceView(model: model) }
+                        else if model.needsOnboarding { OnboardingView(model: model) }
                         else { MainView(model: model, updater: updater) }
                     }.onAppear { lifecycle.configure(model: model); updater.configure(delegate: lifecycle); if model.coordinator == nil { model.coordinator = WindowCoordinator(model: model) } }
                 }
@@ -38,7 +39,11 @@ struct msgblastApp: App {
                 Button("Check for Updates…") { updater.checkForUpdates() }
                     .disabled(updater.configuration.isEnabled && !updater.canCheckForUpdates)
             }
-            CommandGroup(after: .newItem) { Button("Refresh Messages") { model?.refresh() }.keyboardShortcut("r", modifiers: .command).disabled(model == nil) }
+            CommandGroup(after: .newItem) {
+                Button("Refresh Messages") { model?.refresh() }.keyboardShortcut("r", modifiers: .command).disabled(model == nil)
+                Button("Review Messages Setup…") { model?.onboarding.reviewMessagesAgents() }
+                    .disabled(model == nil || model?.busy == true || model?.webBroadcastBusy == true)
+            }
             CommandMenu("Comparisons") {
                 ForEach(model?.state.comparisons ?? []) { comparison in Button(comparison.title) { model?.coordinator?.open(comparison.id) } }
             }

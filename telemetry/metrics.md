@@ -1,0 +1,18 @@
+# Adoption and retention definitions
+
+Day 0 begins when Activity sharing is first saved, not at an unobserved installation time. An installation that enables Activity later starts its cohort then. Disabling Activity removes the local installation ID; enabling it again starts a new ID and cohort without merging old activity.
+
+- Agent additions: sum `agent_added.count` during `cohortDay = 0`, broken down by `provider`. These are additions to the configured setup/agent grid, including re-additions, rather than distinct people or accounts. `agent_inventory.counts` records the current roster separately. Existing agents when consent is first saved are a baseline, not new additions.
+- Messages: count `message_submitted` events during Day 0. One user-authored broadcast counts once even when several recipients confirm submission. `recipientCount` is the number of confirmed recipients at that measurement. A retry of an already counted logical submission is suppressed locally; telemetry upload retries reuse event UUIDs. Submission does not prove delivery.
+- Meaningful retention: an `app_engaged` event from a confirmed app-controlled submission during elapsed Day 1, 7, 14 or 30. Each day is a 24-hour interval from the cohort start. Count only installations whose entire target-day interval has ended, avoiding partially observed windows.
+- App-open retention: `app_active` is separate from meaningful retention. It is emitted on active launch and once on a new elapsed cohort day while the app is active.
+
+All installation-level metrics require Activity consent. Agent and message statistics without Activity cannot be assigned to Day 0 or a returning installation. Users who decline collection are absent from these metrics. Do not infer total installs or treat consent withdrawal as definite churn. Manual messages sent inside an embedded provider website are not counted by the app-controlled submission instrumentation.
+
+First-day adoption is a metric definition, not a retrospective read of a user's conversations. The collector never uploads prompts, replies, local send-receipt IDs, conversation IDs, contact identities, paths, URLs or account IDs. `cohortStartedAt` and `cohortDay` are present only when Activity is permitted.
+
+The production project is msgblast (US Cloud). Replay, autocapture, console capture and automatic performance capture are disabled. PostHog discards IP addresses. Charts should filter synthetic fixture events and clearly label these definitions as newly introduced, ungoverned metrics until a maintainer approves them in the data catalog.
+
+The saved dashboard uses native Trends charts for Day 0 agent additions (sum `count`, breakdown by `provider`) and message submissions (total events), filtered to `cohortDay = 0` and excluding fixtures. The [retention query](retention.sql) uses elapsed days and completed windows, which differ from calendar-day retention. It includes only consent cohorts started within the last 90 days, preventing older installations with incomplete historical windows from entering the denominator. These definitions were checked against isolated synthetic cohorts; the test project contains no customer data.
+
+Production insights exclude `buildChannel=development` and fixtures. Onboarding screen visits are collected under Agent usage after consent. Repeated visits are possible when going Back; cross-screen funnels require Activity so events share an installation ID. Initial sharing choices are not tracked before consent.

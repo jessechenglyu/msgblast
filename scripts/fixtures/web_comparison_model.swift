@@ -25,13 +25,39 @@ import msgblastCore
         let application = NSApplication.shared
         application.setActivationPolicy(.regular)
         Task { @MainActor in
-            do { try await runChecks() }
+            do {
+                if ProcessInfo.processInfo.arguments.contains("--permission-review-relaunch-fixture") { try runPermissionReviewRelaunchChecks() }
+                else { try await runChecks() }
+            }
             catch { fatalError("Isolated model fixture failed: \(error)") }
             application.stop(nil)
             let wake = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0)!
             application.postEvent(wake, atStart: true)
         }
         application.run()
+    }
+    @MainActor static func runPermissionReviewRelaunchChecks() throws {
+        let model = AppModel()
+        let root = model.local.url.deletingLastPathComponent()
+        precondition(root.lastPathComponent.hasPrefix("msgblast-PermissionReview-"))
+        defer { try? FileManager.default.removeItem(at: root) }
+        model.state.onboarding = nil
+        model.state.agentGrid = nil
+        model.state.draft = "Permission review restart keeps this draft"
+        let agent = model.state.agents[0]
+        model.state.selection = [agent.id]
+        model.webAgents.session(for: .grok)!.updateState { $0.selected = true }
+        let grid = model.agentGridLayout
+        let counts = model.telemetryAgentCounts
+        try model.save()
+        model.onboarding.reviewMessagesAgents()
+        let relaunched = AppModel()
+        precondition(relaunched.state.selection == [agent.id])
+        precondition(relaunched.webAgents.session(for: .grok)!.state.selected)
+        precondition(relaunched.state.draft == "Permission review restart keeps this draft")
+        precondition(relaunched.state.agentGrid == grid)
+        precondition(relaunched.telemetryAgentCounts == counts)
+        print("PASS: actual same-store AppModel relaunch preserves Messages and website recipients, draft, inferred grid, and adoption baseline during permission review.")
     }
     @MainActor static func runChecks() async throws {
         _ = NSApplication.shared
@@ -103,8 +129,46 @@ import msgblastCore
         gridModel.webAgents.setEnabled(true, for: .claudeCode)
         let savedAgentIDs = gridModel.state.agents.map { AgentGridID.messages($0.id) }
         precondition(gridModel.state.agentGrid == nil)
-        precondition(gridModel.agentGridLayout.visibleIDs == AgentGridLayout.featured + [.web(.claudeCode), .web(.hark)] + savedAgentIDs)
-        print("PASS: first-use grid preserves featured order, enabled optional providers, and every saved Messages agent.")
+        precondition(gridModel.agentGridLayout.visibleIDs == [.web(.claudeCode)] + savedAgentIDs)
+        precondition(!gridModel.agentGridLayout.visibleIDs.contains(.web(.muse)))
+        precondition(gridModel.telemetryAgentCounts["claudeCode"] == 1)
+        precondition(gridModel.telemetryAgentCounts["muse"] == nil)
+        let manuallyAdded = AgentGridLayout(visibleIDs: [.web(.chatgpt)])
+        precondition(gridModel.setAgentGrid(manuallyAdded))
+        precondition(gridModel.agentGridLayout.visibleIDs == [.web(.chatgpt)], "Explicit membership survives a signed-out website")
+        print("PASS: first-use grid excludes catalog suggestions, preserves configured providers and saved Messages agents, and keeps explicitly added signed-out agents.")
+        let catalogTelemetry = AppModel()
+        var knownPoke = Agent(contactID: "catalog-poke-fixture", name: "Poke 🌴", handles: ["poke@example.com"])
+        catalogTelemetry.state.agents.append(knownPoke)
+        catalogTelemetry.state.agentGrid = AgentGridLayout(visibleIDs: [.messages(knownPoke.id)])
+        precondition(catalogTelemetry.telemetryAgentCounts == ["poke": 1])
+        knownPoke.name = "Private contact name"
+        catalogTelemetry.state.agents[catalogTelemetry.state.agents.count - 1] = knownPoke
+        precondition(catalogTelemetry.telemetryAgentCounts == ["otherMessages": 1])
+        print("PASS: known Poke adoption remains catalogued for legacy profiles, while personal names collapse into otherMessages without leaving the native model.")
+        let legacyPermissionReview = AppModel()
+        legacyPermissionReview.webAgents.session(for: .grok)!.updateState { $0.selected = true }
+        precondition(legacyPermissionReview.state.onboarding == nil && legacyPermissionReview.state.agentGrid == nil)
+        let inferredGrid = legacyPermissionReview.agentGridLayout
+        let inferredCounts = legacyPermissionReview.telemetryAgentCounts
+        legacyPermissionReview.onboarding.reviewMessagesAgents()
+        precondition(legacyPermissionReview.state.agentGrid == inferredGrid)
+        precondition(legacyPermissionReview.telemetryAgentCounts == inferredCounts)
+        let permissionReview = AppModel()
+        permissionReview.state.agentGrid = AgentGridLayout(visibleIDs: [.web(.grok)])
+        permissionReview.state.draft = "Retain the unsent draft while reviewing access"
+        let reviewSelection = permissionReview.state.selection
+        let reviewCounts = permissionReview.telemetryAgentCounts
+        permissionReview.onboarding.reviewMessagesAgents()
+        precondition(permissionReview.state.onboarding?.connector == .messages)
+        precondition(permissionReview.state.onboarding?.prerequisitesCompleted == false)
+        precondition(permissionReview.state.agentGrid?.visibleIDs == [.web(.grok)])
+        precondition(permissionReview.state.draft == "Retain the unsent draft while reviewing access")
+        precondition(permissionReview.state.selection == reviewSelection)
+        precondition(permissionReview.telemetryAgentCounts == reviewCounts)
+        permissionReview.databaseAvailable = false
+        precondition(permissionReview.messageConnectionStatus(permissionReview.state.agents[0]) == "Connect Messages")
+        print("PASS: legacy profiles can review Messages permissions without erasing the grid, draft, recipients or adoption baseline; unavailable history asks for access rather than claiming a broken conversation.")
         let showcase = AppModel()
         let shown = showcase.state.agents[0]
         let hidden = showcase.state.agents[1]

@@ -285,6 +285,7 @@ public struct AppState: Codable, Sendable {
     public var windowStyle: ComparisonWindowStyle?
     public var personalAgentProvider: String?
     public var onboarding: OnboardingState?
+    public var sharingConsent: SharingConsent?
     public var agentGrid: AgentGridLayout?
     public var effectiveWindowStyle: ComparisonWindowStyle { windowStyle ?? .connected }
     public init() {}
