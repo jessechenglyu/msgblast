@@ -25,3 +25,7 @@ output/app-icons/*
 !output/app-icons/msgblast.icon/
 !output/app-icons/msgblast-dev.icon/
 !output/app-icons/msgblast-demo.icon/
+
+# Machine-specific permission-test configuration and raw proof stay private.
+permission-testing.local.json
+.permission-test-receipts/
