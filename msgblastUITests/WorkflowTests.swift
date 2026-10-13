@@ -404,6 +404,33 @@ final class WorkflowTests: XCTestCase {
         return app
     }
     @MainActor
+    func testRemoveConversationFromViewPreservesDraftAndCanRestore() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["Reset sample data"].waitForExistence(timeout: 10))
+        app.buttons["Reset sample data"].click()
+        let prompt = app.textViews["Shared prompt"]
+        prompt.click(); prompt.typeKey("a", modifierFlags: .command); prompt.typeText("Remove pane fixture")
+        app.buttons["Send & compare"].click()
+        let workspace = app.windows["Remove pane fixture [Demo]"]
+        XCTAssertTrue(workspace.waitForExistence(timeout: 10))
+        let draft = workspace.textViews["Private reply to Lumen"]
+        draft.click(); draft.typeText("Retained hidden draft")
+        workspace.buttons["Select Lumen conversation"].rightClick()
+        XCTAssertTrue(app.menuItems["Remove from view"].waitForExistence(timeout: 3))
+        app.menuItems["Remove from view"].click()
+        XCTAssertFalse(draft.exists)
+        let hidden = XCTAttachment(screenshot: workspace.screenshot()); hidden.name = "Lumen removed — isolated Demo fixture"; hidden.lifetime = .keepAlways; add(hidden)
+        XCTAssertTrue(workspace.textViews["Private reply to Cedar"].exists)
+        XCTAssertEqual(workspace.buttons["Recipient Lumen"].value as? String, "Not selected")
+        workspace.buttons["Recipient Lumen"].click()
+        XCTAssertTrue(draft.waitForExistence(timeout: 3))
+        XCTAssertEqual(draft.value as? String, "Retained hidden draft")
+    }
+
+    @MainActor
     func testJoinedInputRoutesSelectedAndExcludedConversationsAndPreservesItsDraft() {
         let app = launchFixture(separateWindows: false)
         let prompt = app.textViews["Shared prompt"]

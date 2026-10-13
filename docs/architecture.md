@@ -236,3 +236,14 @@ uses separate panes, membership expansion reuses the originating pane as the
 joined window, preserving its frame and saved drafts. Window layout changes and
 app shutdown never end a conversation implicitly. Ending needs neither sharing
 nor a summary, and creates no toolbar toggle.
+
+## Removing an agent pane
+
+Right-click an agent header and choose **Remove from view** to hide its pane
+without deleting the agent, comparison, transcript, or private draft. In joined
+and web comparison workspaces, removing an active recipient also excludes it
+from subsequent shared sends. In an active comparison, click its **Send to**
+pill to restore the pane. Hidden panes are local to the open workspace; saved
+comparison membership is unchanged. Removing a pane from an inactive history window does
+not change recipients in the active comparison. In separate-window mode the
+action closes only that agent window, which can be reopened from the composer.

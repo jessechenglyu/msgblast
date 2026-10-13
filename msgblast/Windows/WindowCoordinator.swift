@@ -236,7 +236,8 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
                 let window = NSWindow(contentRect: .zero, styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
                 window.title = "\(member.name) · \(comparison.title)"
                 window.identifier = NSUserInterfaceItemIdentifier(windowKey)
-                window.contentView = NSHostingView(rootView: ConversationView(model: model, comparisonID: id, memberID: member.id))
+                window.contentView = NSHostingView(rootView: ConversationView(model: model, comparisonID: id, memberID: member.id,
+                    removeFromView: { [weak window] in window?.close() }))
                 configureChrome(window)
                 addSummaryToolbar(to: window, comparisonID: id)
                 window.titleVisibility = .hidden
