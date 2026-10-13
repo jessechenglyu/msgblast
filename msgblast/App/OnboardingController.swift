@@ -114,8 +114,16 @@ final class OnboardingController: ObservableObject {
     func reviewMessagesAgents() {
         invalidateCheck()
         model.refresh()
-        let ready = model.databaseAvailable && model.contactsAvailable
-        edit { $0.reviewMessages(prerequisitesReady: ready) }
+        let previous = model.state.onboarding
+        let previousGrid = model.state.agentGrid
+        let preservedGrid = model.agentGridLayout
+        var next = previous ?? OnboardingState()
+        next.reviewMessages(prerequisitesReady: false)
+        model.state.agentGrid = previousGrid ?? preservedGrid
+        model.state.onboarding = next
+        do { try model.save() }
+        catch { model.state.onboarding = previous; model.state.agentGrid = previousGrid; self.error = "Could not save setup progress: \(error.localizedDescription)" }
+        model.telemetryHeartbeat()
     }
 
     func chooseBrowser(_ source: BrowserLoginSource) {

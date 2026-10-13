@@ -27,5 +27,21 @@ PY_SUPPORT
 web_sources+=("$web_tmp/app-support.swift")
 xcrun swiftc "${web_flags[@]}" "${web_sources[@]}" "$web_root/scripts/fixtures/web_comparison_model.swift" -o "$web_tmp/model"
 "$web_tmp/model" --demo --isolated-demo
+# Exercise the actual startup path twice against one app-owned fixture profile.
+python3 - "$web_tmp" <<'PY_REVIEW'
+from pathlib import Path
+import plistlib, shutil, sys, uuid
+root = Path(sys.argv[1])
+app = root / "PermissionReview.app" / "Contents"
+(app / "MacOS").mkdir(parents=True)
+shutil.copy2(root / "model", app / "MacOS" / "model")
+(app / "Info.plist").write_bytes(plistlib.dumps({
+    "CFBundleExecutable": "model", "CFBundleIdentifier": "com.msgblast.permission-review-fixture",
+    "msgblastDemo": True, "msgblastDisableUpdates": True,
+    "msgblastSupportDirectory": "msgblast-PermissionReview-" + uuid.uuid4().hex[:12],
+}))
+PY_REVIEW
+"$web_tmp/PermissionReview.app/Contents/MacOS/model" --demo --permission-review-relaunch-fixture
+
 xcrun swiftc "${web_flags[@]}" "$web_root/msgblast/App/AppUpdater.swift" "$web_root/scripts/fixtures/web_broadcast_lifecycle.swift" -o "$web_tmp/lifecycle"
 "$web_tmp/lifecycle"

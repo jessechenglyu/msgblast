@@ -81,7 +81,7 @@ final class AppModel: ObservableObject {
         if state.onboarding?.isFinished == true, state.agentGrid == nil {
             state.agentGrid = defaultAgentGrid
         }
-        if state.onboarding?.stage == .choosing, state.onboarding?.completed.isEmpty == true {
+        if state.agentGrid == nil, state.onboarding?.stage == .choosing, state.onboarding?.completed.isEmpty == true {
             state.selection = []
             webAgents.sessions.forEach { $0.updateState { $0.selected = false } }
         }
@@ -371,7 +371,8 @@ final class AppModel: ObservableObject {
         do { try save() } catch { state = previous; self.error = error.localizedDescription }
     }
     func messageConnectionStatus(_ agent: Agent) -> String {
-        ChatResolver.status(agent: destinationAgent(agent), chats: chats)
+        guard databaseAvailable else { return "Connect Messages" }
+        return ChatResolver.status(agent: destinationAgent(agent), chats: chats)
     }
     func removeAgent(_ agent: Agent) { state.agents.removeAll { $0.id == agent.id }; state.selection.remove(agent.id); persist() }
     func validateMembers(prompt: String, selectedIDs: Set<UUID>? = nil) throws -> [Member] {

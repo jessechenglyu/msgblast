@@ -39,7 +39,11 @@ struct msgblastApp: App {
                 Button("Check for Updates…") { updater.checkForUpdates() }
                     .disabled(updater.configuration.isEnabled && !updater.canCheckForUpdates)
             }
-            CommandGroup(after: .newItem) { Button("Refresh Messages") { model?.refresh() }.keyboardShortcut("r", modifiers: .command).disabled(model == nil) }
+            CommandGroup(after: .newItem) {
+                Button("Refresh Messages") { model?.refresh() }.keyboardShortcut("r", modifiers: .command).disabled(model == nil)
+                Button("Review Messages Setup…") { model?.onboarding.reviewMessagesAgents() }
+                    .disabled(model == nil || model?.busy == true || model?.webBroadcastBusy == true)
+            }
             CommandMenu("Comparisons") {
                 ForEach(model?.state.comparisons ?? []) { comparison in Button(comparison.title) { model?.coordinator?.open(comparison.id) } }
             }

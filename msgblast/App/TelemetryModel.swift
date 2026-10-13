@@ -64,7 +64,7 @@ extension AppModel {
             return nil
         }
         let setupMessages = (state.onboarding?.selectedMessageAgentIDs ?? []).map(AgentGridID.messages)
-        let gridIDs = state.onboarding != nil && state.onboarding?.isFinished != true
+        let gridIDs = state.agentGrid == nil && state.onboarding != nil && state.onboarding?.isFinished != true
             ? configuredChoices + setupMessages : agentGridLayout.visibleIDs
         for id in gridIDs {
             switch id {
@@ -73,8 +73,12 @@ extension AppModel {
             case .runtime(let runtime): counts[runtime.rawValue, default: 0] += 1
             case .featuredMessages(let choice): counts[choice.rawValue, default: 0] += 1
             case .messages(let id):
-                let catalog = state.onboarding?.messageAgentIDs.first { $0.value == id }?.key ?? "otherMessages"
-                counts[catalog, default: 0] += 1
+                let agent = state.agents.first { $0.id == id }
+                let knownChoice = OnboardingChoice.allCases.first { choice in
+                    choice.rawValue == state.onboarding?.messageAgentIDs.first { $0.value == id }?.key ||
+                        agent.map { !choice.contactSuggestions(in: [$0]).isEmpty } == true
+                }
+                counts[knownChoice?.rawValue ?? "otherMessages", default: 0] += 1
             }
         }
         return counts.mapValues { min(100, $0) }

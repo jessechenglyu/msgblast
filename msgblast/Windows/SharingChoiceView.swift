@@ -18,12 +18,8 @@ struct SharingChoiceView: View {
             if let error = model.error { Text(error).foregroundStyle(.orange).padding(.horizontal, 28) }
             Divider()
             HStack {
-                Text(TelemetryCollector.endpoint(demo: model.demo) == nil
-                     ? "This preview does not upload statistics."
-                     : "Sharing starts after you save your choices.")
-                    .font(.callout).foregroundStyle(.secondary)
                 Spacer()
-                Button("Save choices") {
+                Button("Continue") {
                     saving = true
                     Task { _ = await model.saveSharingChoices(preferences); saving = false }
                 }.buttonStyle(.borderedProminent).controlSize(.large)
@@ -34,7 +30,7 @@ struct SharingChoiceView: View {
         }
         .frame(maxWidth: 840, maxHeight: .infinity)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .frame(minWidth: 740, minHeight: 700)
+        .frame(minWidth: 740, minHeight: 560)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 }

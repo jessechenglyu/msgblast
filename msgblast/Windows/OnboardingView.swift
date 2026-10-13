@@ -81,7 +81,7 @@ struct OnboardingView: View {
         }
         .frame(maxWidth: 840, maxHeight: .infinity)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .frame(minWidth: 740, minHeight: 700)
+        .frame(minWidth: 740, minHeight: 560)
         .background(Color(nsColor: .windowBackgroundColor))
         .onChange(of: telemetryScreenKey, initial: true) { _, _ in
             var properties = TelemetryProperties()
