@@ -41,10 +41,10 @@ struct WebPageScript {
                          #"[data-testid="user-message"],[data-testid="assistant-message"],.font-claude-message"#,
                          #"button[data-testid="user-menu-button"],button[aria-label="User menu"],button[aria-label="Open user menu"]"#)
         case .grok:
-            selectors = (#"textarea[aria-label="Ask Grok anything"],textarea[placeholder="What do you want to know?"],[contenteditable="true"][role="textbox"][aria-label="Ask Grok anything"]"#,
+            selectors = (#"textarea[aria-label="Ask Grok anything"],textarea[placeholder="What do you want to know?"],[contenteditable="true"][role="textbox"][aria-label="Ask Grok anything"],[contenteditable="true"][role="combobox"][aria-label="Ask Grok anything"]"#,
                          #"button[data-testid="chat-submit"],button[aria-label="Submit"]"#,
                          #"[data-message-id][data-message-role],.message-bubble"#,
-                         #"button[data-testid="user-menu-button"],button[aria-label="User menu"],button[aria-label="Open user menu"],button[aria-label="Account menu"],button[aria-haspopup="menu"]:has(img[alt="pfp"])"#)
+                         #"button[data-testid="user-menu-button"],button[aria-label="User menu"],button[aria-label="Open user menu"],button[aria-label="Account menu"],button[aria-label^="Account menu, "],button[aria-haspopup="menu"]:has(img[alt="pfp"])"#)
         case .os3:
             selectors = (#"textarea[aria-label="message input"]"#,
                          #"button[aria-label="send message"]"#,

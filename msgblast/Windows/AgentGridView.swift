@@ -388,7 +388,7 @@ private struct AgentGridArrangement: Layout {
     }
 }
 
-private struct FeaturedMessagesGridSetup: View {
+struct FeaturedMessagesGridSetup: View {
     @ObservedObject var model: AppModel
     let choice: OnboardingChoice
     @State private var candidates: [Agent] = []
@@ -431,6 +431,7 @@ private struct FeaturedMessagesGridSetup: View {
         loading = true
         defer { loading = false }
         model.refresh()
+        guard model.contactsAvailable else { candidates = []; return }
         do { candidates = choice.contactSuggestions(in: try await model.onboardingContactSuggestions()) }
         catch is CancellationError { }
         catch { if !Task.isCancelled { model.error = error.localizedDescription } }
