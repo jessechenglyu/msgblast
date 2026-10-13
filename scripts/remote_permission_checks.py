@@ -347,12 +347,17 @@ def main():
         options.output = private_path(options.output)
         if options.previous_receipt:
             options.previous_receipt = private_path(options.previous_receipt)
+            if options.previous_receipt.stat().st_mode & 0o077:
+                raise RuntimeError("Previous receipts must have owner-only permissions")
         if not re.fullmatch(r"[0-9a-f]{40}", options.source_sha):
             raise RuntimeError("Use the full reviewed source SHA")
         if not re.fullmatch(r"[A-Z0-9]{10}", options.team_id):
             raise RuntimeError("Use the trusted ten-character Apple team ID")
-        if options.public_output and options.public_output.expanduser().resolve() == options.output:
-            raise RuntimeError("Public proof and private receipt need separate output files")
+        if options.public_output:
+            protected = {options.output, private_path(options.config), options.previous_receipt,
+                         (CONFIG_ROOT / "permission-receipts/last-error.json").resolve()}
+            if options.public_output.expanduser().resolve() in protected:
+                raise RuntimeError("Public proof must not overwrite private configuration, receipts, or diagnostics")
         run(options)
     except Exception as error:
         diagnostic = CONFIG_ROOT / "permission-receipts/last-error.json"
