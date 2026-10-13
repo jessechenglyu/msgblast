@@ -2,6 +2,29 @@ import XCTest
 import AppKit
 final class WorkflowTests: XCTestCase {
     @MainActor
+    func testDiscoverFindsInstinctBeforeContactsAreConnected() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo", "--contacts-access-preview"]
+        app.launch()
+        defer { app.terminate() }
+        app.buttons["Discover"].click()
+        let search = app.textFields["Search Discover"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.click(); search.typeText("instinct")
+        let setup = app.buttons["Set up Instinct"]
+        XCTAssertTrue(setup.waitForExistence(timeout: 5))
+        XCTAssertTrue(setup.isEnabled)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "Instinct in Discover without Contacts — isolated fixture"
+        screenshot.lifetime = .keepAlways; add(screenshot)
+        setup.click()
+        XCTAssertTrue(app.staticTexts["Connect an existing Messages conversation for Instinct."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Connect Contacts"].exists)
+        app.buttons["Done"].click()
+        XCTAssertEqual(app.alerts.count, 0, "Opening setup without Contacts access must show guidance without a deferred error alert")
+    }
+
+    @MainActor
     func testSettingsCanEnableContactsWhileMessagesAccessIsOff() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo", "--permission-guide-preview", "--contacts-access-preview"]

@@ -33,8 +33,16 @@ struct DiscoverView: View {
     @State private var actionError: String?
     @FocusState private var searchFocused: Bool
     @State private var showingManualEntry = false
+    @State private var settingUp: OnboardingChoice?
     private var canAdd: Bool { model.databaseAvailable && model.contactsAvailable && !model.busy }
     private var query: String { model.contactQuery }
+    private var featuredChoices: [OnboardingChoice] {
+        let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard category == nil || category == .personal else { return [] }
+        return [OnboardingChoice.instinct, .fo, .szn, .poke].filter {
+            search.isEmpty || $0.name.localizedCaseInsensitiveContains(search)
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -63,6 +71,10 @@ struct DiscoverView: View {
                 if model.databaseAvailable && model.contactsAvailable {
                     contactsSection
                 }
+                savedAgentsSection
+                if category == nil || category == .personal {
+                    featuredAgentsSection
+                }
                 if let catalog {
                     HStack {
                         Text("Additional Agents").font(.headline)
@@ -78,7 +90,7 @@ struct DiscoverView: View {
                         }.padding(.vertical, 3)
                     }.scrollIndicators(.hidden)
                     let agents = catalog.filtered(query: query, category: category)
-                    if agents.isEmpty {
+                    if agents.isEmpty && featuredChoices.isEmpty {
                         ContentUnavailableView.search(text: query).frame(maxWidth: .infinity)
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), spacing: 16)], spacing: 16) {
@@ -104,6 +116,16 @@ struct DiscoverView: View {
             await model.searchDiscoverContacts(knownAgents: catalog?.discoverAgents ?? [])
         }
         .sheet(isPresented: $showingManualEntry) { ManualAgentEntryView(model: model) }
+        .sheet(item: $settingUp) { choice in
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Set up \(choice.name)").font(.title2.bold())
+                    Spacer()
+                    Button("Done") { settingUp = nil }.keyboardShortcut(.cancelAction)
+                }
+                ScrollView { FeaturedMessagesGridSetup(model: model, choice: choice) }
+            }.padding(24).frame(width: 560, height: 500)
+        }
         .alert("Could not add agent", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
             Button("OK") { actionError = nil }
         } message: { Text(actionError ?? "") }
@@ -117,13 +139,39 @@ struct DiscoverView: View {
                 Text("No known agents found in your contacts. You can still search by name, phone number, or email.").font(.callout).foregroundStyle(.secondary)
             }
             ForEach(model.contactResults) { agent in contactRow(agent) }
-            let saved = model.state.agents.filter { agent in
+        }
+    }
+
+    private var savedAgentsSection: some View {
+        let saved = model.state.agents.filter { agent in
                 (query.isEmpty || agent.name.localizedCaseInsensitiveContains(query) || agent.handles.contains { $0.localizedCaseInsensitiveContains(query) }) &&
-                !model.contactResults.contains { $0.contactID == agent.contactID || $0.id == agent.id }
+                (!(model.databaseAvailable && model.contactsAvailable) ||
+                 !model.contactResults.contains { $0.contactID == agent.contactID || $0.id == agent.id })
             }
+        return VStack(alignment: .leading, spacing: 12) {
             if !saved.isEmpty {
                 Text("Saved").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 ForEach(saved) { agent in contactRow(agent) }
+            }
+        }
+    }
+
+    private var featuredAgentsSection: some View {
+        return VStack(alignment: .leading, spacing: 12) {
+            if !featuredChoices.isEmpty {
+                Text("Featured Messages agents").font(.headline)
+                ForEach(featuredChoices) { choice in
+                    HStack(spacing: 12) {
+                        AgentAvatar(agent: Agent(name: choice.name, handles: [], avatar: AgentArtwork.messageAvatar(for: choice)), name: choice.name)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(choice.name).font(.headline)
+                            Text("Connect your existing Messages chat").font(.callout).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Set up") { settingUp = choice }.disabled(model.busy)
+                            .accessibilityLabel("Set up \(choice.name)")
+                    }.padding(14).background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+                }
             }
         }
     }

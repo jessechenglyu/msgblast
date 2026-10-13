@@ -4,6 +4,49 @@ import WebKit
 
 @MainActor
 final class WebServiceTests: XCTestCase {
+    func testCurrentGrokComboboxAndAccountMenuAllowSimultaneousBroadcast() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let grok = WebAgentSession(provider: .grok, storageURL: directory.appendingPathComponent("grok.json"), fixture: true)
+        let claude = WebAgentSession(provider: .claude, storageURL: directory.appendingPathComponent("claude.json"), fixture: true)
+        for session in [grok, claude] { session.connect() }
+        try await waitFor { grok.snapshot.ready && claude.snapshot.ready }
+        // October 12 live Grok markup: the editor changed from textbox to combobox,
+        // and the account label now includes the user's display name.
+        _ = try await grok.webView.callAsyncJavaScript("""
+            const old = document.querySelector('textarea');
+            const editor = document.createElement('div');
+            editor.contentEditable = 'true'; editor.setAttribute('role', 'combobox');
+            editor.setAttribute('aria-label', 'Ask Grok anything'); old.replaceWith(editor);
+            const account = document.querySelector('[data-testid="user-menu-button"]');
+            account.removeAttribute('data-testid'); account.setAttribute('aria-label', 'Account menu, Fixture');
+            const send = document.getElementById('fixture-send');
+            editor.addEventListener('input', () => { send.disabled = !editor.innerText.trim(); });
+            send.addEventListener('click', () => {
+                const message = document.createElement('article');
+                message.dataset.messageRole = 'user'; message.dataset.messageId = 'current-grok-message';
+                message.textContent = editor.innerText; document.getElementById('transcript').append(message);
+                editor.textContent = ''; send.disabled = true;
+                history.replaceState({}, '', '/c/current-grok-fixture');
+            });
+            """, arguments: [:], in: nil, contentWorld: .page)
+        await grok.refresh()
+        XCTAssertTrue(grok.snapshot.ready, grok.snapshot.reason)
+        guard grok.snapshot.ready else { return }
+        let id = UUID()
+        let results = await WebAgents.send("Simultaneous fixture prompt", to: [claude, grok], comparisonID: id)
+        for session in [claude, grok] {
+            XCTAssertEqual(results[session.id]?.status, .observed, results[session.id]?.detail ?? session.name)
+            XCTAssertEqual(session.snapshot.messages.filter { $0.role == "user" && $0.text == "Simultaneous fixture prompt" }.count, 1)
+            XCTAssertFalse(session.snapshot.hasDraft)
+        }
+        // The new editor must retain the same protection for an independent private draft.
+        _ = try await grok.webView.callAsyncJavaScript("document.querySelector('[role=combobox]').textContent = 'Keep private Grok draft'", arguments: [:], in: nil, contentWorld: .page)
+        let blocked = await grok.send("Do not overwrite", comparisonID: id)
+        XCTAssertEqual(blocked?.status, .notSent)
+        XCTAssertEqual(grok.snapshot.draft, "Keep private Grok draft")
+    }
+
     func testHarkOnlyRecognizesItsChatAndNeverAutomatesAnUnknownLayout() async throws {
         XCTAssertEqual(WebProvider.hark.homeURL.absoluteString, "https://hark.com/chat")
         XCTAssertTrue(WebProvider.hark.isChatURL(URL(string: "https://hark.com/chat")!))
