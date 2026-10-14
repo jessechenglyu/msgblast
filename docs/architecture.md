@@ -38,6 +38,19 @@ objects rather than querying Messages or spawning CLIs independently. AppKit
 controllers retain native windows and bring existing windows forward when needed.
 Follow nearby panels and lifecycle code when adding a window or menu command.
 
+The menu bar's **New Blast** opens the Agents workspace with the current saved
+recipient selections and preserves unsent drafts. It does not submit a message.
+**Settings → Quick Access → Record Shortcut** assigns and enables a system-wide
+shortcut for the same action; it works while msgblast is running, including when
+its workspace is hidden or minimized. Escape cancels recording, and the enable
+toggle releases the shortcut without forgetting it. macOS shortcut conflicts are
+reported in Settings. **New Chat With** lists connected Messages, website, CLI,
+and Bot agents currently in the grid, including named copies. Hidden agents are
+excluded. Choosing one selects only that agent; provider chat
+panes retain their existing draft and account boundaries. Preferences belong to the app's bundle ID; isolated Demo
+fixtures never register a saved user shortcut. New Blast is unavailable during
+setup or sending.
+
 `BuildFeatureWindowController` owns the reusable **Build a New Feature** window.
 It needs no app model or provider connection. Its prompt contains only static
 contributor instructions, the entered idea, and the installed version/build;
@@ -236,3 +249,18 @@ uses separate panes, membership expansion reuses the originating pane as the
 joined window, preserving its frame and saved drafts. Window layout changes and
 app shutdown never end a conversation implicitly. Ending needs neither sharing
 nor a summary, and creates no toolbar toggle.
+
+## Removing an agent pane
+
+Right-click an agent header and choose **Remove from view** to hide its pane
+without deleting the agent, comparison, transcript, or private draft. In joined
+and web comparison workspaces, removing an active recipient also excludes it
+from subsequent shared sends. In an active comparison, click its **Send to**
+pill to restore the pane. Hidden panes are local to the open workspace; saved
+comparison membership is unchanged. Removing a pane from an inactive history window does
+not change recipients in the active comparison. In separate-window mode the
+action closes only that agent window, which can be reopened from the composer.
+
+## Chat image sharing
+
+`Windows/ChatShareView.swift` captures the exact chat window through ScreenCaptureKit, including embedded website surfaces and native window framing. The main workspace temporarily hides its sidebar and restores its layout after success or failure. Users review the visible image before copying, saving PNG, or opening the native share picker; visible drafts and private panes are included. No recording, account, cloud service, or full-transcript URL is required.

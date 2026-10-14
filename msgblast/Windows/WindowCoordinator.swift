@@ -20,6 +20,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
     @discardableResult
     func reopenWorkspace() -> Bool {
         guard let workspaceWindow else { return false }
+        if workspaceWindow.isMiniaturized { workspaceWindow.deminiaturize(nil) }
         workspaceWindow.makeKeyAndOrderFront(nil)
         return true
     }
@@ -159,12 +160,21 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, NSToolbarItem.Identifier("summarize")]
+        [.flexibleSpace, NSToolbarItem.Identifier("captureChat"), NSToolbarItem.Identifier("summarize")]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(toolbar) }
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        if identifier.rawValue == "captureChat",
+           let id = UUID(uuidString: String(toolbar.identifier.dropFirst("summarize:".count))) {
+            let item = NSToolbarItem(itemIdentifier: identifier)
+            item.label = "Capture chat"
+            let view = NSHostingView(rootView: ChatShareButton(title: model.comparison(id)?.title ?? "Chat").frame(width: 36, height: 28))
+            view.frame.size = NSSize(width: 36, height: 28)
+            item.view = view
+            return item
+        }
         guard identifier.rawValue == "summarize" else { return nil }
         let item = NSToolbarItem(itemIdentifier: identifier)
         item.label = "Summarize"
@@ -236,7 +246,8 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
                 let window = NSWindow(contentRect: .zero, styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
                 window.title = "\(member.name) · \(comparison.title)"
                 window.identifier = NSUserInterfaceItemIdentifier(windowKey)
-                window.contentView = NSHostingView(rootView: ConversationView(model: model, comparisonID: id, memberID: member.id))
+                window.contentView = NSHostingView(rootView: ConversationView(model: model, comparisonID: id, memberID: member.id,
+                    removeFromView: { [weak window] in window?.close() }))
                 configureChrome(window)
                 addSummaryToolbar(to: window, comparisonID: id)
                 window.titleVisibility = .hidden

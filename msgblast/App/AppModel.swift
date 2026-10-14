@@ -13,6 +13,8 @@ final class AppModel: ObservableObject {
     @Published var busy = false
     @Published var webBroadcastBusy = false
     @Published var webComparisonRequest = UUID()
+    @Published var newBlastRequest = UUID()
+    private(set) var newBlastShowsChat = false
     @Published var contactResults: [Agent] = []
     @Published var contactQuery = ""
     @Published var demoFailureOnce = false
@@ -426,6 +428,44 @@ final class AppModel: ObservableObject {
         if state.workspaceDrafts == nil { state.workspaceDrafts = [:] }
         state.workspaceDrafts?[webAgents.comparisonID?.uuidString ?? "new"] = text
         persist()
+    }
+    var canStartNewBlast: Bool {
+        !needsOnboarding && !needsSharingChoice && error == nil && !busy && !webBroadcastBusy && !webAgents.sessions.contains { $0.isSending }
+    }
+    @discardableResult
+    func requestNewBlast(agent: AgentGridID? = nil) -> Bool {
+        guard canStartNewBlast else { return false }
+        if let agent {
+            guard quickChatAgents.contains(where: { $0.id == agent }) else { return false }
+        }
+        selectWorkspace(nil)
+        newBlastShowsChat = false
+        if let agent {
+            state.selection = Set(messageAgent(for: agent).map { [$0.id] } ?? [])
+            for session in webAgents.sessions where session.state.selected != (session.id.gridID == agent) {
+                session.updateState { $0.selected = session.id.gridID == agent }
+            }
+            if let session = webAgents.session(for: agent) {
+                session.connect()
+                newBlastShowsChat = true
+            }
+            persist()
+        }
+        newBlastRequest = UUID()
+        return true
+    }
+    var quickChatAgents: [AgentGridEntry] {
+        let catalog = agentGridCatalog
+        return agentGridLayout.visibleIDs.compactMap { id in catalog.first { $0.id == id } }.filter { entry in
+            if let agent = messageAgent(for: entry.id) { return route(agent) != nil }
+            guard let session = webAgents.session(for: entry.id), session.isEnabled, session.isStorageAvailable else { return false }
+            let savedAccount = webAgents.session(for: WebAgentID(provider: session.provider))?.state.sessionID
+            let completedAccount = state.onboarding?.completed.contains(where: { $0.provider == session.provider }) == true &&
+                session.state.sessionID == savedAccount
+            return session.isReadyForOnboarding || session.snapshot.signedIn == true || completedAccount ||
+                !session.state.conversationURLs.isEmpty || !session.state.attempts.isEmpty ||
+                (session.provider.usesNativeConversation && session.state.enabled == true)
+        }
     }
     func selectWorkspace(_ id: UUID?, promotingDraft: Bool = false) {
         if id == nil { deselectHiddenGridRecipients(); persist() }

@@ -13,12 +13,16 @@ struct AgentsWorkspaceView: View {
     @ObservedObject var web: WebAgents
     @Binding var showingComparison: Bool
     var newBlastRequest: UUID? = nil
+    var captureLayout: ChatCaptureLayout? = nil
     var preservesWindowFrame = false
     var windowComparisonID: UUID? = nil
     @State private var showingConnectionIntro = false
     @State private var signInProviders: [WebAgentID] = []
     @State private var editingAgents = false
-    private var busy: Bool { (windowComparisonID != nil && web.comparisonID != windowComparisonID) || model.busy || model.webBroadcastBusy || web.sessions.contains { $0.isSending } }
+    @State private var hiddenMembers: Set<UUID> = []
+    @State private var hiddenWebAgents: Set<WebAgentID> = []
+    private var sending: Bool { model.busy || model.webBroadcastBusy || web.sessions.contains { $0.isSending } }
+    private var busy: Bool { (windowComparisonID != nil && web.comparisonID != windowComparisonID) || sending }
     private var nativeRecipients: [Agent] {
         let ids = model.messageGridIDs
         let shown = Set(model.agentGridLayout.visibleIDs)
@@ -61,12 +65,19 @@ struct AgentsWorkspaceView: View {
             composer
         }
         .background(Color(nsColor: .textBackgroundColor))
-        .background(ConversationCloseBridge(model: model, comparisonID: showingComparison ? nativeComparison?.id : nil))
         .overlay { if showingConnectionIntro { connectionIntro } }
         .task { web.connectSelected() }
+        .onChange(of: web.comparisonID) { _, _ in
+            if windowComparisonID == nil { hiddenMembers = []; hiddenWebAgents = [] }
+        }
         .onChange(of: newBlastRequest) { _, _ in showingConnectionIntro = false; editingAgents = false }
         .onChange(of: showingComparison) { _, value in if value { editingAgents = false } }
         .toolbar {
+            if showingComparison {
+                ToolbarItem(placement: .primaryAction) {
+                    ChatShareButton(title: nativeComparison?.title ?? "Chat", captureLayout: captureLayout)
+                }
+            }
             if !showingComparison {
                 ToolbarItem(placement: .primaryAction) {
                     Button(editingAgents ? "Done" : "Edit") { editingAgents.toggle() }
@@ -76,10 +87,7 @@ struct AgentsWorkspaceView: View {
             }
             if windowComparisonID == nil && !model.state.comparisons.isEmpty { ToolbarItem(placement: .navigation) {
                 Button {
-                    showingConnectionIntro = false
-                    showingComparison = false
-                    editingAgents = false
-                    model.selectWorkspace(nil)
+                    model.requestNewBlast()
                 } label: {
                     Label("New Blast", systemImage: "square.and.pencil")
                         .labelStyle(.titleAndIcon)
@@ -118,11 +126,12 @@ struct AgentsWorkspaceView: View {
             let joined = comparison.resolvedWebAgentIDs.compactMap { web.session(for: $0) }
             // Keep a joining agent's sign-in/preparation pane in this window too.
             let preparing = web.comparisonID == windowComparisonID ? web.selected.filter { !comparison.resolvedWebAgentIDs.contains($0.id) } : []
-            return joined + preparing
+            return (joined + preparing).filter { !hiddenWebAgents.contains($0.id) }
         }
-        return web.displayed
+        return web.displayed.filter { !hiddenWebAgents.contains($0.id) }
     }
-    private var comparisonChatCount: Int { displayedSessions.count + (nativeComparison?.members.count ?? 0) }
+    private var displayedMembers: [Member] { nativeComparison?.members.filter { !hiddenMembers.contains($0.id) } ?? [] }
+    private var comparisonChatCount: Int { displayedSessions.count + displayedMembers.count }
 
     private var comparisonPanes: some View {
         chatColumns
@@ -137,13 +146,24 @@ struct AgentsWorkspaceView: View {
                 HStack(spacing: 0) {
                     ForEach(displayedSessions, id: \.id) { session in
                         if session.id != displayedSessions.first?.id { Divider() }
-                        WebAgentPane(session: session, account: model.personalAgent, busy: busy, endedMessages: archivedMessages(for: session), sendNative: { sendDirect($0, to: session) })
+                        WebAgentPane(session: session, account: model.personalAgent, busy: busy, endedMessages: archivedMessages(for: session), removalDisabled: sending, sendNative: { sendDirect($0, to: session) }, removeFromView: {
+                            if windowComparisonID == nil || web.comparisonID == windowComparisonID {
+                                session.updateState { $0.selected = false }
+                            }
+                            hiddenWebAgents.insert(session.id)
+                        })
                             .frame(width: width).id(session.id.id)
                     }
                     if let comparison = nativeComparison {
-                        ForEach(comparison.members) { member in
-                            if !displayedSessions.isEmpty || member.id != comparison.members.first?.id { Divider() }
-                            ConversationView(model: model, comparisonID: comparison.id, memberID: member.id)
+                        ForEach(displayedMembers) { member in
+                            if !displayedSessions.isEmpty || member.id != displayedMembers.first?.id { Divider() }
+                            ConversationView(model: model, comparisonID: comparison.id, memberID: member.id, removeFromView: {
+                                if windowComparisonID == nil || web.comparisonID == windowComparisonID {
+                                    model.state.selection.remove(member.id)
+                                    model.persist()
+                                }
+                                hiddenMembers.insert(member.id)
+                            })
                                 .frame(width: width).id(member.id.uuidString)
                         }
                     }
@@ -187,7 +207,7 @@ struct AgentsWorkspaceView: View {
                                     defer { model.webBroadcastBusy = false }
                                     await model.addAgent(agent, to: comparison.id)
                                 }
-                            } else { toggle(agent.id) }
+                            } else { hiddenMembers.remove(agent.id); toggle(agent.id) }
                         }
                             .disabled(model.route(agent) == nil)
                             .help("Messages · \(agent.name)")
@@ -227,6 +247,7 @@ struct AgentsWorkspaceView: View {
 
     private func selectRecipient(_ session: WebAgentSession) {
         guard !busy, session.provider.supportsSharedSubmissions else { return }
+        hiddenWebAgents.remove(session.id)
         guard let comparison = nativeComparison, !comparison.resolvedWebAgentIDs.contains(session.id) else {
             web.toggle(session)
             return
@@ -565,7 +586,9 @@ private struct WebAgentPane: View {
     @ObservedObject var account: PersonalAgentController
     let busy: Bool
     var endedMessages: [WebPageMessage]? = nil
+    var removalDisabled = false
     let sendNative: (String) -> Void
+    let removeFromView: () -> Void
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -580,9 +603,11 @@ private struct WebAgentPane: View {
                     SettingsLink { Image(systemName: "gearshape") }
                         .help("Grok Bot settings").accessibilityLabel("Grok Bot settings")
                 } else {
-                    Button { session.reload() } label: { Image(systemName: "arrow.clockwise") }.help("Reload \(session.name)").accessibilityLabel("Reload \(session.name)").disabled(busy)
+                    Button { session.reload() } label: { Image(systemName: "arrow.clockwise") }.help("Reload \(session.name)").accessibilityLabel("Reload \(session.name)").disabled(busy || endedMessages != nil)
                 }
-            }.padding(14).background(.bar)
+            }.padding(14).background(.bar).contentShape(Rectangle())
+                .accessibilityIdentifier("Agent header \(session.name)")
+                .contextMenu { Button("Remove from view", action: removeFromView).disabled(removalDisabled) }
             if session.needsConversationLink {
                 HStack {
                     Text(session.canLinkCurrentConversation ? "Continue in this conversation." : "Open the original chat to continue this comparison.").font(.caption).foregroundStyle(.secondary)
@@ -641,7 +666,6 @@ private struct WebAgentPane: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(28)
             }
         }
-        .disabled(endedMessages != nil)
         .task { if endedMessages == nil, session.provider.personalAgentProvider != nil { await account.discover() } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             if session.provider.personalAgentProvider != nil { session.reload() }
@@ -776,7 +800,7 @@ private final class ChatWindowSizingView: NSView {
 }
 
 // SwiftUI owns the main window delegate. Forward its lifecycle rather than replacing it.
-private struct ConversationCloseBridge: NSViewRepresentable {
+struct ConversationCloseBridge: NSViewRepresentable {
     @ObservedObject var model: AppModel
     let comparisonID: UUID?
     func makeNSView(context: Context) -> ConversationCloseView { ConversationCloseView() }
@@ -788,7 +812,7 @@ private struct ConversationCloseBridge: NSViewRepresentable {
     static func dismantleNSView(_ view: ConversationCloseView, coordinator: ()) { view.detach() }
 }
 
-private final class ConversationCloseView: NSView, NSWindowDelegate {
+final class ConversationCloseView: NSView, NSWindowDelegate {
     weak var owner: WindowCoordinator?
     var comparisonID: UUID?
     nonisolated(unsafe) weak var originalDelegate: (any NSWindowDelegate)?

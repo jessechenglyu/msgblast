@@ -7,6 +7,14 @@ struct msgblastApp: App {
     @StateObject private var startup = AppStartup()
     private var model: AppModel? { startup.model }
     @StateObject private var updater = AppUpdater()
+    @Environment(\.openWindow) private var openWindow
+    private static let menuBarIcon: NSImage = {
+        let image = NSImage(contentsOf: Bundle.main.url(forResource: "MenuBarIcon", withExtension: "png", subdirectory: "QuickAccess")!)!
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        image.accessibilityDescription = "msgblast Quick Access"
+        return image
+    }()
     private var preferredWindowSize: NSSize {
         if model?.needsOnboarding == true || model?.needsSharingChoice == true {
             let compact = model?.state.onboarding?.stage == .choosing || model?.state.onboarding?.currentStep == .messages
@@ -27,7 +35,11 @@ struct msgblastApp: App {
                         if model.needsSharingChoice { SharingChoiceView(model: model) }
                         else if model.needsOnboarding { OnboardingView(model: model) }
                         else { MainView(model: model, updater: updater) }
-                    }.onAppear { lifecycle.configure(model: model); updater.configure(delegate: lifecycle); if model.coordinator == nil { model.coordinator = WindowCoordinator(model: model) }; lifecycle.reopenWorkspace = { [weak model] in model?.coordinator?.reopenWorkspace() ?? false } }
+                    }.onAppear {
+                        lifecycle.configure(model: model); updater.configure(delegate: lifecycle)
+                        lifecycle.reopenWorkspace = { [weak model] in model?.coordinator?.reopenWorkspace() ?? false }
+                        startup.shortcut.onTrigger = startNewBlast
+                    }
                 }
             }.background(InitialWindowFrame(size: preferredWindowSize))
         }.defaultSize(width: initialWindowSize.width, height: initialWindowSize.height).windowToolbarStyle(.unified)
@@ -53,11 +65,54 @@ struct msgblastApp: App {
             }
         }
         Settings {
-            if let model { AppSettingsView(model: model, updater: updater) }
+            if let model { AppSettingsView(model: model, updater: updater, shortcut: startup.shortcut) }
             else { InstallationView() }
         }
+        MenuBarExtra {
+            if let model {
+                QuickAccessMenu(model: model, newBlast: startNewBlast, showWorkspace: showWorkspace)
+            } else { Button("Show msgblast", action: showWorkspace) }
+        } label: {
+            Label { Text("msgblast Quick Access") } icon: { Image(nsImage: Self.menuBarIcon) }
+                .labelStyle(.iconOnly)
+        }
     }
+    private func showWorkspace() {
+        NSApp.activate(ignoringOtherApps: true)
+        if model?.coordinator?.reopenWorkspace() != true { openWindow(id: "main") }
+    }
+    private func startNewBlast() {
+        guard model?.requestNewBlast() == true else { return }
+        showWorkspace()
+    }
+}
 
+private struct QuickAccessMenu: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject private var web: WebAgents
+    @Environment(\.openSettings) private var openSettings
+    let newBlast: () -> Void
+    let showWorkspace: () -> Void
+    init(model: AppModel, newBlast: @escaping () -> Void, showWorkspace: @escaping () -> Void) {
+        self.model = model; self.web = model.webAgents
+        self.newBlast = newBlast; self.showWorkspace = showWorkspace
+    }
+    var body: some View {
+        Button("New Blast", action: newBlast).disabled(!model.canStartNewBlast)
+        Menu("New Chat With") {
+            ForEach(model.quickChatAgents) { agent in
+                Button(agent.name) {
+                    if model.requestNewBlast(agent: agent.id) { showWorkspace() }
+                }
+            }
+            if model.quickChatAgents.isEmpty { Text("No connected agents") }
+        }.disabled(!model.canStartNewBlast || model.quickChatAgents.isEmpty)
+        Button("Show msgblast", action: showWorkspace)
+        Divider()
+        Button("Settings…") { NSApp.activate(ignoringOtherApps: true); openSettings() }
+        Divider()
+        Button("Quit msgblast") { NSApp.terminate(nil) }
+    }
 }
 
 struct MainWindowActions {
@@ -122,6 +177,7 @@ enum msgblastMain {
 private final class AppStartup: ObservableObject {
     let needsInstallation: Bool
     let model: AppModel?
+    let shortcut = NewBlastShortcut()
     private var observation: AnyCancellable?
 
     init() {
@@ -136,6 +192,7 @@ private final class AppStartup: ObservableObject {
             bundleURL: Bundle.main.bundleURL,
             homeURL: FileManager.default.homeDirectoryForCurrentUser, development: development)
         model = needsInstallation ? nil : AppModel()
+        if let model { model.coordinator = WindowCoordinator(model: model) }
         // Keep comparison menus in sync without constructing the model for an
         // uninstalled copy (its initializer starts Messages history polling).
         observation = model?.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
