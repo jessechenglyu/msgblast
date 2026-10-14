@@ -122,7 +122,8 @@ struct NewBlastShortcutSettings: View {
                 .foregroundStyle(.secondary)
             HStack {
                 Toggle("Enable global New Blast shortcut", isOn: Binding(get: { shortcut.enabled }, set: { shortcut.setEnabled($0) }))
-                    .toggleStyle(.switch).disabled(shortcut.shortcut == nil || shortcut.recording)
+                    .toggleStyle(.switch).accessibilityLabel("Enable global New Blast shortcut")
+                    .disabled(shortcut.shortcut == nil || shortcut.recording)
                 Text(shortcut.shortcut?.label ?? "Not set").monospaced().accessibilityLabel("New Blast shortcut")
                 Button(shortcut.recording ? "Cancel Recording" : "Record Shortcut") {
                     if shortcut.recording { shortcut.cancelRecording() } else { shortcut.beginRecording() }
