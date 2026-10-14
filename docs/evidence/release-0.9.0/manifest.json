@@ -1,0 +1,62 @@
+{
+  "base_revision": "cc0cf40592fdf3c0023c6af9cffe77dfcbc006d5",
+  "capture_source_revision": "157348449a89babdc6bc7f498b960a06ca3f37e2",
+  "capture_date": "2026-10-13",
+  "platform": {
+    "macOS": "27.2",
+    "Xcode": "27.0"
+  },
+  "fixture": true,
+  "bundle_id": "com.msgblast.demo",
+  "isolated_demo": true,
+  "video": {
+    "image-controls.mp4": {
+      "duration_seconds": 41.75,
+      "crop_points": [
+        1120,
+        241,
+        1200,
+        760
+      ],
+      "timing": "unchanged"
+    },
+    "quick-access.mp4": {
+      "duration_seconds": 34.175,
+      "crop_points": [
+        2500,
+        0,
+        1200,
+        1130
+      ],
+      "timing": "unchanged"
+    }
+  },
+  "preview_archives": [
+    {
+      "variant": "development",
+      "bundle_id": "com.msgblast.development",
+      "sha256": "5ab84b6f7c268e96742c4433ce713adb1c2e65e929bbde5d850a31cb397ee6c6",
+      "updates": "disabled",
+      "signing": "ad-hoc"
+    },
+    {
+      "variant": "demo",
+      "bundle_id": "com.msgblast.demo",
+      "sha256": "62e18ea6752364ca94a7c0f97d72048856aff4a3b2deb2ecfafdfb5104a6b53e",
+      "updates": "disabled",
+      "signing": "ad-hoc"
+    }
+  ],
+  "files": {
+    "01-comparison.png": "4b94c6710ef538cd33c79ea1d1ca68f51cd41dcf72b8c238934e5f0991c7de1e",
+    "02-remove-menu.png": "c8d0651f77802a3cf12f53f7d1f27b9ec356c766d02ac57451288809896db0cd",
+    "03-removed.png": "44bec19755fcf42a2c26270ef99ad0d7780d8ad72fd5b12e458f2b499bdde782",
+    "04-image-preview.png": "6affd328667320da9e04fa2a07c33c02979b552c87835268a0dc9ffc51752015",
+    "05-exported-image.png": "db116ab98c2d1664e2e214bb311dd4d147854926233d7b4f3e513329ea5e1f77",
+    "06-quick-access-menu.png": "e6e710c7ef0d66037fbdf25faca3e92af8a655096575bc92ce9a7a9ece237e8b",
+    "07-shortcut-settings.png": "99b1b70665d0fdcced2169b8abab565f976fa7681cbd2c57d4027684276f9fa4",
+    "08-new-blast.png": "50a9879c9669daec268bbb6e4bf5302a804a77a36277e5842402f280ec97efd4",
+    "image-controls.mp4": "2827cf8c06c50f276deff6a0e7859dd1d92acf0c8aa25797fbfdef72d6beb6cb",
+    "quick-access.mp4": "05d6d70ef3c1a8c7138f411e113557b00ae453d1cce9d3cd904f8a357cd84d72"
+  }
+}
