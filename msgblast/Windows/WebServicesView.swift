@@ -58,6 +58,7 @@ struct AgentsWorkspaceView: View {
                     toggleMessages: toggle, openChat: { session in
                         if web.comparisonID == nil { model.deselectHiddenGridRecipients(); model.persist() }
                         if !session.state.selected { web.toggle(session) }
+                        hiddenWebAgents.remove(session.id)
                         session.connect(); showingComparison = true
                     })
             }
@@ -70,7 +71,10 @@ struct AgentsWorkspaceView: View {
         .onChange(of: web.comparisonID) { _, _ in
             if windowComparisonID == nil { hiddenMembers = []; hiddenWebAgents = [] }
         }
-        .onChange(of: newBlastRequest) { _, _ in showingConnectionIntro = false; editingAgents = false }
+        .onChange(of: newBlastRequest) { _, _ in
+            showingConnectionIntro = false; editingAgents = false
+            if windowComparisonID == nil { hiddenMembers = []; hiddenWebAgents = [] }
+        }
         .onChange(of: showingComparison) { _, value in if value { editingAgents = false } }
         .toolbar {
             if showingComparison {
