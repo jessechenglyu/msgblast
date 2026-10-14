@@ -11,6 +11,45 @@ final class WebServiceWorkflowTests: XCTestCase {
         }
     }
     @MainActor
+    func testRemoveWebAgentFromViewPreservesConversationAndCanRestore() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["Edit agents"].waitForExistence(timeout: 10))
+        if !app.buttons["Muse"].exists || !app.buttons["ChatGPT"].exists {
+            app.buttons["Edit agents"].click()
+            for name in ["Muse", "ChatGPT"] where app.buttons["Add \(name)"].exists {
+                app.scrollViews["Agent grid scroll area"].scroll(byDeltaX: 0, deltaY: -1000)
+                app.buttons["Add \(name)"].click()
+            }
+            app.buttons["Done editing agents"].click()
+        }
+        for name in ["Muse", "ChatGPT"] {
+            let tile = app.buttons[name]
+            XCTAssertTrue(tile.waitForExistence(timeout: 10))
+            if tile.value as? String != "Selected" { tile.click() }
+        }
+        let prompt = app.textViews["Shared prompt"]
+        prompt.click(); prompt.typeKey("a", modifierFlags: .command); prompt.typeText("Remove web pane fixture")
+        app.buttons["Send & compare"].click()
+        let header = app.descendants(matching: .any).matching(identifier: "Agent header Muse").firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 15))
+        capture(app, name: "Before removal — simulated comparison")
+        header.rightClick()
+        XCTAssertTrue(app.menuItems["Remove from view"].waitForExistence(timeout: 3))
+        capture(app, name: "Header removal menu — simulated comparison")
+        app.menuItems["Remove from view"].click()
+        XCTAssertFalse(header.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "Agent header ChatGPT").firstMatch.exists)
+        XCTAssertEqual(app.buttons["Recipient Muse"].value as? String, "Not selected")
+        capture(app, name: "After removal — simulated comparison")
+        app.buttons["Recipient Muse"].click()
+        XCTAssertTrue(header.waitForExistence(timeout: 5))
+        XCTAssertTrue(reply(app, containing: "Fixture reply: Remove web pane fixture").exists)
+    }
+
+    @MainActor
     func testSevenChatsResizeWindowAndRemainReachable() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo"]

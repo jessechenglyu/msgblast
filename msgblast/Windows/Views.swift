@@ -23,6 +23,7 @@ struct AgentAvatar: View {
 }
 
 struct ConversationHeaderControls {
+    var enabled = true
     let selected: Bool
     let included: Bool
     let selectConversation: () -> Void
@@ -34,17 +35,18 @@ struct ContactHeader: View {
     let name: String
     let destination: String
     var controls: ConversationHeaderControls?
+    var removeFromView: (() -> Void)?
     var body: some View {
         VStack(spacing: 2) {
             if let controls {
                 Button(action: controls.selectConversation) {
                     AgentAvatar(agent: agent, name: name, size: 38)
                         .overlay { if controls.selected { Circle().stroke(.blue, lineWidth: 2).padding(-3) } }
-                }.buttonStyle(.plain).accessibilityLabel("Select \(agent?.name ?? name) conversation")
+                }.buttonStyle(.plain).disabled(!controls.enabled).accessibilityLabel("Select \(agent?.name ?? name) conversation")
                     .accessibilityValue(controls.selected ? "Selected" : "Not selected")
                 Button(action: controls.toggleRecipient) {
                     Text(name).font(.system(size: 13, weight: .semibold)).padding(.horizontal, 11).padding(.vertical, 5)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plain).disabled(!controls.enabled)
                     .background(controls.included ? Color.blue.opacity(0.25) : Color.clear, in: Capsule())
                     .accessibilityLabel("Shared recipient \(agent?.name ?? name)")
                     .accessibilityValue(controls.included ? "Included" : "Excluded")
@@ -56,6 +58,10 @@ struct ContactHeader: View {
                     .background(.regularMaterial, in: Capsule())
             }
         }.frame(height: 78).help(destination)
+            .frame(maxWidth: .infinity).contentShape(Rectangle())
+            .contextMenu {
+                if let removeFromView { Button("Remove from view", action: removeFromView) }
+            }
     }
 }
 
@@ -171,9 +177,9 @@ struct MainView: View {
     @ObservedObject private var web: WebAgents
     private let updater: AppUpdater
     private enum DetailSelection { case agents, discover }
+    @StateObject private var captureLayout = ChatCaptureLayout()
     @State private var selection = DetailSelection.agents
     @State private var showingComparison = false
-    @State private var newBlastRequest: UUID? = UUID()
     private var sidebarSelectionColor: Color { Color.primary.opacity(controlActiveState == .inactive ? 0.06 : 0.10) }
     private var sidebarIconColor: Color { controlActiveState == .inactive ? .secondary : .accentColor }
     private var showingAgents: Bool { selection == .agents && !showingComparison }
@@ -186,7 +192,7 @@ struct MainView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $captureLayout.sidebarVisibility) {
             List {
                 Section {
                     Button { selection = .agents; showingComparison = false } label: {
@@ -246,20 +252,19 @@ struct MainView: View {
                     }
                 }
                 if model.usesMessages { MessagesAccessBanner(model: model) }
-                AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: newBlastRequest)
+                AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: model.newBlastRequest, captureLayout: captureLayout)
             }.navigationTitle("")
             }
         }
         .frame(minWidth: 760, minHeight: 560)
+        .background(ConversationCloseBridge(model: model, comparisonID: selection == .agents && showingComparison ? web.comparisonID : nil))
         .tint(.blue)
         .focusedSceneValue(\.mainWindowActions, model.error != nil ? nil : MainWindowActions(
-            newBlast: {
-                selection = .agents; showingComparison = false
-                model.selectWorkspace(nil); newBlastRequest = UUID()
-            },
+            newBlast: { model.requestNewBlast() },
             showAgents: { selection = .agents; showingComparison = false },
             showDiscover: { selection = .discover },
-            canStartBlast: !model.busy && !model.webBroadcastBusy && !web.sessions.contains { $0.isSending }))
+            canStartBlast: model.canStartNewBlast))
+        .onChange(of: model.newBlastRequest) { _, _ in selection = .agents; showingComparison = model.newBlastShowsChat }
         .onChange(of: model.webComparisonRequest) { _, _ in selection = .agents; showingComparison = true }
         .alert("msgblast", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
@@ -268,9 +273,7 @@ struct MainView: View {
             if selection == .discover {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        showingComparison = false
-                        model.selectWorkspace(nil)
-                        selection = .agents
+                        model.requestNewBlast()
                     } label: {
                         Label("New Blast", systemImage: "square.and.pencil")
                             .labelStyle(.titleAndIcon)
@@ -326,33 +329,33 @@ struct ConversationView: View {
     let comparisonID: UUID
     let memberID: UUID
     var headerControls: ConversationHeaderControls?
+    var removeFromView: (() -> Void)?
     var body: some View {
         if let comparison = model.comparison(comparisonID), let member = comparison.members.first(where: { $0.id == memberID }) {
             VStack(spacing: 0) {
-                ContactHeader(agent: model.state.agents.first { $0.id == member.id }, name: member.name + (model.demo ? " (Demo)" : ""), destination: member.chat.handle, controls: headerControls)
+                ContactHeader(agent: model.state.agents.first { $0.id == member.id }, name: member.name + (model.demo ? " (Demo)" : ""), destination: member.chat.handle, controls: headerControls, removeFromView: removeFromView)
                     .frame(maxWidth: .infinity).background(.bar)
-                    .disabled(model.busy)
+                    .disabled(model.busy || model.webBroadcastBusy)
                 if let error = member.error { Text(error).font(.caption).foregroundStyle(.orange).padding(12) }
                 if member.submission == .ready && !model.busy {
-                    Button("Submit unsent recipients") { Task { await model.submit(comparisonID, retry: false) } }.disabled(model.busy).padding(8)
+                    Button("Submit unsent recipients") { Task { await model.submit(comparisonID, retry: false) } }.disabled(comparison.endedAt != nil || model.busy).padding(8)
                 }
                 if member.submission.canRetry {
-                    Button("Retry only failed recipients") { Task { await model.submit(comparisonID, retry: true) } }.disabled(model.busy).padding(8)
+                    Button("Retry only failed recipients") { Task { await model.submit(comparisonID, retry: true) } }.disabled(comparison.endedAt != nil || model.busy).padding(8)
                 }
                 if !model.databaseAvailable { Text(model.databaseStatus).font(.caption).foregroundStyle(.orange).padding(12) }
                 if let headerControls {
-                    TranscriptView(model: model, comparison: comparison, member: member)
+                    TranscriptView(model: model, comparison: comparison, member: member).disabled(comparison.endedAt != nil)
                         .contentShape(Rectangle())
                         .simultaneousGesture(TapGesture().onEnded { if !model.busy { headerControls.selectConversation() } })
                 } else {
-                    TranscriptView(model: model, comparison: comparison, member: member)
+                    TranscriptView(model: model, comparison: comparison, member: member).disabled(comparison.endedAt != nil)
                 }
                 MessageInput(text: privateDraft, attachments: model.attachmentDraft(comparisonID: comparisonID, memberID: memberID), addAttachments: { await model.addAttachments($0, comparisonID: comparisonID, memberID: memberID) }, removeAttachment: { id in model.setAttachmentDraft(model.attachmentDraft(comparisonID: comparisonID, memberID: memberID).filter { $0.id != id }, comparisonID: comparisonID, memberID: memberID) }, placeholder: "Message", accessibilityName: "Private reply to \(member.name)", sendLabel: "Send privately", disabled: comparison.endedAt != nil || model.busy || model.webBroadcastBusy || member.anchor == nil) {
                     Task { await model.followUp(comparisonID, only: memberID) }
                 }.padding(12)
-                FollowUpStatus(model: model, comparison: comparison, only: memberID)
+                FollowUpStatus(model: model, comparison: comparison, only: memberID).disabled(comparison.endedAt != nil)
             }.frame(minWidth: 320, minHeight: 320).background(Color(nsColor: .textBackgroundColor))
-                .disabled(comparison.endedAt != nil)
         }
     }
     private var privateDraft: Binding<String> {
@@ -578,19 +581,21 @@ struct SharedComposer: View {
 struct ComparisonWorkspace: View {
     @ObservedObject var model: AppModel
     let comparisonID: UUID
+    @State private var hiddenMembers: Set<UUID> = []
     var body: some View {
         if let comparison = model.comparison(comparisonID) {
+            let shownMembers = comparison.members.filter { !hiddenMembers.contains($0.id) }
             let selection = comparison.recipientSelection ?? ConversationRecipients()
             let recipients = selection.recipientIDs(in: comparison.members)
             GeometryReader { geometry in
-                let columnWidth = max(320, geometry.size.width / CGFloat(max(1, comparison.members.count)))
+                let columnWidth = max(320, geometry.size.width / CGFloat(max(1, shownMembers.count)))
                 ScrollViewReader { proxy in
                     VStack(spacing: 0) {
                         GeometryReader { columns in
                             ScrollView(.horizontal) {
                                 HStack(spacing: 0) {
-                                    ForEach(comparison.members) { member in
-                                        ConversationView(model: model, comparisonID: comparisonID, memberID: member.id, headerControls: ConversationHeaderControls(selected: selection.selectedConversation == member.id, included: recipients.contains(member.id), selectConversation: {
+                                    ForEach(shownMembers) { member in
+                                        ConversationView(model: model, comparisonID: comparisonID, memberID: member.id, headerControls: ConversationHeaderControls(enabled: comparison.endedAt == nil, selected: selection.selectedConversation == member.id, included: recipients.contains(member.id), selectConversation: {
                                             var updated = selection
                                             updated.selectConversation(member.id)
                                             model.setRecipients(updated, for: comparisonID)
@@ -598,10 +603,15 @@ struct ComparisonWorkspace: View {
                                             var updated = selection
                                             updated.toggleRecipient(member.id, in: comparison.members)
                                             model.setRecipients(updated, for: comparisonID)
-                                        }))
+                                        }), removeFromView: {
+                                            var updated = selection
+                                            if recipients.contains(member.id) { updated.toggleRecipient(member.id, in: comparison.members) }
+                                            model.setRecipients(updated, for: comparisonID)
+                                            hiddenMembers.insert(member.id)
+                                        })
                                             .frame(width: columnWidth, height: columns.size.height)
                                             .overlay(alignment: .trailing) {
-                                                if member.id != comparison.members.last?.id {
+                                                if member.id != shownMembers.last?.id {
                                                     Rectangle().fill(Color(nsColor: .separatorColor)).frame(width: 1)
                                                 }
                                             }
@@ -617,7 +627,7 @@ struct ComparisonWorkspace: View {
                         }
                         Divider()
                         VStack(spacing: 12) {
-                            RecipientPills(model: model, comparison: comparison).disabled(comparison.endedAt != nil)
+                            RecipientPills(model: model, comparison: comparison, showMember: { hiddenMembers.remove($0) }).disabled(comparison.endedAt != nil)
                             SharedComposer(model: model, comparisonID: comparisonID, recipientIDs: recipients)
                                 .disabled(model.webBroadcastBusy)
                         }.padding(16).frame(maxWidth: .infinity).background(.bar)
@@ -634,6 +644,7 @@ struct ComparisonWorkspace: View {
 struct RecipientPills: View {
     @ObservedObject var model: AppModel
     let comparison: Comparison
+    var showMember: (UUID) -> Void = { _ in }
     var body: some View {
         let selection = comparison.recipientSelection ?? ConversationRecipients()
         let recipientSet = Set(selection.recipientIDs(in: comparison.members))
@@ -646,6 +657,7 @@ struct RecipientPills: View {
                         var updated = selection
                         updated.toggleRecipient(member.id, in: comparison.members)
                         model.setRecipients(updated, for: comparison.id)
+                        showMember(member.id)
                     } label: {
                         Text(member.name).font(.system(size: 13, weight: .medium)).fixedSize()
                             .padding(.horizontal, 12).padding(.vertical, 6)
@@ -695,8 +707,10 @@ struct RecipientPills: View {
 struct AppSettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var updater: AppUpdater
+    @ObservedObject var shortcut: NewBlastShortcut
     var body: some View {
         Form {
+            Section("Quick Access") { NewBlastShortcutSettings(shortcut: shortcut) }
             Section("Permissions") {
                 PermissionsSettingsView(model: model)
             }
