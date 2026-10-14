@@ -7,9 +7,9 @@ import msgblastCore
 }
 
 @main struct SideChatModelCheck {
-    @MainActor static func waitUntil(_ check: () -> Bool) async throws {
+    @MainActor static func waitUntil(file: StaticString = #fileID, line: UInt = #line, _ check: () -> Bool) async throws {
         for _ in 0..<100 { if check() { return }; try await Task.sleep(for: .milliseconds(100)) }
-        preconditionFailure("Model fixture did not reach expected state")
+        preconditionFailure("Model fixture did not reach expected state", file: file, line: line)
     }
     @MainActor static func privateEditor(in view: NSView) -> AttachmentTextView? {
         if let editor = view as? AttachmentTextView { return editor }
@@ -159,7 +159,8 @@ import msgblastCore
         reopenModel.coordinator = WindowCoordinator(model: reopenModel)
         let reopenID = await reopenModel.prepareWebComparison("Reopened workspace fixture", recipientIDs: [], agents: [])!
         let mainWindow = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 900, height: 650), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        mainWindow.contentView = NSHostingView(rootView: AgentsWorkspaceView(model: reopenModel, web: reopenModel.webAgents, showingComparison: .constant(true)))
+        mainWindow.contentView = NSHostingView(rootView: AgentsWorkspaceView(model: reopenModel, web: reopenModel.webAgents, showingComparison: .constant(true))
+            .background(ConversationCloseBridge(model: reopenModel, comparisonID: reopenID)))
         mainWindow.orderBack(nil)
         try await waitUntil { reopenModel.coordinator?.workspaceWindow === mainWindow }
         precondition(reopenModel.endConversation(reopenID))
@@ -355,6 +356,55 @@ import msgblastCore
         precondition(gridModel.state.agents.contains { $0.id == hiddenContact.id })
         precondition(gridModel.state.draft == draftBeforeGrid)
         print("PASS: actual AppModel hides and restores tiles without deleting contacts/drafts or inheriting archived recipient selections; new tiles take first position.")
+        let quickModel = AppModel()
+        let quickContact = quickModel.state.agents[0]
+        let quickDraft = quickModel.state.draft
+        var quickGrid = quickModel.agentGridLayout
+        quickGrid.hide(.messages(quickContact.id))
+        precondition(quickModel.setAgentGrid(quickGrid))
+        precondition(!quickModel.quickChatAgents.contains { $0.id == .messages(quickContact.id) })
+        precondition(!quickModel.requestNewBlast(agent: .messages(quickContact.id)))
+        quickGrid.add(.messages(quickContact.id))
+        precondition(quickModel.setAgentGrid(quickGrid))
+        precondition(quickModel.requestNewBlast(agent: .messages(quickContact.id)))
+        precondition(quickModel.state.selection == [quickContact.id])
+        precondition(quickModel.webAgents.selected.isEmpty)
+        precondition(quickModel.isVisibleInAgentGrid(.messages(quickContact.id)))
+        let quickWeb = quickModel.webAgents.session(for: WebAgentID(provider: .chatgpt))!
+        quickWeb.connect()
+        try await waitUntil { quickWeb.isReadyForOnboarding }
+        let quickCopy = try quickModel.webAgents.duplicate(quickWeb, name: "Quick chat copy")
+        quickCopy.connect()
+        try await waitUntil { quickCopy.isReadyForOnboarding }
+        var copyGrid = quickModel.agentGridLayout
+        copyGrid.add(quickCopy.id.gridID)
+        precondition(quickModel.setAgentGrid(copyGrid))
+        precondition(quickModel.requestNewBlast(agent: quickCopy.id.gridID))
+        precondition(quickModel.state.selection.isEmpty)
+        precondition(quickModel.webAgents.selected.map(\.id) == [quickCopy.id])
+        precondition(quickModel.newBlastShowsChat)
+        precondition(quickModel.requestNewBlast())
+        precondition(!quickModel.newBlastShowsChat)
+        precondition(quickModel.webAgents.selected.map(\.id) == [quickCopy.id])
+        quickModel.webAgents.setEnabled(true, for: .codexCLI)
+        let quickCLI = quickModel.webAgents.session(for: WebAgentID(provider: .codexCLI))!
+        try await waitUntil { quickCLI.isReadyForOnboarding }
+        var cliGrid = quickModel.agentGridLayout
+        cliGrid.add(quickCLI.id.gridID)
+        precondition(quickModel.setAgentGrid(cliGrid))
+        precondition(quickModel.requestNewBlast(agent: quickCLI.id.gridID))
+        precondition(quickModel.webAgents.selected.map(\.id) == [quickCLI.id])
+        let request = quickModel.newBlastRequest
+        quickModel.webBroadcastBusy = true
+        precondition(!quickModel.requestNewBlast(agent: .messages(quickContact.id)))
+        precondition(quickModel.newBlastRequest == request)
+        quickModel.webBroadcastBusy = false
+        precondition(quickModel.state.draft == quickDraft)
+        precondition(quickModel.state.comparisons.isEmpty)
+        precondition(quickModel.webAgents.sessions.allSatisfy { $0.state.attempts.isEmpty })
+        quickModel.timer?.invalidate()
+        await quickModel.webAgents.cancelAndWait()
+        print("PASS: quick access excludes hidden agents and selects grid Messages, a named website copy, and CLI exclusively; preserves drafts/selections and blocks during sends without submitting.")
         let model = AppModel()
         precondition(model.demo && model.local.url.path.contains("UIFixture"))
         model.coordinator = WindowCoordinator(model: model)

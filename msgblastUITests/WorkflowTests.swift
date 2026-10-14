@@ -2,6 +2,107 @@ import XCTest
 import AppKit
 final class WorkflowTests: XCTestCase {
     @MainActor
+    func testGlobalNewBlastShortcutFromAnotherAppAndDisable() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["Cedar"].waitForExistence(timeout: 10))
+        app.buttons["Lumen"].click()
+        app.typeKey(",", modifierFlags: .command)
+        let record = app.buttons["Record Shortcut"]
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        record.click()
+        app.typeKey("b", modifierFlags: [.control, .shift, .command])
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        let toggle = app.checkBoxes["Enable global New Blast shortcut"]
+        XCTAssertEqual(toggle.value as? String, "1")
+        app.buttons["Record Shortcut"].click()
+        app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+        XCTAssertTrue(record.waitForExistence(timeout: 5))
+        let settings = app.windows.containing(.button, identifier: "Record Shortcut").firstMatch
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        app.buttons["Discover"].click()
+        let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
+        finder.activate()
+        finder.typeKey("b", modifierFlags: [.control, .shift, .command])
+        XCTAssertTrue(app.buttons["Cedar"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textViews["Shared prompt"].isHittable)
+        app.typeText(" Shortcut focus fixture")
+        XCTAssertTrue((app.textViews["Shared prompt"].value as? String)?.contains("Shortcut focus fixture") == true)
+        XCTAssertEqual(app.buttons["Lumen"].value as? String, "Not selected")
+        app.typeKey(",", modifierFlags: .command)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.click()
+        XCTAssertEqual(toggle.value as? String, "0")
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        app.buttons["Discover"].click()
+        finder.activate()
+        finder.typeKey("b", modifierFlags: [.control, .shift, .command])
+        XCTAssertFalse(app.buttons["Cedar"].exists, "Disabled shortcut must leave Discover open")
+    }
+
+    @MainActor
+    func testMenuBarNewBlastRetainsSelectionsAndReopensWorkspace() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--isolated-demo"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["Cedar"].waitForExistence(timeout: 10))
+        app.buttons["Lumen"].click()
+        app.buttons["Discover"].click()
+        let menu = app.menuBars.menuBarItems["msgblast Quick Access"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        guard menu.exists else { return }
+        menu.click()
+        menu.menuItems["New Blast"].click()
+        XCTAssertTrue(app.buttons["Cedar"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Cedar"].value as? String, "Selected")
+        XCTAssertEqual(app.textViews.matching(identifier: "Shared prompt").count, 1, "Quick access must reuse the initial workspace")
+        XCTAssertEqual(app.buttons["Lumen"].value as? String, "Not selected")
+        app.windows.containing(.textView, identifier: "Shared prompt").firstMatch.buttons[XCUIIdentifierCloseWindow].click()
+        menu.click()
+        menu.menuItems["New Blast"].click()
+        XCTAssertTrue(app.textViews["Shared prompt"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Lumen"].value as? String, "Not selected")
+        app.buttons["Discover"].click()
+        app.windows.firstMatch.buttons[XCUIIdentifierCloseWindow].click()
+        menu.click()
+        menu.menuItems["New Blast"].click()
+        XCTAssertTrue(app.textViews["Shared prompt"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textViews.matching(identifier: "Shared prompt").count, 1, "Closing Discover must retain one interactive workspace")
+        menu.click()
+        menu.menuItems["New Chat With"].click()
+        menu.menuItems["Cedar"].click()
+        for name in ["Lumen", "Orbit", "Maple", "Echo", "Flint"] {
+            XCTAssertEqual(app.buttons[name].value as? String, "Not selected")
+        }
+        XCTAssertEqual(app.buttons["Cedar"].value as? String, "Selected")
+        XCTAssertTrue(app.staticTexts["No comparisons"].exists,
+                       "Opening a chat must not submit a message or create a comparison")
+        app.buttons["Edit agents"].click()
+        let search = app.textFields["Search available agents"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.click(); search.typeText("ChatGPT")
+        app.buttons["Add ChatGPT"].click()
+        let setupDone = app.buttons["Done setting up ChatGPT"]
+        if setupDone.waitForExistence(timeout: 3) { setupDone.click() }
+        app.buttons["Done editing agents"].click()
+        app.buttons["ChatGPT"].click()
+        menu.click()
+        menu.menuItems["New Chat With"].click()
+        XCTAssertTrue(menu.menuItems["ChatGPT"].waitForExistence(timeout: 10))
+        menu.menuItems["ChatGPT"].click()
+        XCTAssertTrue(app.buttons["Recipient ChatGPT"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons["Recipient ChatGPT"].value as? String, "Selected")
+        XCTAssertEqual(app.buttons["Recipient Cedar"].value as? String, "Not selected")
+        XCTAssertEqual(app.webViews.count, 1)
+        XCTAssertTrue(app.staticTexts["No comparisons"].exists)
+        app.typeKey(",", modifierFlags: .command)
+        XCTAssertTrue(app.buttons["Record Shortcut"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testDiscoverFindsInstinctBeforeContactsAreConnected() {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--isolated-demo", "--contacts-access-preview"]

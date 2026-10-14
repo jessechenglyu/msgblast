@@ -61,7 +61,6 @@ struct AgentsWorkspaceView: View {
             composer
         }
         .background(Color(nsColor: .textBackgroundColor))
-        .background(ConversationCloseBridge(model: model, comparisonID: showingComparison ? nativeComparison?.id : nil))
         .overlay { if showingConnectionIntro { connectionIntro } }
         .task { web.connectSelected() }
         .onChange(of: newBlastRequest) { _, _ in showingConnectionIntro = false; editingAgents = false }
@@ -76,10 +75,7 @@ struct AgentsWorkspaceView: View {
             }
             if windowComparisonID == nil && !model.state.comparisons.isEmpty { ToolbarItem(placement: .navigation) {
                 Button {
-                    showingConnectionIntro = false
-                    showingComparison = false
-                    editingAgents = false
-                    model.selectWorkspace(nil)
+                    model.requestNewBlast()
                 } label: {
                     Label("New Blast", systemImage: "square.and.pencil")
                         .labelStyle(.titleAndIcon)
@@ -776,7 +772,7 @@ private final class ChatWindowSizingView: NSView {
 }
 
 // SwiftUI owns the main window delegate. Forward its lifecycle rather than replacing it.
-private struct ConversationCloseBridge: NSViewRepresentable {
+struct ConversationCloseBridge: NSViewRepresentable {
     @ObservedObject var model: AppModel
     let comparisonID: UUID?
     func makeNSView(context: Context) -> ConversationCloseView { ConversationCloseView() }
@@ -788,7 +784,7 @@ private struct ConversationCloseBridge: NSViewRepresentable {
     static func dismantleNSView(_ view: ConversationCloseView, coordinator: ()) { view.detach() }
 }
 
-private final class ConversationCloseView: NSView, NSWindowDelegate {
+final class ConversationCloseView: NSView, NSWindowDelegate {
     weak var owner: WindowCoordinator?
     var comparisonID: UUID?
     nonisolated(unsafe) weak var originalDelegate: (any NSWindowDelegate)?

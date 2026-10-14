@@ -173,7 +173,6 @@ struct MainView: View {
     private enum DetailSelection { case agents, discover }
     @State private var selection = DetailSelection.agents
     @State private var showingComparison = false
-    @State private var newBlastRequest: UUID? = UUID()
     private var sidebarSelectionColor: Color { Color.primary.opacity(controlActiveState == .inactive ? 0.06 : 0.10) }
     private var sidebarIconColor: Color { controlActiveState == .inactive ? .secondary : .accentColor }
     private var showingAgents: Bool { selection == .agents && !showingComparison }
@@ -246,20 +245,19 @@ struct MainView: View {
                     }
                 }
                 if model.usesMessages { MessagesAccessBanner(model: model) }
-                AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: newBlastRequest)
+                AgentsWorkspaceView(model: model, web: model.webAgents, showingComparison: $showingComparison, newBlastRequest: model.newBlastRequest)
             }.navigationTitle("")
             }
         }
         .frame(minWidth: 760, minHeight: 560)
+        .background(ConversationCloseBridge(model: model, comparisonID: selection == .agents && showingComparison ? web.comparisonID : nil))
         .tint(.blue)
         .focusedSceneValue(\.mainWindowActions, model.error != nil ? nil : MainWindowActions(
-            newBlast: {
-                selection = .agents; showingComparison = false
-                model.selectWorkspace(nil); newBlastRequest = UUID()
-            },
+            newBlast: { model.requestNewBlast() },
             showAgents: { selection = .agents; showingComparison = false },
             showDiscover: { selection = .discover },
-            canStartBlast: !model.busy && !model.webBroadcastBusy && !web.sessions.contains { $0.isSending }))
+            canStartBlast: model.canStartNewBlast))
+        .onChange(of: model.newBlastRequest) { _, _ in selection = .agents; showingComparison = model.newBlastShowsChat }
         .onChange(of: model.webComparisonRequest) { _, _ in selection = .agents; showingComparison = true }
         .alert("msgblast", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
@@ -268,9 +266,7 @@ struct MainView: View {
             if selection == .discover {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        showingComparison = false
-                        model.selectWorkspace(nil)
-                        selection = .agents
+                        model.requestNewBlast()
                     } label: {
                         Label("New Blast", systemImage: "square.and.pencil")
                             .labelStyle(.titleAndIcon)
@@ -695,8 +691,10 @@ struct RecipientPills: View {
 struct AppSettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var updater: AppUpdater
+    @ObservedObject var shortcut: NewBlastShortcut
     var body: some View {
         Form {
+            Section("Quick Access") { NewBlastShortcutSettings(shortcut: shortcut) }
             Section("Permissions") {
                 PermissionsSettingsView(model: model)
             }

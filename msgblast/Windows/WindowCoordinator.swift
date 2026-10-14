@@ -20,6 +20,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate, NSToolbarDelegate {
     @discardableResult
     func reopenWorkspace() -> Bool {
         guard let workspaceWindow else { return false }
+        if workspaceWindow.isMiniaturized { workspaceWindow.deminiaturize(nil) }
         workspaceWindow.makeKeyAndOrderFront(nil)
         return true
     }
