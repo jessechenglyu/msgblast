@@ -3,7 +3,7 @@
 Base-SHA: cc0cf40592fdf3c0023c6af9cffe77dfcbc006d5
 Capture-source-SHA: 157348449a89babdc6bc7f498b960a06ca3f37e2
 
-Captured on October 13, 2026 on the user's Mac: macOS 27.2 (26B5101f), Xcode 27.0 (27A5218g), Cua Driver 0.22.1. The following evidence commit adds only this directory; app and test source remains identical to Capture-source-SHA.
+Captured on October 13, 2026 on the user's Mac: macOS 27.2 (26B5101f), Xcode 27.0 (27A5218g), Cua Driver 0.22.1. The evidence commit added only this directory. App source remains identical to Capture-source-SHA; the later CI follow-up changes only test synchronization and this validation record.
 
 ## Public media
 
@@ -60,3 +60,11 @@ This ad-hoc Dev build lacked Full Disk Access, so current Messages history could
 The macOS 15–25 capture fallback compiled but was not runtime-tested on an older OS. Capture-error restoration is covered by source review of the defer path, not an injected ScreenCaptureKit failure. The occupied-shortcut path was reviewed but not exercised with a deliberately conflicting chord. These remain validation limits rather than claimed passes.
 
 No app publication, release tag, production build-counter allocation, deployment, or updater feed change occurred. This PR prepares reviewed source and release notes for **0.9.0**; distribution remains a separate maintainer action.
+
+## CI follow-up
+
+The first Actions run on `afa27312b2800c358f42313dc33f0d1d68ffda74` failed the existing `testIdleEvictionReopensSavedHistoryWithoutResending`. A single failed-job rerun passed that case but failed the neighboring `testEvictionInspectsFreshDraftsAndKeepsRepliesStillArriving` at its final reply snapshot assertion. Both failures are retained in [run 38510389736](https://github.com/mgalpert/msgblast/actions/runs/38510389736).
+
+Both tests previously used background polling while assuming an immediate explicit eviction/refresh would run. `WebAgentSession` conservatively skips a page already being refreshed. The follow-up uses the existing `connect(automaticallyRefresh: false)` fixture mode and bounded, awaited refreshes to observe the required replies. It retains real WebKit pages and the checks for page eviction/recreation, no repeated submission, fresh draft retention, and a pending reply surviving eviction. No production code or visual behavior changes; the captured app still matches the reviewed app source.
+
+Local verification: both affected cases passed ten iterations each (20 tests, zero failures) using the same Xcode settings above with their focused `-only-testing` selectors and `-test-iterations 10`. Independent review found no issues. These cases now isolate eviction behavior from the periodic poller; they do not prove poller interaction. Other existing session tests continue to use automatic polling.

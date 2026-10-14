@@ -256,11 +256,12 @@ final class MultiWebAgentTests: XCTestCase {
 
     func testIdleEvictionReopensSavedHistoryWithoutResending() async throws {
         let session = WebAgentSession(provider: .chatgpt, storageURL: temporaryDirectory().appendingPathComponent("state.json"), fixture: true)
-        session.connect(); try await waitFor { session.snapshot.ready }
+        // Own refresh boundaries: polling can make eviction/refresh conservatively skip a busy page.
+        session.connect(automaticallyRefresh: false); try await waitFor { session.snapshot.ready }
         let firstID = UUID(), secondID = UUID()
         _ = await session.send("Eviction research A", comparisonID: firstID)
         let firstPage = session.webView
-        try await waitFor { session.snapshot.messages.contains { $0.role == "assistant" } }
+        try await refreshUntil(session) { session.snapshot.messages.contains { $0.role == "assistant" } }
         _ = await session.send("Eviction research B", comparisonID: secondID)
         await session.unloadInactivePages(limit: 1)
         _ = await session.openComparison(firstID)
@@ -441,11 +442,12 @@ final class MultiWebAgentTests: XCTestCase {
 
     func testEvictionInspectsFreshDraftsAndKeepsRepliesStillArriving() async throws {
         let session = WebAgentSession(provider: .chatgpt, storageURL: temporaryDirectory().appendingPathComponent("state.json"), fixture: true)
-        session.connect(); try await waitFor { session.snapshot.ready }
+        // Own refresh boundaries: polling can make eviction/refresh conservatively skip a busy page.
+        session.connect(automaticallyRefresh: false); try await waitFor { session.snapshot.ready }
         let draftedID = UUID(), pendingID = UUID()
         _ = await session.send("Fresh draft research", comparisonID: draftedID)
         let draftedPage = session.webView
-        try await waitFor { session.snapshot.messages.contains { $0.role == "assistant" } }
+        try await refreshUntil(session) { session.snapshot.messages.contains { $0.role == "assistant" } }
         _ = await session.openComparison(pendingID)
         _ = try await session.webView.callAsyncJavaScript("window.setTimeout=callback=>{window.pendingReply=callback;return 1}", arguments: [:], in: nil, contentWorld: .page)
         _ = await session.send("Reply still arriving", comparisonID: pendingID)
@@ -460,8 +462,9 @@ final class MultiWebAgentTests: XCTestCase {
         _ = await session.openComparison(pendingID)
         XCTAssertTrue(session.webView === pendingPage)
         _ = try await pendingPage.callAsyncJavaScript("window.pendingReply()", arguments: [:], in: nil, contentWorld: .page)
-        await session.refresh()
-        XCTAssertTrue(session.snapshot.messages.contains { $0.role == "assistant" && $0.text.contains("Reply still arriving") })
+        try await refreshUntil(session) {
+            session.snapshot.messages.contains { $0.role == "assistant" && $0.text.contains("Reply still arriving") }
+        }
     }
 
     func testLateChatGPTReceiptKeepsTheConversationAndAllowsOneFollowUp() async throws {
@@ -2119,6 +2122,15 @@ final class MultiWebAgentTests: XCTestCase {
     }
 
     private func temporaryDirectory() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("MsgBlast-MultiWeb-\(UUID())") }
+    private func refreshUntil(_ session: WebAgentSession, _ predicate: () -> Bool) async throws {
+        for _ in 0..<100 {
+            await session.refresh()
+            if predicate() { return }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTFail("WebKit did not reach expected state after refreshing")
+        throw NSError(domain: "WebAgentTests", code: 1)
+    }
     private func waitFor(_ predicate: () -> Bool) async throws {
         for _ in 0..<100 {
             if predicate() { return }
