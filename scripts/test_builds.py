@@ -221,10 +221,14 @@ def prepare(args):
 def publish(args):
     plan, notes, archive = prepare(args)
     tag = plan["tag"]
+    # Draft releases may defer tag creation until publication. Reserve the exact
+    # lightweight tag ourselves, without ever updating an existing reference.
+    gh("api", "--method", "POST", f"repos/{args.repo}/git/refs",
+       "-f", "ref=refs/tags/" + tag, "-f", "sha=" + args.source)
     # No --clobber, release edit of an existing tag, or production-version tags.
     # Creating a draft fails if this run/attempt already created a release.
     gh("release", "create", tag, "--repo", args.repo, "--target", args.source,
-       "--draft", "--prerelease", "--latest=false", "--title", "msgblast Dev: " + args.title,
+       "--verify-tag", "--draft", "--prerelease", "--latest=false", "--title", "msgblast Dev: " + args.title,
        "--notes-file", str(notes))
     assets = [archive, args.directory / "preview-manifest.json", args.directory / "test-release.json"]
     gh("release", "upload", tag, "--repo", args.repo, *(str(path) for path in assets))

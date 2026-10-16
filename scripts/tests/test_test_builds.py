@@ -144,9 +144,12 @@ class TestBuildTests(unittest.TestCase):
              patch.object(builds.urllib.request, "urlopen", return_value=io.BytesIO(self.archive.read_bytes())) as download, \
              contextlib.redirect_stdout(io.StringIO()):
             builds.publish(self.args)
-        create = calls[0]
+        self.assertIn("ref=refs/tags/test-" + SOURCE + "-123-1", calls[0])
+        self.assertIn("sha=" + SOURCE, calls[0])
+        create = next(call for call in calls if call[:2] == ("release", "create"))
         self.assertEqual(create[:2], ("release", "create"))
         self.assertIn("--draft", create)
+        self.assertIn("--verify-tag", create)
         self.assertIn("--prerelease", create)
         self.assertIn("--latest=false", create)
         self.assertEqual(create[create.index("--target") + 1], SOURCE)

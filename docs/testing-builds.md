@@ -67,8 +67,8 @@ Recheck it before publishing. Ordinary PR validation and ad-hoc previews stay un
    it with the existing Apple identity. It never executes feature scripts or the
    feature app while credentials are available. A separate job with a write token
    publishes the signed package.
-7. Publication creates a draft prerelease tagged
-   `test-FULL_SOURCE_SHA-RUN_ID-ATTEMPT`, uploads the Dev ZIP and two public
+7. Publication reserves a new tag pinned to the selected source, then creates a
+   draft prerelease tagged `test-FULL_SOURCE_SHA-RUN_ID-ATTEMPT`, uploads the Dev ZIP and two public
    manifests, downloads and compares all assets, and checks the tag target before
    publishing. The release is explicitly marked prerelease and never latest.
    The final check anonymously downloads the public ZIP and verifies its SHA-256.
@@ -97,7 +97,8 @@ before posting publicly. These builds do not add a new in-app feedback service.
 
 ## Failure and validation limits
 
-A failed upload/hash/tag check leaves a draft. Inspect the existing draft and run
+A failed upload/hash/tag check leaves a draft; a failed draft creation may leave
+only its reserved tag. Inspect the existing tag, draft, and run
 before retrying. Rerun with a new run attempt for a distinct tag; never overwrite
 assets, move a published tag, or repurpose a production version. An anonymous
 download failure happens after publication, so the prerelease may already be live.
