@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>msgblast</AssemblyName>
+    <RootNamespace>Msgblast.Windows</RootNamespace>
+    <ApplicationIcon>Assets\msgblast.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <Product>msgblast for Windows</Product>
+    <Copyright>Copyright (C) 2026 Michael Galpert and contributors. GPL-3.0-only.</Copyright>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\msgblast.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Msgblast.Core\Msgblast.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Application x:Class="Msgblast.Windows.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <SolidColorBrush x:Key="Accent" Color="#1DB954" />
+        <SolidColorBrush x:Key="Pane" Color="#F6F7F8" />
+        <SolidColorBrush x:Key="Line" Color="#E2E4E7" />
+        <SolidColorBrush x:Key="Muted" Color="#6B7076" />
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="{StaticResource Accent}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Application.Resources>
+</Application>
