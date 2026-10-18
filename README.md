@@ -86,6 +86,10 @@ Reports are saved with the comparison and update when you request it. Unlike CLI
 
 Website layout changes can affect sending. Review a failed or unconfirmed send before retrying; msgblast does not automatically resend it. Shared web/CLI blasts are text-only, and there is no shared model or thinking selector. Your prompts go to the selected services; CLI tools may act within their configured permissions.
 
+## Windows (preview)
+
+A native Windows app (WPF, .NET 8) lives in [`windows/`](windows/README.md). It blasts one message to the installed Codex CLI and Claude Code side by side, keeps each agent's conversation for follow-ups, saves comparisons, and has a `--demo` fixture mode. Messages agents are macOS-only. Web accounts, comparison reports and the other CLIs are not available on Windows yet. See [windows/README.md](windows/README.md) for build steps and the full list.
+
 ## Build your own feature
 
 Choose **msgblast → Build a New Feature…** to describe your idea and copy a

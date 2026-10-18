@@ -1,0 +1,64 @@
+name: Validate msgblast for Windows
+
+on:
+  pull_request:
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+  push:
+    branches: [main]
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: windows
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build (warnings are errors in the core library)
+        run: dotnet build msgblast-windows.sln -c Release
+
+      - name: Run core unit tests
+        run: dotnet test msgblast-windows.sln -c Release --no-build --logger "trx;LogFileName=core.trx"
+
+      - name: Headless app smoke test with the Demo fixture
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP "msgblast-smoke"
+          $p = Start-Process src/Msgblast.Windows/bin/Release/net8.0-windows/msgblast.exe -ArgumentList "--smoke-test", $out -Wait -PassThru
+          Get-Content (Join-Path $out "smoke-result.json") -ErrorAction SilentlyContinue
+          Get-Content (Join-Path $out "smoke-error.txt") -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "Smoke test exited $($p.ExitCode)" }
+
+      - name: Publish self-contained app
+        run: dotnet publish src/Msgblast.Windows -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ../build/windows/msgblast-win-x64
+
+      - name: Upload smoke frames and app
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msgblast-windows-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/msgblast-smoke/*.png
+            ${{ runner.temp }}/msgblast-smoke/smoke-result.json
+            build/windows/msgblast-win-x64/
+            windows/tests/**/TestResults/*.trx
+          retention-days: 14
